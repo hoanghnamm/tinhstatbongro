@@ -1,0 +1,45 @@
+{
+  "name": "livestats",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "dependencies": {
+    "@expo-google-fonts/chakra-petch": "^0.4.1",
+    "@expo-google-fonts/inter": "^0.4.2",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "babel-preset-expo": "~54.0.10",
+    "expo": "~54.0.0",
+    "expo-blur": "~15.0.8",
+    "expo-font": "~14.0.12",
+    "expo-haptics": "~15.0.8",
+    "expo-keep-awake": "~15.0.8",
+    "expo-linear-gradient": "~15.0.8",
+    "expo-screen-orientation": "~9.0.9",
+    "expo-status-bar": "~3.0.9",
+    "nativewind": "^4.2.6",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-native": "0.81.5",
+    "react-native-reanimated": "~4.1.1",
+    "react-native-safe-area-context": "~5.6.0",
+    "react-native-svg": "15.12.1",
+    "react-native-web": "^0.21.0",
+    "react-native-worklets": "0.5.1",
+    "tailwindcss": "^3.4.17",
+    "zustand": "^5.0.15"
+  },
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "check": "tsx lib/selfcheck.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "private": true,
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "@types/react": "~19.1.10",
+    "tsx": "^4.23.12",
+    "typescript": "^5.9.3"
+  }
+}

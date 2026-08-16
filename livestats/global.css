@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* The light palette, as a fallback only. The root view overwrites every one of
+   these at runtime from theme/tokens.ts, which is the source of truth. */
+:root {
+  --color-ink: #1a2226;
+  --color-ink-2: #5c6a70;
+  --color-ink-3: #9aa6ac;
+  --color-bg: #eef1f2;
+  --color-surface: #ffffff;
+  --color-surface-2: #eef1f2;
+  --color-rule: #d5dcdf;
+  --color-line: #d5dcdf;
+  --color-accent: #15788a;
+  --color-accent-2: #0f5f6e;
+  --color-accent-ink: #ffffff;
+  --color-danger: #b3261e;
+  --color-danger-ink: #ffffff;
+  --color-court: #b9c6cb;
+  --color-lane: #9aa6ac;
+  --color-court-line: #ffffff;
+  --color-mark-miss: #ffffff;
+  --color-live-fill: rgba(255, 255, 255, 0.55);
+  --color-clock-ink: #1a2226;
+}
