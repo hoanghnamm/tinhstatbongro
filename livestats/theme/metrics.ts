@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export const COURT_ASPECT = 792 / 521; // 1.52015…
 
 /** Below this the panels tighten and the rail's tap floor is released. */
-export const SHORT = 560;
+export const SHORT = 590;
 
 /**
  * How much of a left/right safe inset the board actually honours.
@@ -25,7 +25,7 @@ export const SHORT = 560;
  * rounded corner and the cutout's real bite both fit in 24.
  * ponytail: one number, not a per-edge model — raise it if a device clips.
  */
-const SIDE_INSET = 24;
+const SIDE_INSET = 30;
 
 const clamp = (lo: number, v: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
@@ -84,16 +84,27 @@ export function computeMetrics(
   h: number,
   raw: { top: number; right: number; bottom: number; left: number },
 ): Metrics {
-  // capped here, not at the call site, so the arithmetic below and the shell
-  // padding in Board can never disagree about the box
-  const safe = { ...raw, left: Math.min(raw.left, SIDE_INSET), right: Math.min(raw.right, SIDE_INSET) };
   const vh = h / 100;
   const portrait = h > w;
+  // Landscape hands top 0 (no status bar there) while the gesture bar still owns
+  // the bottom, so the board reads as jammed against the ceiling with a black
+  // band under the footer. Split the pair instead of raising both to the max:
+  // the extra would come straight out of the court's height.
+  // Portrait keeps the real insets — the Dynamic Island genuinely owns its strip.
+  const vy = (raw.top + raw.bottom) / 2;
+  // capped here, not at the call site, so the arithmetic below and the shell
+  // padding in Board can never disagree about the box
+  const safe = {
+    top: portrait ? raw.top : vy,
+    bottom: portrait ? raw.bottom : vy,
+    left: Math.min(raw.left, SIDE_INSET),
+    right: Math.min(raw.right, SIDE_INSET),
+  };
   const compact = h <= SHORT;
 
   const sp = clamp(4, 0.9 * vh, 10);
   const tap = 48;
-  const ftr = clamp(52, 8.5 * vh, 74);
+  const ftr = clamp(59, 8.5 * vh, 74);
   const scoreh = clamp(31, 4.8 * vh, 48);
 
   // five rail cells have to divide a short column, so the blocks narrow too
