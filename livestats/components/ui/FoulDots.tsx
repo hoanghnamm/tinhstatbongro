@@ -20,8 +20,8 @@ export function FoulDots({
   const m = useMetrics();
   const t = useTheme();
 
-  const dotSize = Math.max(6, m.s1);
-  const gap = m.s1 / 2;
+  const dotSize = Math.max(8, m.s2);
+  const gap = m.s1 - 1;
   const dotsContainerWidth = dotSize * FOULS + gap * (FOULS - 1);
 
   // Determine colors based on foul count
