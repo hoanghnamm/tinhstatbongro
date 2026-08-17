@@ -115,7 +115,11 @@ export function PlayerRow({
             alignItems: 'center',
             justifyContent: 'center',
             borderRadius: m.rSm,
-            backgroundColor: dq ? t.danger : selected ? t.accentInk : t.ink,
+            // the resting plate is the FLOOR: `court` for the fill and
+            // `courtLine` for the number, the one pair in the palette that is
+            // white in every skin — a jersey stencilled on the hardwood, the
+            // same two tokens the court itself is painted with.
+            backgroundColor: dq ? t.danger : selected ? t.accentInk : t.court,
           }}
         >
           <Text
@@ -125,7 +129,7 @@ export function PlayerRow({
               fontSize: fsJersey,
               lineHeight: fsJersey * 1.1,
               textAlign: 'center',
-              color: dq ? t.dangerInk : selected ? t.accent : t.surface,
+              color: dq ? t.dangerInk : selected ? t.accent : t.courtLine,
               fontVariant: ['tabular-nums'],
             }}
           >

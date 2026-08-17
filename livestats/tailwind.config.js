@@ -40,7 +40,6 @@ module.exports = {
         danger: color('danger'),
         'danger-ink': color('danger-ink'),
         court: color('court'),
-        lane: color('lane'),
         'court-line': color('court-line'),
         'mark-miss': color('mark-miss'),
         'live-fill': color('live-fill'),

@@ -48,10 +48,11 @@ export interface Metrics {
   /** the footer is deliberately left on the pre-bump ramp: --ftr did not grow */
   fsNav: number;
   fsNavLg: number;
-  /** the middle block's numbers — the one step capped by a WIDTH, see below */
+  /**
+   * the middle block's numbers — score, clock and quarter are ONE size, and it
+   * is the one step on this ramp that a WIDTH can cap. See below.
+   */
   fsFtr: number;
-  /** the quarter beside them, a label rather than a number */
-  fsFtrSm: number;
 
   /* space */
   sp: number;
@@ -131,18 +132,23 @@ export function computeMetrics(
    * to the shell padding — and the ONE size on this ramp that a width decides.
    *
    * The footer is four parts, 1 / 2 / 1, and the **half** in the middle carries
-   * three numbers side by side. In Chakra Petch `07:24` is about 2.3em, `12 : 8`
-   * the same with its gaps, and the quarter about 1.3em at its smaller step; add
-   * the two rules and six cells of `s1` padding and the block has to hold
-   * roughly `5.9em + 34`. So the em that fits is `(half − 34) / 5.9`, and the vh
-   * ramp governs wherever width is not what runs out — which since the block
-   * went from a third to a half is very nearly everywhere. It stays because
-   * `fsNav` grows with the window height while the block does not, and the day
-   * that crosses over the clock reads `07:2…` rather than throwing.
+   * three numbers side by side, **all three at this size** — the quarter used to
+   * sit a step under the other two and no longer does. The budget is measured
+   * off the real Chakra Petch advances, not guessed: `108 : 99` is 3.08em plus
+   * its two gaps, `07:24` is 2.56em, and `2ND` — the widest period label — is
+   * 2.12em with its tracking. Add the two rules and six cells of `s1` padding
+   * and the block has to hold roughly `7.76em + 34`, so the size that fits is
+   * `(half − 34) / 7.76`.
+   *
+   * The vh ramp governs wherever width is not what runs out, which is every
+   * screen the board actually runs on — a phone narrow enough to bind here is
+   * one the rotate gate has already covered. The cap stays because `fsNav` grows
+   * with the window height while the block does not, and the day that crosses
+   * over the clock reads `07:2…` rather than throwing.
    */
   const ftrw = portrait ? w - safeX - 2 * sp : w - safeX - rail - sp;
   const fsNav = clamp(15, 2.6 * vh, 28);
-  const fsFtr = Math.max(12, Math.min(fsNav, (ftrw / 2 - 34) / 5.9));
+  const fsFtr = Math.max(18, Math.min(fsNav * 1.5, (ftrw / 2 - 34) / 7.76));
 
   let court: { w: number; h: number };
   if (portrait) {
@@ -176,7 +182,6 @@ export function computeMetrics(
     fsNav,
     fsNavLg: clamp(19, 3.4 * vh, 38),
     fsFtr,
-    fsFtrSm: fsFtr * 0.8,
     sp,
     spLg: clamp(12, 2 * vh, 24),
     s1: 4,

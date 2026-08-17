@@ -48,7 +48,6 @@ export interface Palette {
   dangerInk: string;
   /* court */
   court: string;
-  lane: string;
   courtLine: string;
   markMiss: string;
   liveFill: string;
@@ -98,7 +97,6 @@ const semantic = (r: Raw): Palette => ({
   danger: r.danger,
   dangerInk: r.onAccent,
   court: r.court,
-  lane: r.ink30,
   courtLine: r.courtLine,
   markMiss: r.surface,
   liveFill: r.liveFill,
@@ -206,7 +204,6 @@ export const COLOR_KEYS = [
   'danger',
   'dangerInk',
   'court',
-  'lane',
   'courtLine',
   'markMiss',
   'liveFill',

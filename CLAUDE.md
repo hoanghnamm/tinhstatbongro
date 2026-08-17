@@ -208,12 +208,12 @@ step scale `s1`…`s6` (4/8/12/16/24/32). **Nothing interactive may compute belo
 Never introduce a bare pixel size in a layout; add to the ramp.
 
 **`fsFtr` is the one step a WIDTH decides**, and it is the exception that proves the rule.
-The footer's middle block carries three numbers side by side, so its type is capped by
-`(half − 34) / 5.9` — roughly what `12 : 8`, `07:24` and the quarter come to in Chakra Petch
-with their rules and padding. Since the block went from a third of the row to a half the vh
-term wins very nearly everywhere; the cap stays because `fsNav` grows with the window height
-while the block does not, and the day that crosses over the clock reads `07:2…` rather than
-throwing.
+The footer's middle block carries three numbers side by side — score, clock and quarter, **all
+three at this one size** — so its type is capped by `(half − 34) / 7.76`: `108 : 99` is 3.08em
+with its gaps, `07:24` is 2.56em and `2ND` is 2.12em with its tracking, plus the two rules and
+six cells of `s1` padding. The vh term wins on every screen the board actually runs on; the cap
+stays because `fsNav` grows with the window height while the block does not, and the day that
+crosses over the clock reads `07:2…` rather than throwing.
 
 Custom fonts have no numeric weight axis in RN, so a weight is a family name — `fNum()` /
 `fUi()` are the only place that mapping lives. **Tabular numerals everywhere a number can
@@ -383,9 +383,11 @@ one word, so an even quarter each starved it, and the middle is where the eye go
 right place for the only part of the row that is read rather than pressed. The two verbs keep
 the corners, as far apart as the row allows.
 
-**Inside the middle the split is weighted, not equal** — 1.25 / 1.05 / 0.70, summing to 3 so
-the block itself does not move. `108 : 99` is six digits, `07:24` is four and `1ST` is three
-at a smaller step; an even split starves the score and wastes half the quarter's cell.
+**Inside the middle the split is weighted, not equal** — 1.25 / 0.95 / 0.80, summing to 3 so
+the block itself does not move. `108 : 99` is six digits and `07:24` is four, so an even split
+starves the score. The quarter's old 0.70 was cut for three characters a step *smaller*; now
+that it renders at `fsFtr` like the two beside it, `2ND` needs the tenth back, and the clock —
+which has the most slack of the three — is where it comes from.
 
 **The clock and the quarter are two cells with a rule between them.** They are two different
 controls and were once told apart only by sharing a tint. There is still no PLAY button and

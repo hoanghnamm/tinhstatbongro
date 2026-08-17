@@ -142,11 +142,14 @@ export function Footer() {
             apart. The clock and the quarter were one tinted block and are now
             two cells, which is what they always were.
 
-            The four PARTS are 1/2/1; these three cells are 1.25/1.05/0.70, and
-            deliberately uneven. `108 : 99` is six digits, `07:24` is four,
-            `1ST` is three at a smaller step, so an even split starves the score
-            and wastes half the quarter's cell. The weights sum to 3, so the
-            block itself is unchanged whatever they are. */}
+            The four PARTS are 1/2/1; these three cells are 1.25/0.95/0.80, and
+            deliberately uneven. `108 : 99` is six digits and `07:24` is four,
+            so an even split starves the score. The quarter is three characters
+            and used to be three characters a step SMALLER, which is what its
+            old 0.70 was cut to; now that it renders at the same size as the two
+            beside it, `2ND` needs the tenth back and the clock — which has the
+            most slack of the three — is where it comes from. The weights sum to
+            3, so the block itself is unchanged whatever they are. */}
         <View style={{ ...cell, flexGrow: 2, gap: 0, paddingHorizontal: 0 }}>
           <ScoreCell grow={1.25} />
 
@@ -155,14 +158,14 @@ export function Footer() {
           <Press
             onPress={() => setRunning(!running)}
             accessibilityLabel="start or stop the clock"
-            style={{ ...cell, flexGrow: 1.05, gap: 0 }}
+            style={{ ...cell, flexGrow: 0.95, gap: 0 }}
             pressedStyle={{ backgroundColor: t.press }}
           >
             <Text
               numberOfLines={1}
               style={{
                 fontFamily: fNum(700),
-                fontSize: m.fsFtr * 1.5,
+                fontSize: m.fsFtr,
                 // the clock's state, in ink rather than in a fill
                 color: running ? t.accent : t.danger,
                 textAlign: 'center',
@@ -182,7 +185,7 @@ export function Footer() {
             onLayout={hole.onLayout}
             style={{
               ...cell,
-              flexGrow: 0.7,
+              flexGrow: 0.8,
               gap: 0,
               backgroundColor: lit ? t.press : 'transparent',
             }}
@@ -192,8 +195,12 @@ export function Footer() {
               numberOfLines={1}
               style={{
                 fontFamily: fNum(600),
-                fontSize: m.fsFtrSm,
-                letterSpacing: ls(m.fsFtrSm, LS_LABEL),
+                // the same step as the score and the clock: the three numbers
+                // in the middle read as one row, and the quarter no longer
+                // looks like a caption for the two beside it. The weight is
+                // still 600 — it is a label made of letters, not a count.
+                fontSize: m.fsFtr,
+                letterSpacing: ls(m.fsFtr, LS_LABEL),
                 color: t.ink2,
                 textAlign: 'center',
                 fontVariant: ['tabular-nums'],

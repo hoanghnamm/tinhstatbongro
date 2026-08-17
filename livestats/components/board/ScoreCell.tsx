@@ -48,7 +48,9 @@ export function ScoreCell({ grow }: { grow: number }) {
   const lit = useUiStore((s) => litControl(s.panel, s.what) === 'score');
   const hole = useLitRect(lit);
 
-  const size = m.fsFtr * 1.5;
+  // the ramp's footer step is the rendered size now, and all three numbers in
+  // the middle block share it — see `fsFtr`, which is capped against this text
+  const size = m.fsFtr;
   const line = size * 1.2;
 
   return (

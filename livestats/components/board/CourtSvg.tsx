@@ -41,9 +41,6 @@ function CourtSvgImpl({ zone, side }: Props) {
   return (
     <Svg viewBox="0 0 792 521" width="100%" height="100%">
       <Rect x="0" y="0" width="792" height="521" fill={t.court} />
-      {/* lane blocks */}
-      <Rect x="277" y="0" width="30" height="276" fill={t.lane} fillOpacity={0.45} />
-      <Rect x="482.5" y="0" width="30.5" height="276" fill={t.lane} fillOpacity={0.45} />
 
       <Defs>
         <ClipPath id="courtClip">
@@ -89,9 +86,10 @@ function CourtSvgImpl({ zone, side }: Props) {
         </G>
       </G>
 
-      {/* lane lines + free throw line */}
+      {/* lane lines + free throw line — the lane is the paint's own edge and
+          nothing more; the shaded blocks and their inner rails are gone */}
       <Path
-        d="M277 0 L277 276 M307 0 L307 276 M483 0 L483 276 M513 0 L513 276"
+        d="M277 0 L277 276 M513 0 L513 276"
         fill="none" stroke={t.courtLine} strokeWidth={2}
       />
       <Path d="M277 276 L513 276" fill="none" stroke={t.courtLine} strokeWidth={2} />
@@ -100,19 +98,17 @@ function CourtSvgImpl({ zone, side }: Props) {
       <Path d="M513 101 L724 101" fill="none" stroke={t.courtLine} strokeWidth={2} />
       <Path d="M0 203.7 L68 203.7" fill="none" stroke={t.courtLine} strokeWidth={2} />
       <Path d="M724 203.7 L792 203.7" fill="none" stroke={t.courtLine} strokeWidth={2} />
-      {/* backboard, rim, restricted area */}
-      <Path d="M350 55 L442 55" fill="none" stroke={t.courtLine} strokeWidth={2} />
+      {/* backboard, rim, restricted area — pushed back to a fifth of its old
+          gap off the baseline (55 → 11), the whole group shifted by the same 44 */}
+      <Path d="M350 11 L442 11" fill="none" stroke={t.courtLine} strokeWidth={2} />
       <Path
-        d="M335 56 L335 76.5 A60.5 60.5 0 0 0 456 76.5 L456 56"
+        d="M335 12 L335 32.5 A60.5 60.5 0 0 0 456 32.5 L456 12"
         fill="none" stroke={t.courtLine} strokeWidth={2}
       />
-      <Circle cx="396" cy="67" r="12.5" fill={t.courtLine} />
-      {/* free throw circle: solid below the line, dashed inside the lane */}
+      <Circle cx="396" cy="23" r="12.5" fill={t.courtLine} />
+      {/* free throw circle: the solid half below the line only — the dashed
+          half that ran up inside the lane is gone */}
       <Path d="M311 276 A85 85 0 0 0 481 276" fill="none" stroke={t.courtLine} strokeWidth={2} />
-      <Path
-        d="M311 276 A85 85 0 0 1 481 276"
-        fill="none" stroke={t.courtLine} strokeWidth={2} strokeDasharray="21 15"
-      />
       {/* lane extension lines */}
       <Path d="M310 276 L187 521" fill="none" stroke={t.courtLine} strokeWidth={2} />
       <Path d="M480 276 L603 521" fill="none" stroke={t.courtLine} strokeWidth={2} />
