@@ -6,7 +6,7 @@
  * snapshot before one of these, call it, and publish the result.
  */
 import { FOULS, FOUL_KINDS, TALLY } from '../constants/game';
-import { zoneFor } from './court';
+import { FT_SPOT, zoneFor } from './court';
 import { mmss } from './format';
 import type {
   EventBody,
@@ -100,6 +100,10 @@ export function recordOppPoint(g: GameState, points = 1): void {
  * still logging one event per attempt for the play-by-play. Quick mode calls
  * this once per attempt, and therefore counts one ftTrip per attempt; nothing
  * renders that counter, so it is left alone rather than given a flag.
+ *
+ * Every attempt is logged at FT_SPOT so the chart can mark it, and every one of
+ * them with `zone: null` — see FT_SPOT. Free throws touch ftAttempted / ftMade
+ * / ftTrips and NOTHING on the field-goal side.
  */
 export function recordFreeThrowTrip(
   g: GameState,
@@ -118,7 +122,7 @@ export function recordFreeThrowTrip(
       creditOnCourt(g, 1);
     }
     log(g, {
-      type: 'freeThrow', playerId, position: null, zone: null,
+      type: 'freeThrow', playerId, position: FT_SPOT, zone: null,
       result: made ? 'made' : 'miss', value: made ? 1 : 0, andOne,
     });
   }
@@ -186,6 +190,16 @@ export function substitute(g: GameState, outId: string, inId: string): void {
   if (out.status === 'active') out.status = 'bench'; // a fouled-out player stays out
   need(g, inId).status = 'active';
   log(g, { type: 'substitution', playerId: inId, outPlayerId: outId });
+}
+
+/**
+ * One possession, counted by hand. Deliberately not an event and not a player
+ * stat: a possession belongs to the team, and inventing a playerId for it would
+ * put a number on the box score that nobody tapped. It goes through the store's
+ * `edit()` like every other mutation, so UNDO takes it back.
+ */
+export function addPossession(g: GameState, n = 1): void {
+  g.possessions = Math.max(0, g.possessions + n);
 }
 
 /** One second of game clock: minutes accrue only for players on the floor. */

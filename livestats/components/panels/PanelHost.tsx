@@ -10,51 +10,21 @@ import { useTheme } from '../../theme/useTheme';
 import { AssistPanel } from './AssistPanel';
 import { EndGamePanel } from './EndGamePanel';
 import { EndQuarterPanel } from './EndQuarterPanel';
-import { FTResultPanel } from './FTResultPanel';
+import { FTDockPanel } from './FTDockPanel';
 import { FoulDeniedPanel } from './FoulDeniedPanel';
 import { FoulKindPanel } from './FoulKindPanel';
 import { FouledOutPanel } from './FouledOutPanel';
 import { PlayerActionsPanel } from './PlayerActionsPanel';
 import { PlaysPanel } from './PlaysPanel';
 import { RebKindPanel } from './RebKindPanel';
+import { SetClockPanel } from './SetClockPanel';
 import { SubOutPanel } from './SubOutPanel';
 import { TotalsPanel } from './TotalsPanel';
 import { TripShotsPanel } from './TripShotsPanel';
 import { TripSizePanel } from './TripSizePanel';
 import { WhatPanel } from './WhatPanel';
 import { WhoPanel } from './WhoPanel';
-
-type Mode = 'dock' | 'court' | 'center' | 'wide';
-
-/**
- * Where each panel sits.
- *
- * `dock` belongs to exactly one panel — step 1 of a shot — and it is the only
- * one that neither covers nor dims the court, because the point of tapping a
- * spot is seeing the spot.
- *
- * `court` panels take the court's own footprint, so the action columns and the
- * rail stay readable under the scrim and the tiles get the whole court to be
- * tapped in.
- */
-const MODE: Record<Panel['kind'], Mode> = {
-  what: 'dock',
-  foulKind: 'court',
-  rebKind: 'court',
-  who: 'court',
-  assist: 'court',
-  playerActions: 'court',
-  subOut: 'court',
-  ftResult: 'center',
-  tripSize: 'center',
-  tripShots: 'center',
-  fouledOut: 'center',
-  foulDenied: 'center',
-  endQuarter: 'center',
-  endGame: 'center',
-  totals: 'wide',
-  plays: 'center',
-};
+import { MODE } from './placement';
 
 function body(panel: Panel) {
   // exhaustive on purpose: a panel added to the union without a branch here is
@@ -68,12 +38,13 @@ function body(panel: Panel) {
     case 'playerActions':
       return <PlayerActionsPanel playerId={panel.playerId} bumped={panel.bumped} />;
     case 'subOut': return <SubOutPanel outId={panel.outId} />;
-    case 'ftResult': return <FTResultPanel />;
+    case 'ftResult': return <FTDockPanel />;
     case 'tripSize': return <TripSizePanel />;
     case 'tripShots': return <TripShotsPanel />;
     case 'fouledOut': return <FouledOutPanel playerId={panel.playerId} />;
     case 'foulDenied': return <FoulDeniedPanel playerId={panel.playerId} />;
     case 'endQuarter': return <EndQuarterPanel />;
+    case 'setClock': return <SetClockPanel />;
     case 'endGame': return <EndGamePanel />;
     case 'totals': return <TotalsPanel />;
     case 'plays': return <PlaysPanel />;

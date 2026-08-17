@@ -50,14 +50,21 @@ export function PTitleText({ children }: { children: ReactNode }) {
   );
 }
 
-/** Secondary context in the header — never a control, and it never shrinks. */
+/**
+ * Secondary context in the header — never a control, and it never shrinks.
+ * Tabular, because one of the things it carries is a running game clock.
+ */
 export function Pts({ children }: { children: ReactNode }) {
   const m = useMetrics();
   return (
     <Text
       numberOfLines={1}
       className="text-ink-2"
-      style={{ flexGrow: 0, flexShrink: 0, fontFamily: fNum(500), fontSize: m.fsMd }}
+      style={{
+        flexGrow: 0, flexShrink: 0,
+        fontFamily: fNum(500), fontSize: m.fsMd,
+        fontVariant: ['tabular-nums'],
+      }}
     >
       {children}
     </Text>
@@ -163,10 +170,18 @@ export function CancelX({ label = 'CANCEL' }: { label?: string }) {
  * seams. Tiles must be opaque and edgeless for that to read.
  * ------------------------------------------------------------------ */
 
-export function PGrid({ columns, children }: { columns: number; children: ReactNode[] }) {
+/**
+ * The seam grid, given its rows explicitly — one row per array, and the cells
+ * in a row split it evenly however many there are.
+ *
+ * `PGrid` is this with the chunking done for you, and it is the right default.
+ * Reach for `PRows` when a row's cell count is the point rather than an
+ * accident: the quarter panel's two enders take half the bottom each, and the
+ * clock pad's right column is three actions beside a 3×3 of digits. Neither is
+ * a chunk of a flat list.
+ */
+export function PRows({ rows }: { rows: ReactNode[][] }) {
   const t = useTheme();
-  const rows = chunk(children, columns);
-
   return (
     <View
       style={{
@@ -182,14 +197,23 @@ export function PGrid({ columns, children }: { columns: number; children: ReactN
               {cell}
             </View>
           ))}
-          {/* a short last row keeps the cell size rather than stretching */}
-          {Array.from({ length: columns - row.length }, (_, k) => (
-            <View key={'gap' + k} style={{ flex: 1, backgroundColor: t.surface }} />
-          ))}
         </View>
       ))}
     </View>
   );
+}
+
+export function PGrid({ columns, children }: { columns: number; children: ReactNode[] }) {
+  const t = useTheme();
+  const rows = chunk(children, columns).map((row) => [
+    ...row,
+    // a short last row keeps the cell size rather than stretching
+    ...Array.from({ length: columns - row.length }, (_, k) => (
+      <View key={'gap' + k} style={{ flex: 1, backgroundColor: t.surface }} />
+    )),
+  ]);
+
+  return <PRows rows={rows} />;
 }
 
 /**

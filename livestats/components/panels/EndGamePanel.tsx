@@ -4,9 +4,10 @@ import { useUiStore } from '../../store/uiStore';
 import { Btn, Note, PTitle, Row } from './shell';
 
 /**
- * The second half of END. The footer's first tap only arms the button; this is
- * where the game actually ends — the arm guards the mis-tap next to UNDO, this
- * guards the decision.
+ * The second half of END GAME, which lives on the quarter panel beside END
+ * QUARTER. Two tiles that both end something sit next to each other, so this
+ * confirm is what makes the wrong one survivable — it replaced the footer's
+ * arm-then-fire dance when POSS took that cell.
  */
 export function EndGamePanel() {
   const endGame = useGameStore((s) => s.endGame);

@@ -48,7 +48,10 @@ export interface Metrics {
   /** the footer is deliberately left on the pre-bump ramp: --ftr did not grow */
   fsNav: number;
   fsNavLg: number;
-  fsNavSm: number;
+  /** the middle block's numbers — the one step capped by a WIDTH, see below */
+  fsFtr: number;
+  /** the quarter beside them, a label rather than a number */
+  fsFtrSm: number;
 
   /* space */
   sp: number;
@@ -70,10 +73,11 @@ export interface Metrics {
   rail: number;
   side: number;
   oppw: number;
-  scoreh: number;
   /** portrait only */
   railMin: number;
   barh: number;
+  /** the rotate glyph — the only thing on screen when a phone is held upright */
+  rot: number;
 
   /** the court's own box, computed the way the two CSS calcs did */
   court: { w: number; h: number };
@@ -105,7 +109,6 @@ export function computeMetrics(
   const sp = clamp(4, 0.9 * vh, 10);
   const tap = 48;
   const ftr = clamp(59, 8.5 * vh, 74);
-  const scoreh = clamp(31, 4.8 * vh, 48);
 
   // five rail cells have to divide a short column, so the blocks narrow too
   const rail = compact ? clamp(143, 24 * vh, 187) : clamp(165, 28.6 * vh, 330);
@@ -116,15 +119,37 @@ export function computeMetrics(
 
   const railMin = clamp(209, 33 * vh, 330);
   const barh = clamp(tap, 9.9 * vh, 84);
+  // the rotate glyph only ever renders on a portrait phone, where vh is the long
+  // edge, so the vh term governs everywhere between a 480pt and a 950pt screen
+  const rot = clamp(96, 17 * vh, 168);
 
   const safeX = safe.left + safe.right;
   const safeY = safe.top + safe.bottom;
 
+  /**
+   * The footer's own width — landscape stops it at the rail, portrait runs it
+   * to the shell padding — and the ONE size on this ramp that a width decides.
+   *
+   * The footer is four parts, 1 / 2 / 1, and the **half** in the middle carries
+   * three numbers side by side. In Chakra Petch `07:24` is about 2.3em, `12 : 8`
+   * the same with its gaps, and the quarter about 1.3em at its smaller step; add
+   * the two rules and six cells of `s1` padding and the block has to hold
+   * roughly `5.9em + 34`. So the em that fits is `(half − 34) / 5.9`, and the vh
+   * ramp governs wherever width is not what runs out — which since the block
+   * went from a third to a half is very nearly everywhere. It stays because
+   * `fsNav` grows with the window height while the block does not, and the day
+   * that crosses over the clock reads `07:2…` rather than throwing.
+   */
+  const ftrw = portrait ? w - safeX - 2 * sp : w - safeX - rail - sp;
+  const fsNav = clamp(15, 2.6 * vh, 28);
+  const fsFtr = Math.max(12, Math.min(fsNav, (ftrw / 2 - 34) / 5.9));
+
   let court: { w: number; h: number };
   if (portrait) {
-    // what the court does NOT get: the rail, the action bar, the score strip,
-    // the footer, the cutouts, and the six gaps
-    const rows = railMin + barh + scoreh + ftr + safeY + 6 * sp;
+    // what the court does NOT get: the rail, the action bar, the footer, the
+    // cutouts, and the five gaps. The score strip used to be a sixth term and a
+    // sixth gap; it is a footer cell now, and the court has both back.
+    const rows = railMin + barh + ftr + safeY + 5 * sp;
     const cw = Math.min(w - safeX - 2 * sp, Math.max(0, h - rows) * COURT_ASPECT);
     court = { w: cw, h: cw / COURT_ASPECT };
   } else {
@@ -148,9 +173,10 @@ export function computeMetrics(
     fs2xl: clamp(28, 5.1 * vh, 55),
     fs3xl: clamp(31, 7 * vh, 75),
     fs4xl: clamp(42, 9.5 * vh, 96),
-    fsNav: clamp(15, 2.6 * vh, 28),
+    fsNav,
     fsNavLg: clamp(19, 3.4 * vh, 38),
-    fsNavSm: clamp(15, 2.2 * vh, 22),
+    fsFtr,
+    fsFtrSm: fsFtr * 0.8,
     sp,
     spLg: clamp(12, 2 * vh, 24),
     s1: 4,
@@ -166,9 +192,9 @@ export function computeMetrics(
     rail,
     side,
     oppw,
-    scoreh,
     railMin,
     barh,
+    rot,
     court,
   };
 }

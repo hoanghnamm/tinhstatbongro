@@ -24,7 +24,7 @@ const undoStack: string[] = [];
 const UNDO_CAP = 80;
 
 /** What a snapshot covers. The clock is deliberately outside it — see undo(). */
-type Snapshot = Pick<GameState, 'score' | 'oppScore' | 'players' | 'events'>;
+type Snapshot = Pick<GameState, 'score' | 'oppScore' | 'possessions' | 'players' | 'events'>;
 
 export interface GameStore extends GameState {
   options: Options;
@@ -43,12 +43,16 @@ export interface GameStore extends GameState {
   recordTally(playerId: string, position: Position | null, type: TallyType): void;
   recordFoul(playerId: string, position: Position | null, kindKey: FoulKindKey): FoulOutcome;
   substitute(outId: string, inId: string): void;
+  /** the footer's POSS cell, and the only writer of `possessions` */
+  addPossession(): void;
 
   undo(): void;
   setRunning(on: boolean): void;
   /** the ticker's only entry point: advance the game clock by whole seconds */
   tick(seconds: number): void;
   adjustClock(deltaSeconds: number): void;
+  /** an exact time off the keypad — see setClock() for why it stops the clock */
+  setClock(seconds: number): void;
   resetClock(): void;
   nextQuarter(): void;
   endGame(): void;
@@ -63,6 +67,7 @@ const freshGame = (): GameState => ({
   remaining: PERIOD_LEN,
   running: false,
   ended: false,
+  possessions: 0,
   players: seedRoster(),
   events: [],
 });
@@ -112,7 +117,8 @@ export const useGameStore = create<GameStore>()(
         if (snapshot) {
           undoStack.push(
             JSON.stringify({
-              score: s.score, oppScore: s.oppScore, players: s.players, events: s.events,
+              score: s.score, oppScore: s.oppScore, possessions: s.possessions,
+              players: s.players, events: s.events,
             } satisfies Snapshot),
           );
           if (undoStack.length > UNDO_CAP) undoStack.shift();
@@ -120,7 +126,7 @@ export const useGameStore = create<GameStore>()(
         const g: GameState = clone({
           team: s.team, score: s.score, oppScore: s.oppScore, period: s.period,
           remaining: s.remaining, running: s.running, ended: s.ended,
-          players: s.players, events: s.events,
+          possessions: s.possessions, players: s.players, events: s.events,
         });
         const out = fn(g);
         set(g);
@@ -153,6 +159,8 @@ export const useGameStore = create<GameStore>()(
 
         substitute: (outId, inId) => edit((g) => A.substitute(g, outId, inId)),
 
+        addPossession: () => edit((g) => A.addPossession(g, 1)),
+
         undo: () => {
           const raw = undoStack.pop();
           if (!raw) return;
@@ -168,6 +176,7 @@ export const useGameStore = create<GameStore>()(
           set({
             score: prev.score,
             oppScore: prev.oppScore,
+            possessions: prev.possessions,
             players,
             events: prev.events,
             ended: false,
@@ -189,6 +198,17 @@ export const useGameStore = create<GameStore>()(
         adjustClock: (deltaSeconds) =>
           set({ remaining: Math.max(0, get().remaining + deltaSeconds) }),
 
+        // A typed time stops the clock, which ±1s does not: nudging a second is
+        // a correction made while play is dead anyway, but typing a whole time
+        // means the referee has just handed you one, and running the difference
+        // off between the tap and the restart is exactly the error being fixed.
+        setClock: (seconds) => set({ running: false, remaining: Math.max(0, Math.floor(seconds)) }),
+
+        // No button calls this any more — the quarter panel's FULL RESET tile
+        // was cut so the two enders could take half the row each, and SET
+        // reaches 10:00 like any other time. Kept because `nextQuarter` is the
+        // only other thing that puts a whole period back on the clock, and a
+        // reset that is not an advance has nowhere else to live.
         resetClock: () => set({ running: false, remaining: PERIOD_LEN }),
 
         nextQuarter: () =>
@@ -206,8 +226,8 @@ export const useGameStore = create<GameStore>()(
       // and rehydrating 80 deep copies would cost more than it is worth
       partialize: (s) => ({
         team: s.team, score: s.score, oppScore: s.oppScore, period: s.period,
-        remaining: s.remaining, ended: s.ended, players: s.players,
-        events: s.events, options: s.options,
+        remaining: s.remaining, ended: s.ended, possessions: s.possessions,
+        players: s.players, events: s.events, options: s.options,
       }),
       onRehydrateStorage: () => (s) => {
         // a game restored from disk is stopped, whatever it was doing when the

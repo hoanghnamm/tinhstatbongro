@@ -14,7 +14,7 @@
 
 export type SkinName = 'light' | 'dark' | 'glass' | 'glassDark';
 
-/** A two-stop gradient. The clock is tinted, not saturated — the time sits on it. */
+/** A two-stop gradient. Only the frosted skins' background wash uses one. */
 export type Grad = readonly [string, string];
 
 export interface Palette {
@@ -39,10 +39,6 @@ export interface Palette {
   courtLine: string;
   markMiss: string;
   liveFill: string;
-  /* clock */
-  clockInk: string;
-  clockRun: Grad;
-  clockStop: Grad;
   /* skin behaviour */
   /** drives the status bar and the blur tint; not a colour */
   dark: boolean;
@@ -65,8 +61,6 @@ interface Raw {
   courtLine: string;
   onAccent: string;
   liveFill: string;
-  run: Grad;
-  stop: Grad;
   dark?: boolean;
   glass?: boolean;
   bgWash?: Grad;
@@ -92,9 +86,6 @@ const semantic = (r: Raw): Palette => ({
   courtLine: r.courtLine,
   markMiss: r.surface,
   liveFill: r.liveFill,
-  clockInk: r.ink,
-  clockRun: r.run,
-  clockStop: r.stop,
   dark: r.dark ?? false,
   glass: r.glass ?? false,
   bgWash: r.bgWash ?? null,
@@ -115,8 +106,6 @@ const RAW: Record<SkinName, Raw> = {
     courtLine: '#FFFFFF',
     onAccent: '#FFFFFF',
     liveFill: 'rgba(255,255,255,0.55)',
-    run: ['#D7F0DC', '#A8DCB4'],
-    stop: ['#FBD9D5', '#F2B2AA'],
   },
   dark: {
     teal600: '#3FC6E4',
@@ -132,8 +121,6 @@ const RAW: Record<SkinName, Raw> = {
     courtLine: '#FFFFFF',
     onAccent: '#0E1013',
     liveFill: 'rgba(24,27,32,0.55)',
-    run: ['#1D4A2B', '#123420'],
-    stop: ['#4A1F1C', '#331211'],
     dark: true,
   },
   glass: {
@@ -150,8 +137,6 @@ const RAW: Record<SkinName, Raw> = {
     courtLine: '#FFFFFF',
     onAccent: '#FFFFFF',
     liveFill: 'rgba(255,255,255,0.55)',
-    run: ['#D5F2E0', '#A7E0BE'],
-    stop: ['#FBD9DE', '#F2AEB8'],
     glass: true,
     // the web build used a three-stop radial; a linear pass reads the same
     // behind 16px of blur and costs no extra dependency
@@ -171,8 +156,6 @@ const RAW: Record<SkinName, Raw> = {
     courtLine: '#FFFFFF',
     onAccent: '#0B1020',
     liveFill: 'rgba(26,32,56,0.55)',
-    run: ['#1B4A38', '#0F3126'],
-    stop: ['#4A1D2A', '#301017'],
     dark: true,
     glass: true,
     bgWash: ['#1D2653', '#241340'],
@@ -206,7 +189,6 @@ export const COLOR_KEYS = [
   'courtLine',
   'markMiss',
   'liveFill',
-  'clockInk',
 ] as const satisfies readonly (keyof Palette)[];
 
 /* ------------------------------------------------------------------ *

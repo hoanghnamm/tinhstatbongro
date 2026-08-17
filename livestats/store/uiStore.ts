@@ -27,6 +27,7 @@ export type Panel =
   | { kind: 'fouledOut'; playerId: string }
   | { kind: 'foulDenied'; playerId: string }
   | { kind: 'endQuarter' }
+  | { kind: 'setClock' }
   | { kind: 'endGame' }
   | { kind: 'totals' }
   | { kind: 'plays' };

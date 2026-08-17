@@ -9,7 +9,6 @@ import { Court } from './Court';
 import { Footer } from './Footer';
 import { OppButtons } from './OppButtons';
 import { Rail } from './Rail';
-import { ScoreCell } from './ScoreCell';
 import { SideColumn } from './SBtn';
 
 /**
@@ -23,9 +22,13 @@ import { SideColumn } from './SBtn';
  * very bottom of the column; stacking them would cost the court a row it
  * cannot spare.
  *
- * Portrait is one column of three rows: the court with its score strip and
- * action bar, then the rail (which absorbs whatever the court could not use),
- * then the footer.
+ * Portrait is one column of three rows: the court with its action bar, then the
+ * rail (which absorbs whatever the court could not use), then the footer.
+ *
+ * The score used to be a strip of its own between the two; it is a cell of the
+ * footer now, and `computeMetrics` stopped subtracting it. A row removed here
+ * is a subtraction removed there, always — a stale term does not throw, it
+ * silently shrinks the court.
  */
 export function Board() {
   const m = useMetrics();
@@ -41,16 +44,18 @@ export function Board() {
   const side = useMeasure('sidecol');
   const opp = useMeasure('oppbtns');
 
-  // none of these three has a court spot, so the in-flight mark is dropped
+  // A foul and a rebound have no court spot, so the in-flight mark is dropped.
+  // A free throw DOES — FT_SPOT — and the flow ends on a docked panel with the
+  // floor in plain view, so it deliberately does not clear() on the way in.
   const start = (panel: 'foulKind' | 'rebKind' | 'ft') => () => {
     if (ended) return;
-    clear();
     if (panel === 'ft') {
       useUiStore.getState().setWhat('ft');
       open({ kind: 'who' });
-    } else {
-      open({ kind: panel });
+      return;
     }
+    clear();
+    open({ kind: panel });
   };
 
   const sideCol = (
@@ -87,7 +92,6 @@ export function Board() {
           <Center>
             <Court />
           </Center>
-          <ScoreCell />
           {/* PF/FT/RB and the three OPP buttons share one bar */}
           <Row gap={m.sp} align="stretch" style={{ minHeight: m.barh }}>
             {sideCol}
@@ -118,7 +122,8 @@ export function Board() {
           }}
         >
           {/* the opponent takes the outer edge: it is the cheapest thing to
-              lose a corner of to a notch */}
+              lose a corner of to a notch. The score used to head this column;
+              the three buttons have the whole of it now. */}
           <Col
             gap={m.sp}
             align="stretch"
@@ -128,7 +133,6 @@ export function Board() {
               minHeight: 0,
             }}
           >
-            <ScoreCell />
             <OppButtons innerRef={opp.ref} onLayout={opp.onLayout} />
           </Col>
 

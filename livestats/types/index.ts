@@ -85,10 +85,15 @@ export type EventBody =
       assistPlayerId: string | null;
     }
   | { type: 'assist'; playerId: string; position: Position | null; shotPlayerId: string }
+  /**
+   * Always at FT_SPOT, so the chart can draw it — but `zone` stays null on
+   * purpose. A free throw is not a field-goal attempt, so no zone split may
+   * count it; see FT_SPOT for why `zoneFor` is never asked.
+   */
   | {
       type: 'freeThrow';
       playerId: string;
-      position: null;
+      position: Position;
       zone: null;
       result: 'made' | 'miss';
       value: number;
@@ -118,6 +123,13 @@ export interface GameState {
   remaining: number;
   running: boolean;
   ended: boolean;
+  /**
+   * Our team's possessions, tapped by hand off the footer. A plain counter and
+   * nothing else: it leaves no event and no player stat, because a possession
+   * belongs to the team and the board has no way to know whose it was. It IS in
+   * the undo snapshot, so a mis-tap next to the clock costs one UNDO.
+   */
+  possessions: number;
   players: Player[];
   events: GameEvent[];
 }

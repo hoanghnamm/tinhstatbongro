@@ -12,11 +12,11 @@ import { join, relative } from 'node:path';
 
 import { FOULS, PERIOD_LEN, seedRoster } from '../constants/game';
 import * as A from '../lib/actions';
-import { shotTypeFor, zoneFor, zoneSide } from './court';
-import { mmss, ord } from './format';
+import { FT_SPOT, shotTypeFor, zoneFor, zoneSide } from './court';
+import { clockEntry, clockReady, mmss, ord, pushClockDigit, secondsFromClock } from './format';
 import { gridFor } from './grid';
 import { efg, ptsOffSteals, totals, zoneSplits } from './stats';
-import type { GameState, Position } from '../types';
+import type { GameEvent, GameState, Position } from '../types';
 
 const game = (): GameState => ({
   team: { name: 'T' },
@@ -26,6 +26,7 @@ const game = (): GameState => ({
   remaining: PERIOD_LEN,
   running: false,
   ended: false,
+  possessions: 0,
   players: seedRoster(),
   events: [],
 });
@@ -99,6 +100,51 @@ assert.equal(shotTypeFor(396 / 792, 100 / 521), '2PT');
   assert.equal(g.score, 4, 'and it does not touch ours');
 }
 
+/* ---- free throws leave a mark, and only a mark --------------------- */
+{
+  const g = game();
+  const p = g.players[0];
+
+  A.recordFreeThrowTrip(g, p.id, [true, true, false], false);
+  const fts = g.events.filter((e) => e.type === 'freeThrow');
+  assert.equal(fts.length, 3, 'one event per attempt, so the chart can count them');
+
+  for (const e of fts) {
+    assert.deepEqual(e.position, FT_SPOT, 'every free throw is taken from the same spot');
+    // zoneFor is deliberately never called on it: a free throw is not a field
+    // goal, so ANY zone it answered would be a wrong attempt in the splits.
+    assert.equal(e.zone, null, 'and carries NO zone');
+  }
+  // and the answer is boundary noise anyway — the spot is the lane's own top
+  // edge, and 0.53 (276 at 3 dp) lands a tenth of a unit the wrong side of it
+  assert.equal(zoneFor(FT_SPOT.x, FT_SPOT.y), 'top2');
+  assert.equal(zoneFor(FT_SPOT.x, 276 / 521), 'paint', 'one rounding step away');
+
+  assert.equal(p.stats.ftAttempted, 3);
+  assert.equal(p.stats.ftMade, 2);
+  assert.equal(p.stats.ftTrips, 1);
+  assert.equal(p.stats.fgAttempted, 0, 'free throws are not field goals');
+  assert.equal(p.stats.twoAttempted, 0);
+  assert.equal(p.stats.threeAttempted, 0);
+
+  const Z = zoneSplits(g.events);
+  assert.deepEqual(Z.paint, { m: 0, a: 0 }, 'and never inflate the paint');
+
+  // What the chart draws off this: ONE dot however many attempts there are —
+  // they all share a coordinate — and none at all at zero.
+  const attempts = (evs: GameEvent[]) => evs.filter((e) => e.type === 'freeThrow').length;
+  assert.equal(attempts([]), 0, 'no attempts, no mark');
+  assert.equal(attempts(g.events), 3, 'three attempts, still one mark');
+
+  // Undo is snapshot-based, so the mark follows with no special case: it is
+  // derived from `events`, and `events` is what gets restored.
+  const before = JSON.parse(JSON.stringify(g.events)) as GameEvent[];
+  A.recordFreeThrowTrip(g, p.id, [true], false);
+  assert.equal(attempts(g.events), 4);
+  g.events = before; // what gameStore's undo() does wholesale
+  assert.equal(attempts(g.events), 3, 'undo takes the attempt back off the mark');
+}
+
 /* ---- fouls -------------------------------------------------------- */
 {
   const g = game();
@@ -139,6 +185,53 @@ assert.equal(shotTypeFor(396 / 792, 100 / 521), '2PT');
   A.tickSeconds(g, 60);
   assert.equal(g.remaining, 0, 'the clock stops at zero');
   assert.equal(g.players[0].stats.secondsPlayed, 35, 'and credits nothing past the buzzer');
+}
+
+/* ---- possessions --------------------------------------------------- */
+{
+  const g = game();
+  A.addPossession(g);
+  A.addPossession(g);
+  assert.equal(g.possessions, 2, 'the footer cell is a plain counter');
+  assert.equal(g.events.length, 0, 'and it leaves NO event — a possession has no player');
+  assert.equal(g.players[0].stats.points, 0, 'and touches no player stat');
+
+  // it is in the undo snapshot, which is what makes a mis-tap next to UNDO cost
+  // exactly one tap — see gameStore's Snapshot type, which must list it
+  const before = g.possessions;
+  A.addPossession(g);
+  assert.equal(g.possessions, before + 1);
+  g.possessions = before; // what undo() restores wholesale
+  assert.equal(g.possessions, 2);
+
+  A.addPossession(g, -5);
+  assert.equal(g.possessions, 0, 'and it never goes negative');
+}
+
+/* ---- the clock keypad ---------------------------------------------- */
+{
+  // four slots, mm:ss, filled LEFT TO RIGHT — the order the time is read in
+  const type = (keys: string) => [...keys].reduce(pushClockDigit, '');
+
+  assert.equal(clockEntry(''), '--:--', 'an empty entry is still four slots wide');
+  assert.equal(clockEntry('0'), '0-:--', 'and the first digit lands on the left');
+  assert.equal(clockEntry('072'), '07:2-');
+  assert.equal(clockEntry('0724'), '07:24');
+
+  assert.equal(clockReady('072'), false, 'three slots is an unfinished time');
+  assert.equal(clockReady('0724'), true);
+  assert.equal(secondsFromClock('0724'), 7 * 60 + 24, '0724 is 7:24');
+  assert.equal(secondsFromClock('1000'), 600, 'and 1000 is the full period');
+  assert.equal(mmss(secondsFromClock('0724')), clockEntry('0724'), 'both read the same');
+
+  // slot 2 is the TENS of seconds and takes 0–5 only. Refusing the keystroke is
+  // what keeps the readout honest at every point: clamping 74 to 59 afterwards
+  // would put a time on screen that SET does not apply.
+  assert.equal(type('077'), '07', 'a tens-of-seconds over 5 is refused, not clamped');
+  assert.equal(type('0759'), '0759'.slice(0, 2) + '59', 'five is the last one it takes');
+  assert.equal(secondsFromClock(type('0759')), 7 * 60 + 59);
+  assert.equal(type('07249'), '0724', 'four digits, no more');
+  assert.equal(type('9999'), '99', 'and the rule holds however wrong the entry is');
 }
 
 /* ---- points off steals -------------------------------------------- */

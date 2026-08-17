@@ -1,6 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
 import { Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 
 import { mmss, ord } from '../../lib/format';
 import { useGameStore } from '../../store/gameStore';
@@ -9,11 +7,10 @@ import { useUiStore } from '../../store/uiStore';
 import { useMetrics } from '../../theme/metrics';
 import { LS_BTN, LS_LABEL, fNum, ls } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
+import { isDocked } from '../panels/placement';
 import { Press } from '../ui/Press';
 import { Surface } from '../ui/Surface';
-
-/** The mis-tap that loses a game gets four seconds of second thoughts. */
-const ARM_MS = 4000;
+import { ScoreCell } from './ScoreCell';
 
 function Divider() {
   const t = useTheme();
@@ -30,15 +27,34 @@ function Divider() {
 }
 
 /**
- * UNDO / clock / period / END. There is no PLAY button and no CLOCK button:
- * the time IS the clock control, and it carries its own state as colour, so
- * "is the clock running" needs no second glance. Stopped is the base state, so
- * a board nobody has touched reads red — which is true.
+ * UNDO | score · clock · quarter | POSS — **four parts, 1 / 2 / 1**, and the
+ * split is the whole layout. Every cell grows off a `flexBasis:0`, so nothing
+ * sizes to its own text and nothing bunches at the left.
  *
- * The flex split is the whole layout: UNDO and END take `flex:1` and share the
- * remainder, while the time and the period size to their own text and never
- * shrink. That is what puts the pair in the true middle of the row instead of
- * at a flex ratio's guess — and without it all four cells bunch at the left.
+ * **The readout takes the middle and takes double.** It is three numbers where
+ * either flank is one word, so an even quarter each starved it; and the middle
+ * is where the eye goes, which is the right place for the only part of the row
+ * that is read rather than pressed. The two verbs keep the corners, furthest
+ * apart, which is also the cheapest thing to do for a mis-tap.
+ *
+ * The score moved down here off the OPP column, which is why `computeMetrics`
+ * no longer subtracts a score strip in portrait — that row is gone and the
+ * court has its height. **The clock and the quarter are two cells with a rule
+ * between them**, not one block: they are two different controls and used to be
+ * told apart only by a shared tint.
+ *
+ * There is still no PLAY button and no CLOCK button — the time IS the clock
+ * control — but its state is now carried by the **ink**, not by a fill. The
+ * red/green gradient behind the pair is gone, so a running clock reads accent
+ * and a stopped one reads danger, which is the same fact in the same place at a
+ * quarter of the paint. Stopped is the base state, so a board nobody has
+ * touched still reads red.
+ *
+ * POSS is where END used to be. Ending a game is a once-a-night decision and it
+ * now lives on the quarter panel behind the period label, next to the other
+ * thing that ends; a possession is tapped dozens of times and belongs on the
+ * board. Losing END also lost the arm-then-confirm dance the footer needed to
+ * make a mis-tap survivable — the confirm panel is still there, one level in.
  */
 export function Footer() {
   const m = useMetrics();
@@ -50,35 +66,22 @@ export function Footer() {
   const period = useGameStore((s) => s.period);
   const running = useGameStore((s) => s.running);
   const ended = useGameStore((s) => s.ended);
+  const possessions = useGameStore((s) => s.possessions);
   const setRunning = useGameStore((s) => s.setRunning);
   const undo = useGameStore((s) => s.undo);
+  const addPossession = useGameStore((s) => s.addPossession);
 
   const panel = useUiStore((s) => s.panel);
   const open = useUiStore((s) => s.open);
 
-  const [armed, setArmed] = useState(false);
-  const armTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => { if (armTimer.current) clearTimeout(armTimer.current); }, []);
+  // a docked panel runs the full height of the column beside the court, which
+  // is over POSS. The footer gives back exactly the overlap so the cells
+  // re-centre in what is left instead of hiding under it. Which kinds dock is
+  // asked, never listed here — see components/panels/placement.
+  const trim = isDocked(panel) ? dockFooterOverlap(rects) : 0;
 
-  // the dock panel runs the full height of the column beside the court, which
-  // is over END. The footer gives back exactly the overlap so the nav's four
-  // cells re-centre in what is left instead of hiding under it.
-  const trim = panel?.kind === 'what' ? dockFooterOverlap(rects) : 0;
-
-  const onEnd = () => {
-    if (armTimer.current) clearTimeout(armTimer.current);
-    if (armed) {
-      setArmed(false);
-      open({ kind: 'endGame' });
-      return;
-    }
-    setArmed(true);
-    armTimer.current = setTimeout(() => setArmed(false), ARM_MS);
-  };
-
-  const clockGrad = running ? t.clockRun : t.clockStop;
-
-  const edgeCell = {
+  /** One part of the row, or one cell of the middle: the same rule at both. */
+  const cell = {
     flexGrow: 1,
     flexShrink: 1,
     flexBasis: 0,
@@ -87,6 +90,7 @@ export function Footer() {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
+    gap: m.s2,
     paddingHorizontal: m.s1,
   };
 
@@ -118,7 +122,7 @@ export function Footer() {
         <Press
           onPress={undo}
           accessibilityLabel="undo the last entry"
-          style={edgeCell}
+          style={cell}
           pressedStyle={{ backgroundColor: t.surface2 }}
         >
           <Text numberOfLines={1} style={{ ...navText, color: t.ink }}>
@@ -128,37 +132,34 @@ export function Footer() {
 
         <Divider />
 
-        {/* the two clock cells share one gradient and no rule between them, so
-            they read as a single cell while staying two buttons */}
-        <LinearGradient
-          colors={[clockGrad[0], clockGrad[1]]}
-          style={{
-            flexGrow: 0,
-            flexShrink: 0,
-            alignSelf: 'stretch',
-            flexDirection: 'row',
-            alignItems: 'stretch',
-          }}
-        >
+        {/* The middle, and DOUBLE: three numbers, three controls, ruled
+            apart. The clock and the quarter were one tinted block and are now
+            two cells, which is what they always were.
+
+            The four PARTS are 1/2/1; these three cells are 1.25/1.05/0.70, and
+            deliberately uneven. `108 : 99` is six digits, `07:24` is four,
+            `1ST` is three at a smaller step, so an even split starves the score
+            and wastes half the quarter's cell. The weights sum to 3, so the
+            block itself is unchanged whatever they are. */}
+        <View style={{ ...cell, flexGrow: 2, gap: 0, paddingHorizontal: 0 }}>
+          <ScoreCell grow={1.25} />
+
+          <Divider />
+
           <Press
             onPress={() => setRunning(!running)}
             accessibilityLabel="start or stop the clock"
-            style={{
-              alignSelf: 'stretch',
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'flex-end',
-              paddingLeft: m.s2,
-            }}
-            pressedStyle={{ opacity: 0.9 }}
+            style={{ ...cell, flexGrow: 1.05, gap: 0 }}
+            pressedStyle={{ backgroundColor: t.surface2 }}
           >
             <Text
               numberOfLines={1}
               style={{
                 fontFamily: fNum(700),
-                fontSize: m.fsNavLg,
-                color: t.clockInk,
-                textAlign: 'right',
+                fontSize: m.fsFtr * 1.5,
+                // the clock's state, in ink rather than in a fill
+                color: running ? t.accent : t.danger,
+                textAlign: 'center',
                 fontVariant: ['tabular-nums'],
               }}
             >
@@ -166,48 +167,62 @@ export function Footer() {
             </Text>
           </Press>
 
+          <Divider />
+
           <Press
             onPress={() => { if (!ended) open({ kind: 'endQuarter' }); }}
             accessibilityLabel="end this quarter or adjust the clock"
-            style={{
-              alignSelf: 'stretch',
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'flex-start',
-              paddingLeft: m.s2,
-              paddingRight: m.s2,
-            }}
-            pressedStyle={{ opacity: 0.9 }}
+            style={{ ...cell, flexGrow: 0.7, gap: 0 }}
+            pressedStyle={{ backgroundColor: t.surface2 }}
           >
             <Text
               numberOfLines={1}
               style={{
                 fontFamily: fNum(600),
-                fontSize: m.fsNavSm,
-                letterSpacing: ls(m.fsNavSm, LS_LABEL),
-                color: t.clockInk,
-                opacity: 0.75,
+                fontSize: m.fsFtrSm,
+                letterSpacing: ls(m.fsFtrSm, LS_LABEL),
+                color: t.ink2,
+                textAlign: 'center',
                 fontVariant: ['tabular-nums'],
               }}
             >
-              {ord(period).toUpperCase()} QT
+              {ord(period).toUpperCase()}
             </Text>
           </Press>
-        </LinearGradient>
+        </View>
 
         <Divider />
 
+        {/* one tap is one possession, and the running count sits in the cell so
+            the tap and its result never need a second glance. UNDO takes one
+            back — POSS goes through the same snapshot as every stat. */}
         <Press
-          onPress={onEnd}
-          accessibilityLabel={armed ? 'confirm ending the game' : 'end the game'}
-          style={[edgeCell, armed ? { backgroundColor: t.danger } : null]}
-          pressedStyle={armed ? { opacity: 0.9 } : { backgroundColor: t.surface2 }}
+          onPress={() => { if (!ended) addPossession(); }}
+          accessibilityLabel={`add a possession, ${possessions} so far`}
+          style={cell}
+          pressedStyle={{ backgroundColor: t.surface2 }}
         >
+          {/* the word yields first: on the narrowest footer the count is the
+              half that carries information, so it never shrinks */}
           <Text
             numberOfLines={1}
-            style={{ ...navText, color: armed ? t.dangerInk : t.danger }}
+            ellipsizeMode="clip"
+            style={{ ...navText, flexShrink: 1, minWidth: 0, color: t.ink }}
           >
-            {armed ? 'CONFIRM END' : 'END'}
+            POSS
+          </Text>
+          <Text
+            numberOfLines={1}
+            style={{
+              flexGrow: 0,
+              flexShrink: 0,
+              fontFamily: fNum(700),
+              fontSize: m.fsNavLg,
+              color: t.accent,
+              fontVariant: ['tabular-nums'],
+            }}
+          >
+            {possessions}
           </Text>
         </Press>
       </Surface>

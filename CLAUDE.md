@@ -105,6 +105,22 @@ render only the *one* hot wedge under a `ClipPath`.
 Taps are normalised and **rounded to 3 dp** (`normalise`). Event payloads are stored and
 compared; do not widen that.
 
+**`FT_SPOT` is a mark, not a zone.** Free throws are logged at `(0.5, 0.53)` — the centre of
+the free-throw line — so the chart can draw them, and with **`zone: null` always**. Running
+`zoneFor` on it is the mistake: a free throw is not a field-goal attempt, so any zone it
+answered would be a wrong attempt in the splits. (The answer is boundary noise anyway: the
+spot IS the lane's top edge, and 0.53 sits a tenth of a unit outside `y ≤ 276`, so it reads
+`top2` where 276 itself reads `paint`.) Free throws never touch `fgAttempted` /
+`twoAttempted` / `threeAttempted` — only `ftAttempted` / `ftMade` / `ftTrips`.
+
+**The chart marks shots and free throws, nothing else.** Fouls, rebounds and tallies leave
+no mark. Free throws all land on one coordinate, so there is only ever **one** of them: a
+`danger`-red dot, the same size as a shot's and built the same way, carrying **no label** —
+the made-attempted split lives in the box score, not on the floor. A ring with the split
+inside it was built and cut. It lights as soon as FT is pressed (`ui.what === 'ft'`, which
+is why that flow does not `clear()`) and stays once an attempt is behind it; being derived
+from `events` it follows undo with no special case.
+
 ## Styling: CSS is not React Native, and NativeWind bites
 
 **Never pass a function to `style`.** Not on a `Pressable`, not anywhere. NativeWind's babel
@@ -166,6 +182,14 @@ window height, recomputed on rotation. Anything that must *not* scale comes off 
 step scale `s1`…`s6` (4/8/12/16/24/32). **Nothing interactive may compute below `tap` (48).**
 Never introduce a bare pixel size in a layout; add to the ramp.
 
+**`fsFtr` is the one step a WIDTH decides**, and it is the exception that proves the rule.
+The footer's middle block carries three numbers side by side, so its type is capped by
+`(half − 34) / 5.9` — roughly what `12 : 8`, `07:24` and the quarter come to in Chakra Petch
+with their rules and padding. Since the block went from a third of the row to a half the vh
+term wins very nearly everywhere; the cap stays because `fsNav` grows with the window height
+while the block does not, and the day that crosses over the clock reads `07:2…` rather than
+throwing.
+
 Custom fonts have no numeric weight axis in RN, so a weight is a family name — `fNum()` /
 `fUi()` are the only place that mapping lives. **Tabular numerals everywhere a number can
 change**, so a tick never shifts the layout.
@@ -177,15 +201,19 @@ landscape is narrow but must not stack; an 820×1180 tablet in portrait is wide 
 
 Landscape is two columns and two rows: the board top-left, the footer under it, and the
 rail down the whole right edge — so the footer stops at the rail rather than running under
-it. Portrait is one column: court, full-width score strip, the bar PF/FT/RB shares with the
-three OPP buttons, then the rail, then the footer. **The rail keeps its column form** in
+it. Portrait is one column: court, the bar PF/FT/RB shares with the three OPP buttons, then
+the rail, then the footer. **The score is a footer cell, not a strip** — it used to be a
+full-width row of its own between the court and the bar, and in landscape it headed the OPP
+column above +1/+2/+3. **The rail keeps its column form** in
 portrait rather than lying down as a strip: an aspect-locked court on a narrow phone is
 never much more than a third of the screen tall, so a strip left 200–350px of dead space.
 
 **The court is sized by arithmetic, not by the layout engine.** `computeMetrics` subtracts
 the rail, the action column, the OPP column, the safe-area insets and the five gaps, then
 aspect-locks what is left. A wrong term does not throw — it silently shrinks the court to
-nothing. Changing a row in either layout means changing the matching subtraction.
+nothing. **Changing a row in either layout means changing the matching subtraction**: moving
+the score into the footer took a term *and* a gap out of the portrait sum, and leaving them
+would have cost the court 35–58px it is now owed.
 
 **Horizontal safe insets are capped at `SIDE_INSET` (24).** iOS hands a landscape phone
 44pt on *both* edges for a cutout that bites the middle third of one of them; honouring
@@ -201,12 +229,14 @@ Widening them is a straight trade against court width; check both on a tablet, w
 is no inset to reclaim.
 
 **`compact` is `height ≤ 560`.** Panels tighten and layout blocks narrow in both
-orientations; the tap floor on the rail rows and score cell is released only in
-**landscape**, because a 330×490 phone is compact too and must keep the portrait stack.
+orientations; the tap floor on the rail rows is released only in **landscape**, because a
+330×490 phone is compact too and must keep the portrait stack.
 
 ## Panels
 
-Three placement modes, in `PanelHost`'s `MODE` map:
+Three placement modes, in the `MODE` map — which lives in `components/panels/placement.ts`,
+**not** in `PanelHost`, because the footer needs the same answer and importing `PanelHost`
+there would drag every panel in with it. Ask `isDocked()`; never keep a second list.
 
 | mode | where | scrim |
 |---|---|---|
@@ -214,10 +244,64 @@ Three placement modes, in `PanelHost`'s `MODE` map:
 | `court` | the court's own footprint, top edge to footer | dimmed |
 | `center` / `wide` | a centred dialog | dimmed |
 
-**`dock` belongs to exactly one panel — step 1 of a shot.** The point of tapping a spot is
-seeing the spot, so it must neither cover the court nor dim it. It runs the full height of
+**A `court` panel is TALLER than the court.** `courtBox` runs the board's full top-to-bottom,
+and the court is aspect-locked and centred inside it, so the slack above and below the floor
+belongs to the panel. Sizing a panel against `m.court.h` under-counts it badly — on a 667×320
+phone the court is 221 tall and the box is 249; on a 330×490 phone in portrait the court is
+116 and the box is 204. **Measure with `useCourtBox()`, never with the court metric.**
+
+**The quarter panel wears the foul panel's shell.** `endQuarter` is a `court`
+panel — header, 1px seams, code-over-caption tiles — because it is the same kind
+of decision as a foul kind: one tap out of a short list, made with the game in
+front of you. Its title is the quarter being played.
+
+**Its two rows are written out, not chunked**, which is what `PRows` is for:
+−1s / +1s / SET take a third of the top each, END QUARTER and END GAME take half
+the bottom each, so the row you must not mis-tap is the biggest target on the
+panel. A third of the smallest court (276×182, a 667×320 phone) is about four
+characters of code and ten of caption, and that is the budget the top row's
+labels are cut to. ±1s lands immediately and leaves the panel open; a clock is
+rarely corrected in one tap. **A FULL RESET tile was built and cut** to give the
+bottom row its halves — `nextQuarter` puts a whole period back anyway, and SET
+reaches 10:00 like any other time, so `resetClock` survives with no caller.
+
+**A `Tile`'s `tone` is INK ONLY** — `danger` for END GAME, `accent` for SET on
+the clock pad, and it colours the code *and* the caption, never a fill. A tile
+keeps its opaque surface whatever it does, because the 1px seam is what the grid
+is made of; a filled tile eats its own seam. It also sidesteps the
+inverted-surface trap, since there is no background here to lose its ink.
+
+**`dock` belongs to the two panels whose point is seeing the floor while you tap** — step 1
+of a shot (the spot you just marked) and the free-throw result (the aggregated mark on the
+line ticking up). It must neither cover the court nor dim it. It runs the full height of
 the column, which is over END, so **the footer gives back exactly the overlap**
 (`dockFooterOverlap`) and the nav's four cells re-centre in what is left.
+
+**The FT flow deliberately does not `clear()` on the way in.** `Board`'s `start('ft')` skips
+it precisely so the court mark stays visible under the dock; PF and RB still clear, because
+neither has a court spot. `FTDockPanel` is one tap per attempt and **stays open** so a two-
+or three-shot trip is tapped straight through, and only X closes it. Its header is the
+title and the X and **nothing else** — a running made-attempted chip was built and cut, the
+same call as the dot's missing label. `TripSizePanel` / `TripShotsPanel` stay centred: they
+are a form, not a two-way choice, and do not fit the dock's one-column shape.
+
+**`SetClockPanel` is a `court` panel like the menu it is tapped next to, and its header is
+the quarter, the entry and the X.** Everything about it is the foul panel: `PHead`, the seam
+grid, `Tile`. **Three rows, and the readout in the header, is the layout constraint** — the
+tightest box is a 330×490 phone in portrait at 321×204, so after the header there are 156px:
+three tap-sized rows at 52 each, where a fourth would put every one of them at 39. A readout
+band of its own would eat one of the three, so the entry sits beside the title instead,
+dimmed while it still shows the live clock and solid once the first digit lands. Twelve cells
+in 4×3 — the familiar 3×3 of digits with DEL / 0 / SET down the right. The title says
+`1ST QT` rather than naming the action a second time, and there is **no BACK button** —
+CANCEL covers getting one wrong, exactly as it does everywhere else.
+
+**The keypad fills mm:ss LEFT TO RIGHT and SET stays dark until all four slots are down.**
+Shifting digits in from the right was built and cut: it reaches 0:45 in two taps instead of
+four, but it moves every digit already on screen with each keystroke. `pushClockDigit`
+**refuses** a tens-of-seconds digit over 5 rather than clamping it afterwards — that is the
+one rule keeping the readout honest at every point in the entry, because a clamp puts a time
+on screen that SET does not apply. A typed time stops the clock; ±1s does not.
 
 **`court` panels are measured, not calculated.** `courtBox()` reads real rects off
 `layoutStore`. The layout arithmetic already lives in `metrics.ts` and in the flex tree; a
@@ -258,13 +342,34 @@ permanently; `substitute` refuses to send them back to the bench.
 disqualified fill the gap (shown `OUT`, dimmed) so the column keeps its rhythm and the
 player stays reachable; past that it pads with empty rows.
 
-**The footer is UNDO / clock / period / END.** There is no PLAY button and no CLOCK button:
-the time IS the clock control. It carries its state as colour, and stopped is the base
-state, so a board nobody has touched reads red — which is true. UNDO and END take `flex:1`;
-the time and period size to their own text and never shrink.
+**The footer is four parts, 1 / 2 / 1: UNDO | score · clock · quarter | POSS.** Every cell
+grows off a `flexBasis:0`, so nothing sizes to its own text and nothing bunches at the left.
+**The readout takes the middle and takes double**: it is three numbers where either flank is
+one word, so an even quarter each starved it, and the middle is where the eye goes — the
+right place for the only part of the row that is read rather than pressed. The two verbs keep
+the corners, as far apart as the row allows.
 
-**END is armed before it fires.** The first tap swaps the label to CONFIRM END for 4
-seconds; the second opens the confirm panel.
+**Inside the middle the split is weighted, not equal** — 1.25 / 1.05 / 0.70, summing to 3 so
+the block itself does not move. `108 : 99` is six digits, `07:24` is four and `1ST` is three
+at a smaller step; an even split starves the score and wastes half the quarter's cell.
+
+**The clock and the quarter are two cells with a rule between them.** They are two different
+controls and were once told apart only by sharing a tint. There is still no PLAY button and
+no CLOCK button — the time IS the clock control — but **its state is carried by the ink, not
+by a fill**: the red/green gradient behind the pair is gone, a running clock reads accent and
+a stopped one reads danger. Stopped is still the base state, so a board nobody has touched
+still reads red — which is true. `clockRun` / `clockStop` / `clockInk` went with the
+gradient; the palette has no dead entries.
+
+**POSS took END's cell, and END's arming went with it.** Ending a game is a once-a-night
+decision and now lives on the quarter panel next to the other thing that ends; the confirm
+panel is what makes a mis-tap there survivable. A possession is tapped dozens of times, so
+it belongs on the board: one tap is +1, the running count sits in the cell, and it goes
+through `edit()` like every stat, so UNDO takes one back.
+
+**`possessions` is a plain integer on `GameState` and nothing else.** No event, no player
+stat — a possession belongs to the team and the board cannot know whose it was. It IS in the
+undo `Snapshot`, which is the only list that has to be kept in step.
 
 **Minutes are clock-driven**, and the clock's `tick` is the one action that does **not**
 deep-copy — `secondsPlayed` changes 600 times a quarter, and a new roster identity each

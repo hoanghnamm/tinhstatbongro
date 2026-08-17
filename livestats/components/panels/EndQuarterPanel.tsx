@@ -1,81 +1,82 @@
-import { Text } from 'react-native';
-
-import { PERIOD_LEN } from '../../constants/game';
 import { useAnnounce } from '../../hooks/useAnnounce';
 import { mmss, ord } from '../../lib/format';
 import { useGameStore } from '../../store/gameStore';
 import { useUiStore } from '../../store/uiStore';
-import { useMetrics } from '../../theme/metrics';
-import { fNum } from '../../theme/tokens';
-import { useTheme } from '../../theme/useTheme';
-import { Btn, PTitle, Row, Stack } from './shell';
-
-const clamp = (lo: number, v: number, hi: number) => Math.min(hi, Math.max(lo, v));
+import { CancelX, PHead, PRows, PTitleText, Pts, Tile } from './shell';
 
 /**
- * Also the clock panel. Once the time itself became the run/stop control it
- * stopped being an entrance to anything, so the period label carries both jobs:
- * ending the quarter and correcting a wrong clock.
+ * The clock panel, wearing the foul panel's shell: header, 1px seams, a grid of
+ * abbreviation-over-word tiles, placed over the court. It is the same kind of
+ * decision as a foul kind — one tap out of a short list, made with the game in
+ * front of you — so it gets the same shape rather than a dialog's.
  *
- * END QUARTER stays a confirm rather than a direct action, because a mis-tap
- * there throws away whatever time is still on the board.
+ * The title IS the quarter being played, so the panel names the thing it is
+ * about to end and the live time sits beside it.
+ *
+ * ±1s lands immediately and the panel stays open, because correcting a clock is
+ * rarely one tap and reopening between them is the whole cost. SET hands off to
+ * the keypad, and the two that end something close.
+ *
+ * Two rows, written out rather than chunked: the clock keys take a third of the
+ * top each and the two enders take half the bottom each, which is what makes
+ * the row you must not mis-tap the biggest target on the panel. END GAME is the
+ * only red text on it.
  */
 export function EndQuarterPanel() {
-  const m = useMetrics();
-  const t = useTheme();
   const period = useGameStore((s) => s.period);
   const remaining = useGameStore((s) => s.remaining);
   const adjustClock = useGameStore((s) => s.adjustClock);
-  const resetClock = useGameStore((s) => s.resetClock);
   const nextQuarter = useGameStore((s) => s.nextQuarter);
+  const open = useUiStore((s) => s.open);
   const reset = useUiStore((s) => s.reset);
+  const say = useUiStore((s) => s.say);
 
   useAnnounce(`${ord(period)} quarter`);
 
   return (
     <>
-      <PTitle title={`${ord(period)} quarter`} kind={`${mmss(remaining)} LEFT`} tone="ink" />
-      <Text
-        style={{
-          fontFamily: fNum(700),
-          fontSize: clamp(44, 0.11 * m.win.h, 120),
-          textAlign: 'center',
-          color: t.ink,
-          fontVariant: ['tabular-nums'],
-        }}
-      >
-        {mmss(remaining)}
-      </Text>
-      <Text
-        style={{
-          fontFamily: fNum(600), fontSize: m.fsMd, textAlign: 'center',
-          color: t.ink2, marginTop: m.s1,
-        }}
-      >
-        {ord(period)} Quarter
-      </Text>
-      <Stack>
-        <Row mt>
-          <Btn label="MINUS 1:00" onPress={() => adjustClock(-60)} />
-          <Btn label="PLUS 1:00" onPress={() => adjustClock(60)} />
-        </Row>
-        <Row>
-          <Btn label={`RESET ${mmss(PERIOD_LEN)}`} onPress={resetClock} />
-        </Row>
-        <Row>
-          <Btn
-            label="END QUARTER"
-            variant="made"
-            onPress={() => {
-              nextQuarter();
-              reset();
-            }}
-          />
-        </Row>
-        <Row>
-          <Btn label="CLOSE" variant="solid" onPress={reset} />
-        </Row>
-      </Stack>
+      <PHead>
+        <PTitleText>{`${ord(period).toUpperCase()} QUARTER`}</PTitleText>
+        <Pts>{mmss(remaining)}</Pts>
+        <CancelX />
+      </PHead>
+      {/* the top row's code and caption read as one phrase — "−1s second",
+          "SET the time". A third of the smallest court is about four characters
+          of code and ten of caption, and neither may truncate. */}
+      <PRows
+        rows={[
+          [
+            <Tile key="dn" code="−1s" caption="SECOND" onPress={() => adjustClock(-1)} />,
+            <Tile key="up" code="+1s" caption="SECOND" onPress={() => adjustClock(1)} />,
+            <Tile
+              key="set"
+              code="SET"
+              caption="THE TIME"
+              onPress={() => open({ kind: 'setClock' })}
+            />,
+          ],
+          [
+            <Tile
+              key="qt"
+              code="END"
+              caption="QUARTER"
+              onPress={() => {
+                nextQuarter();
+                reset();
+                say(`${ord(period + 1)} quarter`);
+              }}
+            />,
+            // red, and still only an opener: END GAME keeps its confirm panel
+            <Tile
+              key="gm"
+              code="END"
+              caption="GAME"
+              tone="danger"
+              onPress={() => open({ kind: 'endGame' })}
+            />,
+          ],
+        ]}
+      />
     </>
   );
 }

@@ -26,6 +26,7 @@ export function Tile({
   selected = false,
   disabled = false,
   big = false,
+  tone = 'ink',
   onPress,
   accessibilityLabel,
 }: {
@@ -36,12 +37,21 @@ export function Tile({
   disabled?: boolean;
   /** two tiles instead of four, so the abbreviation takes the next size up */
   big?: boolean;
+  /**
+   * INK ONLY. A tile keeps its opaque surface whatever it does — the 1px seam
+   * is what the grid is made of — so the one thing that can mark a tile out is
+   * the colour of its text: `danger` for END GAME, `accent` for the one key
+   * that commits, like SET on the clock pad. That also sidesteps the inverted
+   * surface trap: there is no fill here to lose its matching ink.
+   */
+  tone?: 'ink' | 'danger' | 'accent';
   onPress?(): void;
   accessibilityLabel?: string;
 }) {
   const m = useMetrics();
   const t = useTheme();
   const size = big ? m.fs4xl : m.fs3xl;
+  const toned = tone === 'danger' ? t.danger : tone === 'accent' ? t.accent : null;
 
   return (
     <Press
@@ -77,7 +87,7 @@ export function Tile({
           fontSize: size,
           lineHeight: size * 1.1,
           textAlign: 'center',
-          color: t.ink,
+          color: toned ?? t.ink,
           fontVariant: ['tabular-nums'],
         }}
       >
@@ -94,7 +104,9 @@ export function Tile({
             fontFamily: fUi(600),
             fontSize: m.fsXs,
             letterSpacing: ls(m.fsXs, LS_LABEL),
-            color: t.ink2,
+            // both lines or neither: a red code over a grey word reads as two
+            // different things stacked, not as one red button
+            color: toned ?? t.ink2,
           }}
         >
           {caption}

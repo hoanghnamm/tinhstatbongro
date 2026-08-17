@@ -7,7 +7,20 @@
  * geometry written twice, and neither may be changed alone.
  */
 import { THREES } from '../constants/game';
-import type { ShotType, Zone, ZoneSide } from '../types';
+import type { Position, ShotType, Zone, ZoneSide } from '../types';
+
+/**
+ * Where a free throw is taken: the centre of the free-throw line, court
+ * (396, 276) on the same 792 × 521 viewBox.
+ *
+ * It is a court MARK and nothing more. `zoneFor` is deliberately never run on
+ * it: a free throw is not a field-goal attempt, so ANY zone it answered would
+ * be a wrong attempt in the splits. The answer is also boundary noise — the
+ * spot IS the lane's top edge, and 0.53 (276 normalised to 3 dp) lands a tenth
+ * of a unit outside `y ≤ 276`, so it reads `top2` where 276 itself reads
+ * `paint`. One more reason not to ask.
+ */
+export const FT_SPOT: Position = { x: 0.5, y: 0.53 };
 
 export function zoneFor(nx: number, ny: number): Zone {
   const x = nx * 792,

@@ -16,6 +16,7 @@ import { Inter_600SemiBold } from '@expo-google-fonts/inter/600SemiBold';
 import { Inter_700Bold } from '@expo-google-fonts/inter/700Bold';
 
 import './global.css';
+import { RotateGate } from './components/RotateGate';
 import { Toast } from './components/Toast';
 import { Board } from './components/board/Board';
 import { PanelHost } from './components/panels/PanelHost';
@@ -41,6 +42,9 @@ function Root() {
       <Board />
       <PanelHost />
       <Toast />
+      {/* last, and over all three: on a portrait PHONE nothing behind it is
+          usable. A tablet in portrait is a designed layout and never sees it. */}
+      <RotateGate />
     </View>
   );
 }

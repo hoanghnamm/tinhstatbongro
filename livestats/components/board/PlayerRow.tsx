@@ -1,10 +1,10 @@
-import { Text } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { FOULS } from '../../constants/game';
 import { useMetrics } from '../../theme/metrics';
 import { fNum } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
-import { Badge, type BadgeTone } from '../ui/Badge';
+import { FoulDots } from '../ui/FoulDots';
 import { Press } from '../ui/Press';
 import { Fixed } from '../ui/Row';
 import type { Player } from '../../types';
@@ -37,7 +37,6 @@ export function PlayerRow({
   const squeeze = m.compact && !m.portrait;
 
   const fouls = player.stats.fouls;
-  const tone: BadgeTone = fouls >= FOULS ? 'out' : fouls >= FOULS - 1 ? 'warn' : 'quiet';
 
   return (
     <Press
@@ -88,39 +87,43 @@ export function PlayerRow({
         </Text>
       </Fixed>
 
-      {/* the only child that gives up space: it takes the slack and truncates */}
-      <Text
-        numberOfLines={1}
-        ellipsizeMode="tail"
-        style={{
-          flexGrow: 1,
-          flexShrink: 1,
-          flexBasis: 0,
-          minWidth: 0,
-          fontFamily: fNum(600),
-          fontSize: m.fsSm,
-          color: selected ? t.accentInk : t.ink,
-        }}
-      >
-        {player.name}
-      </Text>
-
-      <Text
-        numberOfLines={1}
+      <View
         style={{
           flexGrow: 0,
           flexShrink: 0,
-          fontFamily: fNum(700),
-          fontSize: m.fsMd,
-          color: selected ? t.accentInk : t.ink,
-          fontVariant: ['tabular-nums'],
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 2,
         }}
       >
-        {dq ? 'OUT' : player.stats.points}
-      </Text>
+        <Text
+          numberOfLines={1}
+          style={{
+            fontFamily: fNum(700),
+            fontSize: m.fsMd,
+            color: selected ? t.accentInk : t.ink,
+            fontVariant: ['tabular-nums'],
+          }}
+        >
+          {dq ? 'OUT' : player.stats.points}
+        </Text>
+        {!dq && (
+          <Text
+            numberOfLines={1}
+            style={{
+              fontFamily: fNum(400),
+              fontSize: m.fsSm * 0.75,
+              color: t.ink2,
+            }}
+          >
+            pts
+          </Text>
+        )}
+      </View>
 
-      {/* one number, not five pips: a scorer calls out "four on twelve" */}
-      <Badge value={fouls} tone={tone} inverted={selected} />
+      {/* foul dots: filled dots for fouls incurred, empty for available */}
+      <FoulDots value={fouls} inverted={selected} style={{ flexShrink: 0 }} />
     </Press>
   );
 }
