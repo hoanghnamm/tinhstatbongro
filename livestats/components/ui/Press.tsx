@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Pressable, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, type StyleProp, type View, type ViewStyle } from 'react-native';
 
 /**
  * The only Pressable this app uses. Do not reach for React Native's directly.
@@ -26,6 +26,13 @@ export interface PressProps {
   disabled?: boolean;
   accessibilityLabel?: string;
   /**
+   * Same convention as `Surface`. A control the scrim has to cut a hole for
+   * must be measurable, and wrapping one in a plain View to get a ref would put
+   * the flex rules on the wrapper and the paint on the child.
+   */
+  innerRef?: React.Ref<View>;
+  onLayout?(): void;
+  /**
    * A render prop when the CONTENT has to react to the press too — an inverted
    * button flips its ink with its fill, and dropping one half of that pair is
    * how a control turns into a blank slab.
@@ -39,12 +46,16 @@ export function Press({
   onPress,
   disabled = false,
   accessibilityLabel,
+  innerRef,
+  onLayout,
   children,
 }: PressProps) {
   const [pressed, setPressed] = useState(false);
 
   return (
     <Pressable
+      ref={innerRef}
+      onLayout={onLayout}
       onPress={onPress}
       disabled={disabled || !onPress}
       onPressIn={() => setPressed(true)}

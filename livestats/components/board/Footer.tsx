@@ -1,8 +1,9 @@
 import { Text, View } from 'react-native';
 
 import { mmss, ord } from '../../lib/format';
+import { litControl } from '../../lib/lit';
 import { useGameStore } from '../../store/gameStore';
-import { dockFooterOverlap, useMeasure, useRects } from '../../store/layoutStore';
+import { dockFooterOverlap, useLitRect, useMeasure, useRects } from '../../store/layoutStore';
 import { useUiStore } from '../../store/uiStore';
 import { useMetrics } from '../../theme/metrics';
 import { LS_BTN, LS_LABEL, fNum, ls } from '../../theme/tokens';
@@ -73,6 +74,11 @@ export function Footer() {
 
   const panel = useUiStore((s) => s.panel);
   const open = useUiStore((s) => s.open);
+  // the quarter cell stays lit through the whole chain it opens — the quarter
+  // menu, SET CLOCK and END GAME are all one tap of this cell. UNDO, POSS and
+  // the clock open nothing, so they light under the finger and no longer.
+  const lit = useUiStore((s) => litControl(s.panel, s.what) === 'quarter');
+  const hole = useLitRect(lit);
 
   // a docked panel runs the full height of the column beside the court, which
   // is over POSS. The footer gives back exactly the overlap so the cells
@@ -123,7 +129,7 @@ export function Footer() {
           onPress={undo}
           accessibilityLabel="undo the last entry"
           style={cell}
-          pressedStyle={{ backgroundColor: t.surface2 }}
+          pressedStyle={{ backgroundColor: t.press }}
         >
           <Text numberOfLines={1} style={{ ...navText, color: t.ink }}>
             UNDO
@@ -150,7 +156,7 @@ export function Footer() {
             onPress={() => setRunning(!running)}
             accessibilityLabel="start or stop the clock"
             style={{ ...cell, flexGrow: 1.05, gap: 0 }}
-            pressedStyle={{ backgroundColor: t.surface2 }}
+            pressedStyle={{ backgroundColor: t.press }}
           >
             <Text
               numberOfLines={1}
@@ -172,8 +178,15 @@ export function Footer() {
           <Press
             onPress={() => { if (!ended) open({ kind: 'endQuarter' }); }}
             accessibilityLabel="end this quarter or adjust the clock"
-            style={{ ...cell, flexGrow: 0.7, gap: 0 }}
-            pressedStyle={{ backgroundColor: t.surface2 }}
+            innerRef={hole.ref}
+            onLayout={hole.onLayout}
+            style={{
+              ...cell,
+              flexGrow: 0.7,
+              gap: 0,
+              backgroundColor: lit ? t.press : 'transparent',
+            }}
+            pressedStyle={{ backgroundColor: t.press }}
           >
             <Text
               numberOfLines={1}
@@ -200,7 +213,7 @@ export function Footer() {
           onPress={() => { if (!ended) addPossession(); }}
           accessibilityLabel={`add a possession, ${possessions} so far`}
           style={cell}
-          pressedStyle={{ backgroundColor: t.surface2 }}
+          pressedStyle={{ backgroundColor: t.press }}
         >
           {/* the word yields first: on the narrowest footer the count is the
               half that carries information, so it never shrinks */}

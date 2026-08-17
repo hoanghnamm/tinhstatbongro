@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Text, View, type LayoutChangeEvent } from 'react-native';
 
+import { useLitRect } from '../../store/layoutStore';
 import { useMetrics } from '../../theme/metrics';
 import { fNum, fUi } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
@@ -31,16 +32,24 @@ const clamp = (lo: number, v: number, hi: number) => Math.min(hi, Math.max(lo, v
 export function PlayerRow({
   player,
   selected,
+  lit = false,
   onPress,
 }: {
   player: Player;
   selected: boolean;
+  /**
+   * This row's own panel is open, so it holds the pressed fill until that panel
+   * closes. `selected` outranks it: an accent row is already the loudest thing
+   * in the column and stacking a second state on it would say nothing more.
+   */
+  lit?: boolean;
   onPress(): void;
 }) {
   const m = useMetrics();
   const t = useTheme();
   const dq = player.status === 'out';
   const squeeze = m.compact && !m.portrait;
+  const hole = useLitRect(lit);
 
   // what the cell turned out to be, once the row has laid out; the ramp value
   // is only the first frame's guess
@@ -64,6 +73,8 @@ export function PlayerRow({
     <Press
       onPress={onPress}
       accessibilityLabel={`#${player.number} ${player.name}${dq ? ', fouled out' : ''}`}
+      innerRef={hole.ref}
+      onLayout={hole.onLayout}
       style={{
         flex: 1,
         minWidth: 0,
@@ -77,10 +88,10 @@ export function PlayerRow({
         borderRadius: m.rSm,
         borderBottomWidth: 1,
         borderBottomColor: selected ? t.accent : t.rule,
-        backgroundColor: selected ? t.accent : 'transparent',
+        backgroundColor: selected ? t.accent : lit ? t.press : 'transparent',
         opacity: dq ? 0.55 : 1,
       }}
-      pressedStyle={selected ? undefined : { backgroundColor: t.surface2 }}
+      pressedStyle={selected ? undefined : { backgroundColor: t.press }}
     >
       {/* a plate, not a bubble: floor-to-ceiling in the row, so the number gets
           the whole height of the cell rather than a circle's inscribed square.

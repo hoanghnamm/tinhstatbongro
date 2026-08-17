@@ -158,6 +158,31 @@ carry both across; keeping the ink and losing the fill is how MADE and SUBSTITUT
 dark-on-dark. `npm run check` greps for all three — function styles, raw `Pressable`
 imports outside `components/ui/`, and a fill without its matching ink.
 
+**A press on the board LIGHTS the cell, and `t.press` is the only fill that does it.** The
+score, the clock, the quarter, POSS, UNDO, a player row and PF/FT/RB all take `t.press` while
+the finger is down, and it is a step *up* from `surface` — `surface2` is the canvas, which is
+darker than the surface in every skin, so using it there read as the cell dimming at the one
+moment it is the thing being looked at. It is a brightness and not a hue: no accent, no tint.
+A light skin is the exception the token records rather than hides — its surface is already
+white, so `press` stays the canvas because down is the only direction left with contrast to
+spend. Panels and `Tile` still press on `surface2`; they sit on a scrim, not on the board.
+
+**And the light is HELD until the panel it opened closes.** `lib/lit.ts` answers which
+control that is, and it is a function rather than a second `Record<Panel['kind'], …>` beside
+`MODE` for two reasons: **step 2 is shared** — `who` is one panel for PF, FT, RB, a tally and
+a shot, so only the in-flight `what` says whose flow it is — and **a tap can open a chain**,
+so the quarter cell owns `endQuarter`, `setClock` and `endGame` alike. `litPlayerId` is the
+rail's half of it: the row whose own panel is open, which is **not** `ui.shooter` and does not
+outrank it. UNDO, POSS and the clock open nothing and are therefore deliberately absent —
+holding them lit would mean inventing a state the model does not have.
+
+**`rects.lit` is one slot, not a key per control**, because two are never lit at once. It is
+measured on the OFF→ON edge rather than in `onLayout`, since becoming lit is not a layout
+change — the panel opened, the row did not move — with `onLayout` kept as well so a rotation
+mid-panel does not strand the hole. `useLitRect` clears the slot on cleanup, and React runs
+every cleanup in a commit before any effect, so a control going dark cannot wipe the slot of
+the one lighting up beside it.
+
 **The tile grid's 1px divider IS the gap:** a rule-coloured parent showing through 1px
 seams. Tiles must be opaque and carry no border and no radius, or the seam disappears.
 
@@ -243,6 +268,15 @@ there would drag every panel in with it. Ask `isDocked()`; never keep a second l
 | `dock` | the columns right of the court, the rail's full height | **clear** |
 | `court` | the court's own footprint, top edge to footer | dimmed |
 | `center` / `wide` | a centred dialog | dimmed |
+
+**A dimmed scrim is FOUR bands with the lit control cut out of them, not one sheet.** The
+button that opened the panel is the one thing on the board that is not behind it, so it must
+not be dimmed — and no fill can achieve that, because a 45% black sheet multiplies the lit
+cell down along with its neighbours. Nor can the cell be lifted over the top: RN's `zIndex`
+orders siblings, and every board control is a grandchild of a view that is `PanelHost`'s
+sibling, so no depth given to a cell climbs past the overlay. `Scrim` therefore tiles the
+window around `rects.lit` — **the bands must not overlap**, or two 45% sheets crossing draw a
+darker seam. `dock` never cuts a hole; it has no sheet to cut.
 
 **A `court` panel is TALLER than the court.** `courtBox` runs the board's full top-to-bottom,
 and the court is aspect-locked and centred inside it, so the slack above and below the floor

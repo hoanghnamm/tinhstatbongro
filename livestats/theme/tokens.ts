@@ -25,6 +25,19 @@ export interface Palette {
   bg: string;
   surface: string;
   surface2: string;
+  /**
+   * The fill a board control wears while the finger is on it: one step AWAY
+   * from `surface`, and on a dark skin that step goes UP. `surface2` is the
+   * canvas, which is darker than the surface in every skin, so using it here
+   * made a press read as the cell dimming — backwards for the one moment the
+   * cell is the thing you are looking at. It carries no hue of its own; a lit
+   * cell is a lighter cell and nothing more.
+   *
+   * A light skin has no headroom — its surface is already white — so there
+   * `press` stays the canvas, which is the only direction left with contrast
+   * to spend.
+   */
+  press: string;
   rule: string;
   line: string;
   /* accent & state */
@@ -56,6 +69,8 @@ interface Raw {
   court: string;
   surface: string;
   canvas: string;
+  /** the pressed fill; a lift off `surface`, or the canvas where white caps it */
+  press: string;
   rule: string;
   danger: string;
   courtLine: string;
@@ -74,6 +89,7 @@ const semantic = (r: Raw): Palette => ({
   bg: r.canvas,
   surface: r.surface,
   surface2: r.canvas,
+  press: r.press,
   rule: r.rule,
   line: r.rule,
   accent: r.teal600,
@@ -101,6 +117,7 @@ const RAW: Record<SkinName, Raw> = {
     court: '#B9C6CB',
     surface: '#FFFFFF',
     canvas: '#EEF1F2',
+    press: '#EEF1F2', // white has nowhere brighter to go
     rule: '#D5DCDF',
     danger: '#B3261E',
     courtLine: '#FFFFFF',
@@ -116,6 +133,7 @@ const RAW: Record<SkinName, Raw> = {
     court: '#2C3238',
     surface: '#181B20',
     canvas: '#0E1013',
+    press: '#272D36', // a clear step above both the surface and its rule
     rule: '#2B3038',
     danger: '#E4576A',
     courtLine: '#FFFFFF',
@@ -132,6 +150,7 @@ const RAW: Record<SkinName, Raw> = {
     court: '#A9B4DC',
     surface: '#FFFFFF',
     canvas: '#E9ECFA',
+    press: '#E9ECFA', // as with `light`: the surface is already white
     rule: '#CED6F0',
     danger: '#D2394C',
     courtLine: '#FFFFFF',
@@ -151,6 +170,7 @@ const RAW: Record<SkinName, Raw> = {
     court: '#252C46',
     surface: '#1A2038',
     canvas: '#0C1020',
+    press: '#2D3557', // a clear step above both the surface and its rule
     rule: '#333B58',
     danger: '#FF6B7E',
     courtLine: '#FFFFFF',
@@ -177,6 +197,7 @@ export const COLOR_KEYS = [
   'bg',
   'surface',
   'surface2',
+  'press',
   'rule',
   'line',
   'accent',

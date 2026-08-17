@@ -31,6 +31,7 @@ module.exports = {
         bg: color('bg'),
         surface: color('surface'),
         'surface-2': color('surface-2'),
+        press: color('press'),
         rule: color('rule'),
         line: color('line'),
         accent: color('accent'),

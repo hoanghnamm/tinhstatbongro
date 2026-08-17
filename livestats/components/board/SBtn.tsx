@@ -1,5 +1,8 @@
 import { Text, View } from 'react-native';
 
+import { litControl } from '../../lib/lit';
+import { useLitRect } from '../../store/layoutStore';
+import { useUiStore } from '../../store/uiStore';
 import { useMetrics } from '../../theme/metrics';
 import { LS_LABEL, fNum, fUi, ls } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
@@ -13,28 +16,41 @@ import { Press } from '../ui/Press';
  * `opp` inverts on press — those buttons score immediately with no panel to
  * confirm them, so the press itself has to be the confirmation. Background and
  * ink flip together; flipping one alone is how a control goes invisible.
+ *
+ * PF / FT / RB open a panel instead, so their press only has to say "this one":
+ * `t.press` lifts the tile off the surface and takes the border with it, so the
+ * cell reads as lit rather than as an outline that got darker inside. `lit`
+ * holds exactly that fill for as long as the flow the button started is open —
+ * a `court` panel dims the board without covering these three, and a lit tile
+ * under the scrim is the only thing that says which one you are answering.
  */
 export function SBtn({
   code,
   label,
   onPress,
   opp = false,
+  lit = false,
   accessibilityLabel,
 }: {
   code: string;
   label?: string;
   onPress(): void;
   opp?: boolean;
+  /** held while the panel this button opened is on screen */
+  lit?: boolean;
   accessibilityLabel?: string;
 }) {
   const m = useMetrics();
   const t = useTheme();
   const portrait = m.portrait;
+  const hole = useLitRect(lit);
 
   return (
     <Press
       onPress={onPress}
       accessibilityLabel={accessibilityLabel ?? (label ? `${code} ${label}` : code)}
+      innerRef={hole.ref}
+      onLayout={hole.onLayout}
       style={{
         flexGrow: 1,
         flexShrink: 1,
@@ -47,14 +63,14 @@ export function SBtn({
         paddingVertical: portrait ? 0 : m.s2,
         paddingHorizontal: portrait ? m.sp : m.s1,
         borderWidth: 1,
-        borderColor: t.rule,
+        borderColor: lit ? t.press : t.rule,
         borderRadius: m.rSm,
-        backgroundColor: t.surface,
+        backgroundColor: lit ? t.press : t.surface,
       }}
       pressedStyle={
         opp
           ? { backgroundColor: t.accent, borderColor: t.accent }
-          : { backgroundColor: t.surface2 }
+          : { backgroundColor: t.press, borderColor: t.press }
       }
     >
       {(pressed) => {
@@ -94,7 +110,13 @@ export function SBtn({
   );
 }
 
-/** The PF / FT / RB column: the three most tapped controls, against one edge. */
+/**
+ * The PF / FT / RB column: the three most tapped controls, against one edge.
+ *
+ * One subscription for the three of them: `litControl` reads the panel and the
+ * in-flight entry together, because step 2 (`who`) is the same panel for all
+ * three flows and only the entry says whose it is.
+ */
 export function SideColumn({
   onPf,
   onFt,
@@ -109,6 +131,7 @@ export function SideColumn({
   onLayout(): void;
 }) {
   const m = useMetrics();
+  const lit = useUiStore((s) => litControl(s.panel, s.what));
   return (
     <View
       ref={innerRef}
@@ -127,9 +150,9 @@ export function SideColumn({
             }
       }
     >
-      <SBtn code="PF" onPress={onPf} accessibilityLabel="record a foul" />
-      <SBtn code="FT" onPress={onFt} accessibilityLabel="record free throws" />
-      <SBtn code="RB" onPress={onRb} accessibilityLabel="record a rebound" />
+      <SBtn code="PF" onPress={onPf} lit={lit === 'pf'} accessibilityLabel="record a foul" />
+      <SBtn code="FT" onPress={onFt} lit={lit === 'ft'} accessibilityLabel="record free throws" />
+      <SBtn code="RB" onPress={onRb} lit={lit === 'rb'} accessibilityLabel="record a rebound" />
     </View>
   );
 }

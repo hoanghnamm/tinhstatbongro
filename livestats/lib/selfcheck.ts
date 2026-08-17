@@ -15,6 +15,7 @@ import * as A from '../lib/actions';
 import { FT_SPOT, shotTypeFor, zoneFor, zoneSide } from './court';
 import { clockEntry, clockReady, mmss, ord, pushClockDigit, secondsFromClock } from './format';
 import { gridFor } from './grid';
+import { litControl, litPlayerId } from './lit';
 import { efg, ptsOffSteals, totals, zoneSplits } from './stats';
 import type { GameEvent, GameState, Position } from '../types';
 
@@ -267,6 +268,41 @@ assert.equal(ord(2), '2nd');
 assert.equal(ord(3), '3rd');
 assert.equal(ord(4), '4th');
 assert.equal(ord(11), '11th');
+
+/* ---- which board control stays lit --------------------------------- */
+{
+  assert.equal(litControl(null, null), null, 'nothing open, nothing lit');
+  assert.equal(litControl({ kind: 'totals' }, null), 'score');
+
+  // the chain the quarter cell opens stays on the quarter cell
+  assert.equal(litControl({ kind: 'endQuarter' }, null), 'quarter');
+  assert.equal(litControl({ kind: 'setClock' }, null), 'quarter');
+  assert.equal(litControl({ kind: 'endGame' }, null), 'quarter');
+
+  // step 1 of each flow
+  assert.equal(litControl({ kind: 'foulKind' }, null), 'pf');
+  assert.equal(litControl({ kind: 'rebKind' }, null), 'rb');
+  assert.equal(litControl({ kind: 'ftResult' }, 'ft'), 'ft');
+
+  // step 2 is ONE panel for every flow — only the entry says whose it is
+  assert.equal(litControl({ kind: 'who' }, 'foul'), 'pf');
+  assert.equal(litControl({ kind: 'who' }, 'ft'), 'ft');
+  assert.equal(litControl({ kind: 'who' }, 'oreb'), 'rb');
+  assert.equal(litControl({ kind: 'who' }, 'dreb'), 'rb');
+  assert.equal(litControl({ kind: 'who' }, 'made'), null, 'a shot came from the court');
+  assert.equal(litControl({ kind: 'who' }, 'steal'), null, 'a tally came from a player panel');
+
+  // the court's own panels light nothing on the board
+  assert.equal(litControl({ kind: 'what' }, null), null);
+  assert.equal(litControl({ kind: 'assist' }, 'made'), null);
+
+  // the rail asks the other half of the question
+  assert.equal(litPlayerId({ kind: 'playerActions', playerId: 'p3', bumped: null }), 'p3');
+  assert.equal(litPlayerId({ kind: 'subOut', outId: 'p4' }), 'p4');
+  assert.equal(litPlayerId({ kind: 'fouledOut', playerId: 'p5' }), 'p5');
+  assert.equal(litPlayerId({ kind: 'who' }), null, 'step 2 is a grid, not a row');
+  assert.equal(litPlayerId(null), null);
+}
 
 /* ---- styling guards ------------------------------------------------
  * Three greps over the component tree. They are here rather than in a linter

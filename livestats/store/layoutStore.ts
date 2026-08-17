@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type { View } from 'react-native';
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
@@ -9,7 +9,13 @@ import { useShallow } from 'zustand/react/shallow';
  * lives in metrics.ts and in the flex tree, and a third copy is how the three
  * drift apart. Only the board writes here.
  */
-export type RectKey = 'board' | 'court' | 'rail' | 'sidecol' | 'oppbtns' | 'footer';
+/**
+ * `lit` is not a place on the board — it is whichever ONE control is currently
+ * holding the lit fill, whatever that turns out to be. The scrim cuts its hole
+ * there, so a single slot is all it can ever need: two controls are never lit
+ * at once, and a key per control would be nine names for one question.
+ */
+export type RectKey = 'board' | 'court' | 'rail' | 'sidecol' | 'oppbtns' | 'footer' | 'lit';
 
 export interface Rect {
   x: number;
@@ -30,6 +36,8 @@ export interface Box {
 interface LayoutState {
   rects: Partial<Record<RectKey, Rect>>;
   setRect(key: RectKey, rect: Rect): void;
+  /** only `lit` uses this: a control that goes dark has no box to report */
+  clearRect(key: RectKey): void;
 }
 
 const same = (a: Rect | undefined, b: Rect) =>
@@ -41,6 +49,11 @@ export const useLayoutStore = create<LayoutState>()((set, get) => ({
     if (same(get().rects[key], rect)) return; // a no-op write would loop the layout
     set({ rects: { ...get().rects, [key]: rect } });
   },
+  clearRect: (key) => {
+    if (!(key in get().rects)) return;
+    const { [key]: _gone, ...rest } = get().rects;
+    set({ rects: rest });
+  },
 }));
 
 /** Attach to the view whose box a panel needs. Re-measures on every layout pass. */
@@ -51,6 +64,38 @@ export function useMeasure(key: RectKey) {
     ref.current?.measureInWindow((x, y, w, h) => setRect(key, { x, y, w, h }));
   }, [key, setRect]);
   return { ref, onLayout };
+}
+
+/**
+ * The lit control reports its own box, so the scrim can leave it out.
+ *
+ * A fill alone could never do this: the scrim is a 45% black sheet over the
+ * whole window, so a "lit" cell under it is multiplied down with everything
+ * else — brighter than its neighbours, still plainly dimmed. The only way a
+ * control is genuinely NOT dimmed is for the sheet to have a hole in it.
+ *
+ * It measures on the OFF→ON edge rather than on layout, because becoming lit
+ * is not a layout change — the panel opened, the row did not move. `onLayout`
+ * is here as well so a rotation mid-panel does not leave the hole behind.
+ */
+export function useLitRect(on: boolean) {
+  const ref = useRef<View>(null);
+  const setRect = useLayoutStore((s) => s.setRect);
+  const clearRect = useLayoutStore((s) => s.clearRect);
+
+  const measure = useCallback(() => {
+    ref.current?.measureInWindow((x, y, w, h) => setRect('lit', { x, y, w, h }));
+  }, [setRect]);
+
+  useEffect(() => {
+    if (!on) return;
+    measure();
+    // React runs every cleanup in a commit before any effect, so a control
+    // going dark cannot wipe the slot of the one lighting up beside it
+    return () => clearRect('lit');
+  }, [on, measure, clearRect]);
+
+  return { ref, onLayout: on ? measure : undefined };
 }
 
 export const useRects = () => useLayoutStore(useShallow((s) => s.rects));

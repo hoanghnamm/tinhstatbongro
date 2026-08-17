@@ -1,6 +1,8 @@
 import { Text } from 'react-native';
 
+import { litControl } from '../../lib/lit';
 import { useGameStore } from '../../store/gameStore';
+import { useLitRect } from '../../store/layoutStore';
 import { useUiStore } from '../../store/uiStore';
 import { useMetrics } from '../../theme/metrics';
 import { fNum } from '../../theme/tokens';
@@ -41,6 +43,10 @@ export function ScoreCell({ grow }: { grow: number }) {
   const score = useGameStore((s) => s.score);
   const oppScore = useGameStore((s) => s.oppScore);
   const open = useUiStore((s) => s.open);
+  // and it stays lit for as long as the box score is up, with the scrim cut
+  // around it so "lit" means undimmed rather than merely less dim
+  const lit = useUiStore((s) => litControl(s.panel, s.what) === 'score');
+  const hole = useLitRect(lit);
 
   const size = m.fsFtr * 1.5;
   const line = size * 1.2;
@@ -49,6 +55,8 @@ export function ScoreCell({ grow }: { grow: number }) {
     <Press
       onPress={() => open({ kind: 'totals' })}
       accessibilityLabel={`open the box score, ${score} to ${oppScore}`}
+      innerRef={hole.ref}
+      onLayout={hole.onLayout}
       style={{
         // the widest of the three numbers in its third, so it takes the widest
         // share of it — see the Footer, which owns all three weights
@@ -62,8 +70,9 @@ export function ScoreCell({ grow }: { grow: number }) {
         justifyContent: 'center',
         paddingHorizontal: m.s1,
         overflow: 'hidden',
+        backgroundColor: lit ? t.press : 'transparent',
       }}
-      pressedStyle={{ backgroundColor: t.surface2 }}
+      pressedStyle={{ backgroundColor: t.press }}
     >
       <Row gap={m.s1} align="center" justify="center">
         <Text

@@ -4,6 +4,7 @@ import Animated, { FadeIn, SlideInRight } from 'react-native-reanimated';
 
 import { useCourtBox, useDockBox } from '../../hooks/usePanelBox';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
+import { useRects, type Rect } from '../../store/layoutStore';
 import { useUiStore, type Panel } from '../../store/uiStore';
 import { useMetrics } from '../../theme/metrics';
 import { useTheme } from '../../theme/useTheme';
@@ -25,6 +26,66 @@ import { TripSizePanel } from './TripSizePanel';
 import { WhatPanel } from './WhatPanel';
 import { WhoPanel } from './WhoPanel';
 import { MODE } from './placement';
+
+const SCRIM = 'rgba(0,0,0,0.45)';
+
+/**
+ * The scrim, in FOUR bands around the lit control instead of one sheet over it.
+ *
+ * A control cannot be "not dimmed" by being painted brighter: the scrim is a
+ * 45% black sheet over the whole window, so it multiplies the lit cell down
+ * along with everything else, and the cell ends up brighter than its neighbours
+ * but plainly dark. Nor can it be lifted over the top — React Native's `zIndex`
+ * orders siblings, and every board control is a grandchild of a view that is
+ * this overlay's sibling, so no depth given to a cell can climb past it.
+ *
+ * Cutting the sheet is what is left, and it is also the truthful thing: the
+ * button you pressed is the one thing on the board that is NOT behind the panel.
+ * The bands tile the window exactly — they must not overlap, because two 45%
+ * sheets crossing would draw a darker seam where they meet.
+ */
+function Scrim({ hole, onPress }: { hole: Rect | null; onPress(): void }) {
+  if (!hole) {
+    return (
+      <Pressable
+        onPress={onPress}
+        accessibilityLabel="close"
+        style={{ position: 'absolute', inset: 0, backgroundColor: SCRIM }}
+      />
+    );
+  }
+  // integers, so the four edges meet on whole pixels rather than leaving a
+  // hairline of undimmed board along a fractional boundary
+  const x = Math.round(hole.x);
+  const y = Math.round(hole.y);
+  const right = x + Math.round(hole.w);
+  const bottom = y + Math.round(hole.h);
+
+  return (
+    <>
+      <Pressable
+        onPress={onPress}
+        accessibilityLabel="close"
+        style={{ position: 'absolute', left: 0, right: 0, top: 0, height: Math.max(0, y), backgroundColor: SCRIM }}
+      />
+      <Pressable
+        onPress={onPress}
+        accessible={false}
+        style={{ position: 'absolute', left: 0, right: 0, top: bottom, bottom: 0, backgroundColor: SCRIM }}
+      />
+      <Pressable
+        onPress={onPress}
+        accessible={false}
+        style={{ position: 'absolute', left: 0, width: Math.max(0, x), top: y, height: bottom - y, backgroundColor: SCRIM }}
+      />
+      <Pressable
+        onPress={onPress}
+        accessible={false}
+        style={{ position: 'absolute', left: right, right: 0, top: y, height: bottom - y, backgroundColor: SCRIM }}
+      />
+    </>
+  );
+}
 
 function body(panel: Panel) {
   // exhaustive on purpose: a panel added to the union without a branch here is
@@ -59,6 +120,7 @@ export function PanelHost() {
   const reset = useUiStore((s) => s.reset);
   const court = useCourtBox();
   const dock = useDockBox();
+  const lit = useRects().lit ?? null;
 
   // the hardware back button is this platform's Escape
   useEffect(() => {
@@ -99,15 +161,17 @@ export function PanelHost() {
 
   return (
     <View style={{ position: 'absolute', inset: 0, zIndex: 40 }}>
-      {/* the dock must not dim what is behind it — that is its whole reason */}
-      <Pressable
-        onPress={reset}
-        accessibilityLabel="close"
-        style={{
-          position: 'absolute', inset: 0,
-          backgroundColor: mode === 'dock' ? 'transparent' : 'rgba(0,0,0,0.45)',
-        }}
-      />
+      {/* the dock must not dim what is behind it — that is its whole reason,
+          so it takes one clear sheet and never a hole */}
+      {mode === 'dock' ? (
+        <Pressable
+          onPress={reset}
+          accessibilityLabel="close"
+          style={{ position: 'absolute', inset: 0, backgroundColor: 'transparent' }}
+        />
+      ) : (
+        <Scrim hole={lit} onPress={reset} />
+      )}
       <View
         style={
           mode === 'dock' || mode === 'court'

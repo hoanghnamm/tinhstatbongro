@@ -1,5 +1,6 @@
 import { View } from 'react-native';
 
+import { litPlayerId } from '../../lib/lit';
 import { useGameStore } from '../../store/gameStore';
 import { useMeasure } from '../../store/layoutStore';
 import { useRailPlayers } from '../../store/selectors';
@@ -27,6 +28,9 @@ export function Rail() {
   const players = useRailPlayers();
   const shooter = useUiStore((s) => s.shooter);
   const open = useUiStore((s) => s.open);
+  // whose row opened what is on screen — a different question from who the
+  // in-flight entry picked, and until now the column answered neither
+  const active = useUiStore((s) => litPlayerId(s.panel));
   const tapMode = useGameStore((s) => s.options.tap);
 
   const squeeze = m.compact && !m.portrait;
@@ -57,7 +61,13 @@ export function Rail() {
       }}
     >
       {players.map((p) => (
-        <PlayerRow key={p.id} player={p} selected={p.id === shooter} onPress={() => press(p.id)} />
+        <PlayerRow
+          key={p.id}
+          player={p}
+          selected={p.id === shooter}
+          lit={p.id === active}
+          onPress={() => press(p.id)}
+        />
       ))}
       {/* fewer than five active and disqualified between them: pad, so the
           column keeps its five-row rhythm rather than growing the rows */}
