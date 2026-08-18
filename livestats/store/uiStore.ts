@@ -30,7 +30,12 @@ export type Panel =
   | { kind: 'setClock' }
   | { kind: 'endGame' }
   | { kind: 'totals' }
-  | { kind: 'plays' };
+  | { kind: 'plays' }
+  /* --- off the board: the home and team screens use the same router --- */
+  | { kind: 'newGame' }
+  /** null is ADD; an id is EDIT. One panel, because it is one form. */
+  | { kind: 'editPlayer'; playerId: string | null }
+  | { kind: 'removePlayer'; playerId: string };
 
 export interface Trip {
   shooter: string;

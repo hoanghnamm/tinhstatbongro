@@ -10,14 +10,15 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
-import { FOULS, PERIOD_LEN, seedRoster } from '../constants/game';
+import { FOULS, PERIOD_LEN, SEED_ROSTER, seedRoster } from '../constants/game';
 import * as A from '../lib/actions';
 import { FT_SPOT, shotTypeFor, zoneFor, zoneSide } from './court';
 import { clockEntry, clockReady, mmss, ord, pushClockDigit, secondsFromClock } from './format';
 import { gridFor } from './grid';
 import { litControl, litPlayerId } from './lit';
+import { ROSTER_CAP, STARTERS, buildPlayers, cleanName, numberHolder, validNumber } from './roster';
 import { efg, ptsOffSteals, totals, zoneSplits } from './stats';
-import type { GameEvent, GameState, Position } from '../types';
+import type { GameEvent, GameState, Position, RosterPlayer } from '../types';
 
 const game = (): GameState => ({
   team: { name: 'T' },
@@ -281,6 +282,84 @@ assert.equal(shotTypeFor(396 / 792, 100 / 521), '2PT');
   assert.equal(gridFor(1, 600, 300, 48).columns, 1, 'one tile is one cell');
 }
 
+/* ---- the roster is not the game -----------------------------------
+ * The whole reason `rosterStore` was split out of `gameStore`: a team outlives
+ * a game, so editing one must not reach the other. `buildPlayers` is the only
+ * crossing, so these are the assertions that hold the line.
+ * ------------------------------------------------------------------ */
+{
+  assert.ok(SEED_ROSTER.length >= STARTERS, 'the first-run team can start a game');
+  assert.ok(SEED_ROSTER.length <= ROSTER_CAP, 'and fits the cap');
+  assert.equal(
+    new Set(SEED_ROSTER.map((p) => p.number)).size,
+    SEED_ROSTER.length,
+    'no two seeded players wear the same number',
+  );
+
+  const roster: RosterPlayer[] = SEED_ROSTER.map((p) => ({ ...p }));
+  const starters = roster.slice(2, 7).map((p) => p.id); // deliberately NOT the first five
+  const players = buildPlayers(roster, starters);
+
+  assert.equal(players.length, roster.length, 'the whole team dresses');
+  assert.equal(players.filter((p) => p.status === 'active').length, STARTERS, 'five start');
+  assert.equal(
+    players.filter((p) => p.starter).length,
+    STARTERS,
+    'and the flag agrees with the status',
+  );
+  assert.equal(
+    players.filter((p) => p.status === 'bench').length,
+    roster.length - STARTERS,
+    'everyone else sits — nobody starts fouled out',
+  );
+  assert.ok(players.every((p) => p.stats.points === 0 && p.stats.secondsPlayed === 0), 'zeroed');
+  assert.equal(
+    new Set(players.map((p) => p.stats)).size,
+    players.length,
+    'and every stat line is its OWN object — one shared would put two players on one counter',
+  );
+
+  // the point of the split, stated as an assertion: the game holds copies
+  const g = game();
+  g.players = players;
+  A.recordShot(g, players[2].id, at(396, 100), '2PT', true, null, null);
+
+  roster[2].name = 'renamed mid-game';
+  roster[2].number = 99;
+  roster.splice(0, 1); // and removed from the team entirely
+
+  assert.equal(g.players[2].name, SEED_ROSTER[2].name, 'a roster edit does not rename a player');
+  assert.equal(g.players[2].number, SEED_ROSTER[2].number, 'nor renumber one');
+  assert.equal(g.players.length, SEED_ROSTER.length, 'nor take one off the floor');
+  assert.equal(g.players[2].stats.points, 2, 'and the box score is untouched');
+}
+
+/* ---- the roster form ----------------------------------------------- */
+{
+  const roster: RosterPlayer[] = [
+    { id: 'a', number: 12, name: 'bd' },
+    { id: 'b', number: 7, name: 'a.n' },
+  ];
+
+  // the duplicate check NAMES the holder, because the error has to be actionable
+  assert.equal(numberHolder(roster, 12, null)?.name, 'bd');
+  assert.equal(numberHolder(roster, 13, null), null, 'a free number has no holder');
+  assert.equal(
+    numberHolder(roster, 12, 'a'),
+    null,
+    'and editing #12 does not collide with itself',
+  );
+
+  assert.equal(validNumber(0), true, 'nought is a legal jersey');
+  assert.equal(validNumber(99), true);
+  assert.equal(validNumber(100), false);
+  assert.equal(validNumber(-1), false);
+  assert.equal(validNumber(1.5), false);
+
+  assert.equal(cleanName('  bd  '), 'bd', 'names are trimmed');
+  assert.equal(cleanName('x'.repeat(40)).length, 20, 'and capped — the rail truncates anyway');
+}
+
 /* ---- formatting --------------------------------------------------- */
 assert.equal(mmss(600), '10:00');
 assert.equal(mmss(59), '00:59');
@@ -437,9 +516,16 @@ assert.equal(ord(11), '11th');
       return statSync(full).isDirectory() ? walk(full) : full.endsWith('.tsx') ? [full] : [];
     });
 
-  const root = join(process.cwd(), 'components');
-  const files = walk(root).map((f) => ({ path: relative(process.cwd(), f), src: readFileSync(f, 'utf8') }));
+  // `app/` is scanned too: the routes are components, and the three traps
+  // below are exactly as easy to fall into on a home screen as on the board
+  const files = ['components', 'app']
+    .flatMap((dir) => walk(join(process.cwd(), dir)))
+    .map((f) => ({ path: relative(process.cwd(), f), src: readFileSync(f, 'utf8') }));
   assert.ok(files.length > 20, 'the component tree should be found from the project root');
+  assert.ok(
+    files.some((f) => f.path === join('app', 'index.tsx')),
+    'and the routes with it',
+  );
 
   // 1. Function styles. NativeWind's interop walks the ["style", …] path with
   //    `if (typeof parent[prop] !== "object") parent[prop] = {}` — a function is

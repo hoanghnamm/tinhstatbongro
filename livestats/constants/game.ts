@@ -1,4 +1,4 @@
-import type { FoulKindKey, Player, PlayerStats, TallyType, Zone } from '../types';
+import type { FoulKindKey, Player, PlayerStats, RosterPlayer, TallyType, Zone } from '../types';
 
 export const FOULS = 5;
 export const PERIOD_LEN = 600; // 10:00
@@ -55,7 +55,9 @@ export const TALLY_TILES = [
 export const REB = ['dreb', 'oreb'] as const;
 export type RebWhat = (typeof REB)[number];
 
-const zeroStats = (): PlayerStats => ({
+/** A fresh, all-zero stat line. Exported because `startGame` builds one per
+ *  player from the roster, which is the whole point of the store split. */
+export const zeroStats = (): PlayerStats => ({
   points: 0,
   fgMade: 0,
   fgAttempted: 0,
@@ -82,30 +84,29 @@ const zeroStats = (): PlayerStats => ({
   onCourtPoints: 0,
 });
 
-const mk = (number: number, name: string): Player => ({
-  id: 'p' + number,
-  number,
-  name,
-  status: 'active',
-  starter: false,
-  stats: zeroStats(),
-});
+/**
+ * The first-run team. It is a ROSTER now, not a game: `rosterStore` seeds
+ * itself from this and `startGame` turns whichever of them the scorer picks
+ * into players. Ids stay `p${number}` so a game persisted before the split
+ * still lines up with the roster it was built from.
+ */
+export const SEED_ROSTER: RosterPlayer[] = [
+  { id: 'p1', number: 1, name: 'a.n' },
+  { id: 'p12', number: 12, name: 'bd' },
+  { id: 'p13', number: 13, name: 'No. 13' },
+  { id: 'p15', number: 15, name: 'b.1' },
+  { id: 'p16', number: 16, name: 'No. 16' },
+  { id: 'p7', number: 7, name: 'No. 7' },
+  { id: 'p9', number: 9, name: 'No. 9' },
+  { id: 'p21', number: 21, name: 'No. 21' },
+];
 
-/** Hardcoded placeholder roster: first five start, the rest sit. */
+/** The game a fresh install opens on: the seed roster, first five starting. */
 export function seedRoster(): Player[] {
-  const players = [
-    mk(1, 'a.n'),
-    mk(12, 'bd'),
-    mk(13, 'No. 13'),
-    mk(15, 'b.1'),
-    mk(16, 'No. 16'),
-    mk(7, 'No. 7'),
-    mk(9, 'No. 9'),
-    mk(21, 'No. 21'),
-  ];
-  players.forEach((p, i) => {
-    if (i > 4) p.status = 'bench';
-    else p.starter = true;
-  });
-  return players;
+  return SEED_ROSTER.map((r, i) => ({
+    ...r,
+    status: i > 4 ? 'bench' : 'active',
+    starter: i <= 4,
+    stats: zeroStats(),
+  }));
 }

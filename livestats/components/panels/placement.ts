@@ -42,6 +42,12 @@ export const MODE: Record<Panel['kind'], Mode> = {
   endGame: 'center',
   totals: 'wide',
   plays: 'center',
+  // the three off-board panels. There is no court to dock against or cover, so
+  // they are all centred dialogs — which is what they are anyway: a confirm,
+  // a form, and a second confirm.
+  newGame: 'center',
+  editPlayer: 'center',
+  removePlayer: 'center',
 };
 
 export const isDocked = (panel: Panel | null): boolean => !!panel && MODE[panel.kind] === 'dock';

@@ -3,13 +3,16 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { PERIOD_LEN, seedRoster } from '../constants/game';
+import { buildPlayers } from '../lib/roster';
 import { DEFAULT_OPTIONS, type Options } from '../constants/options';
 import * as A from '../lib/actions';
 import type {
   FoulKindKey,
   FoulOutcome,
   GameState,
+  Player,
   Position,
+  RosterPlayer,
   ShotNote,
   ShotType,
   TallyType,
@@ -28,6 +31,15 @@ type Snapshot = Pick<GameState, 'score' | 'oppScore' | 'possessions' | 'players'
 
 export interface GameStore extends GameState {
   options: Options;
+
+  /**
+   * Tip-off. The roster is copied into fresh zeroed `Player`s, the five picked
+   * ids start and everyone else sits, and score, clock, period, events and the
+   * undo stack all go back to nothing. It is the ONE writer that crosses from
+   * `rosterStore` into a game, and it does not go through `edit()`: starting a
+   * game is not a stat to be undone.
+   */
+  startGame(roster: RosterPlayer[], starterIds: string[]): void;
 
   recordShot(
     playerId: string,
@@ -59,7 +71,7 @@ export interface GameStore extends GameState {
   setOption<K extends keyof Options>(key: K, value: Options[K]): void;
 }
 
-const freshGame = (): GameState => ({
+const freshGame = (players: Player[] = seedRoster()): GameState => ({
   team: { name: 'MY TEAM' },
   score: 0,
   oppScore: 0,
@@ -68,7 +80,7 @@ const freshGame = (): GameState => ({
   running: false,
   ended: false,
   possessions: 0,
-  players: seedRoster(),
+  players,
   events: [],
 });
 
@@ -136,6 +148,12 @@ export const useGameStore = create<GameStore>()(
       return {
         ...freshGame(),
         options: { ...DEFAULT_OPTIONS },
+
+        startGame: (roster, starterIds) => {
+          // a new game's undo history is empty, not the last game's
+          undoStack.length = 0;
+          set(freshGame(buildPlayers(roster, starterIds)));
+        },
 
         recordShot: (playerId, position, shotType, made, assistId, shotNote) =>
           edit((g) => A.recordShot(g, playerId, position, shotType, made, assistId, shotNote)),

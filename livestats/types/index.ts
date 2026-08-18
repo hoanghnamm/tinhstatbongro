@@ -34,10 +34,19 @@ export interface PlayerStats {
   onCourtPoints: number;
 }
 
-export interface Player {
-  id: string; // `p${number}`
+/**
+ * A player as the TEAM knows them, which is the part that outlives a game:
+ * a jersey and a name, and nothing that a final whistle invalidates. It is
+ * `rosterStore`'s whole shape, and the argument `startGame` takes.
+ */
+export interface RosterPlayer {
+  id: string;
   number: number;
   name: string;
+}
+
+/** A roster entry plus everything that belongs to ONE game. */
+export interface Player extends RosterPlayer {
   status: PlayerStatus;
   starter: boolean;
   stats: PlayerStats;

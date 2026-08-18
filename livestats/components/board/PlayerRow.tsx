@@ -6,6 +6,7 @@ import { useMetrics } from '../../theme/metrics';
 import { fNum, fUi } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 import { FoulDots } from '../ui/FoulDots';
+import { Jersey } from '../ui/Jersey';
 import { Press } from '../ui/Press';
 import { Col } from '../ui/Row';
 import type { Player } from '../../types';
@@ -17,13 +18,12 @@ const clamp = (lo: number, v: number, hi: number) => Math.min(hi, Math.max(lo, v
  * `display:flex`, which is a row in CSS and a column here; without the explicit
  * `flexDirection:'row'` the two blocks stack and the row collapses.
  *
- * **The jersey plate is a rectangle, and its type is MEASURED.** A row is
+ * **The jersey plate is `ui/Jersey`, and its size is MEASURED.** A row is
  * `flex:1` out of the rail, so its height is a leftover the ramp cannot name —
  * and it does not track the window the way a vh term assumes: a 844×390 phone
  * gives 70px rows in landscape and 49px in portrait, so a `vh` size is biggest
  * exactly where the row is shortest. The plate stretches to the row instead and
- * reports back, and the number is sized off that against BOTH its sides, so two
- * digits stay inside the plate on the widest rail.
+ * reports back, and `Jersey` sizes the number off that.
  *
  * Everything else about a player lives one tap in, on the player panel. A
  * fouled-out row stays in the rail, dimmed and showing OUT, because it is still
@@ -63,10 +63,6 @@ export function PlayerRow({
   // divide 800pt and a floor-to-ceiling plate would be a 64×150 stripe
   const plateH = Math.min(cell, clamp(56, 0.09 * m.win.h, 84));
   const plateW = clamp(38, plateH * 1.05, 64);
-  // two digits are ~1.1em of tabular Chakra Petch, so the width term is the
-  // binding one on a narrow rail and the height term on a tall row
-  const fsJersey = Math.min(plateH * 0.62, plateW * 0.62);
-
   const fouls = player.stats.fouls;
 
   return (
@@ -93,11 +89,9 @@ export function PlayerRow({
       }}
       pressedStyle={selected ? undefined : { backgroundColor: t.press }}
     >
-      {/* a plate, not a bubble: floor-to-ceiling in the row, so the number gets
-          the whole height of the cell rather than a circle's inscribed square.
-          The wrapper is what stretches and what reports the row's height; the
+      {/* the wrapper is what stretches and what reports the row's height; the
           plate is sized and centred inside it, so a capped plate stays on the
-          row's middle instead of hugging its top edge. */}
+          row's middle instead of hugging its top edge */}
       <View
         onLayout={onCell}
         style={{
@@ -108,34 +102,12 @@ export function PlayerRow({
           justifyContent: 'center',
         }}
       >
-        <View
-          style={{
-            width: plateW,
-            height: plateH,
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: m.rSm,
-            // the resting plate is the FLOOR: `court` for the fill and
-            // `courtLine` for the number, the one pair in the palette that is
-            // white in every skin — a jersey stencilled on the hardwood, the
-            // same two tokens the court itself is painted with.
-            backgroundColor: dq ? t.danger : selected ? t.accentInk : t.court,
-          }}
-        >
-          <Text
-            numberOfLines={1}
-            style={{
-              fontFamily: fNum(700),
-              fontSize: fsJersey,
-              lineHeight: fsJersey * 1.1,
-              textAlign: 'center',
-              color: dq ? t.dangerInk : selected ? t.accent : t.courtLine,
-              fontVariant: ['tabular-nums'],
-            }}
-          >
-            {player.number}
-          </Text>
-        </View>
+        <Jersey
+          number={player.number}
+          w={plateW}
+          h={plateH}
+          tone={dq ? 'out' : selected ? 'selected' : 'floor'}
+        />
       </View>
 
       {/* points sit ON the foul bar: two lines, centred in what is left */}

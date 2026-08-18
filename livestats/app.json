@@ -1,15 +1,18 @@
 {
   "expo": {
-    "name": "Live Stats",
-    "slug": "livestats",
+    "name": "HoopLog",
+    "slug": "hooplog",
+    "scheme": "hooplog",
     "version": "1.0.0",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.n2937.hooplog"
     },
     "android": {
+      "package": "com.n2937.hooplog",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -22,7 +25,8 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      "expo-router"
     ],
     "newArchEnabled": true
   }

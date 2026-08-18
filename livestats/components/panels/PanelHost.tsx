@@ -9,15 +9,18 @@ import { useUiStore, type Panel } from '../../store/uiStore';
 import { useMetrics } from '../../theme/metrics';
 import { useTheme } from '../../theme/useTheme';
 import { AssistPanel } from './AssistPanel';
+import { EditPlayerPanel } from './EditPlayerPanel';
 import { EndGamePanel } from './EndGamePanel';
 import { EndQuarterPanel } from './EndQuarterPanel';
 import { FTDockPanel } from './FTDockPanel';
 import { FoulDeniedPanel } from './FoulDeniedPanel';
 import { FoulKindPanel } from './FoulKindPanel';
 import { FouledOutPanel } from './FouledOutPanel';
+import { NewGamePanel } from './NewGamePanel';
 import { PlayerActionsPanel } from './PlayerActionsPanel';
 import { PlaysPanel } from './PlaysPanel';
 import { RebKindPanel } from './RebKindPanel';
+import { RemovePlayerPanel } from './RemovePlayerPanel';
 import { SetClockPanel } from './SetClockPanel';
 import { SubOutPanel } from './SubOutPanel';
 import { TotalsPanel } from './TotalsPanel';
@@ -109,6 +112,9 @@ function body(panel: Panel) {
     case 'endGame': return <EndGamePanel />;
     case 'totals': return <TotalsPanel />;
     case 'plays': return <PlaysPanel />;
+    case 'newGame': return <NewGamePanel />;
+    case 'editPlayer': return <EditPlayerPanel playerId={panel.playerId} />;
+    case 'removePlayer': return <RemovePlayerPanel playerId={panel.playerId} />;
   }
 }
 

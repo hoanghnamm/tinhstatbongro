@@ -340,7 +340,13 @@ export function Btn({
 }: {
   label: string;
   onPress(): void;
-  variant?: 'plain' | 'solid' | 'accent' | 'danger' | 'made';
+  /**
+   * `surface` is the home screen's secondary: a filled cell with a 1px rule
+   * around it, one step quieter than `solid` and one louder than `plain`. It
+   * exists because a screen with three stacked buttons needs three weights —
+   * on a panel, where every button sits in a row of two, `plain` was enough.
+   */
+  variant?: 'plain' | 'solid' | 'accent' | 'danger' | 'made' | 'surface';
   disabled?: boolean;
 }) {
   const m = useMetrics();
@@ -352,6 +358,7 @@ export function Btn({
     variant === 'solid' ? t.ink
     : variant === 'accent' || variant === 'made' ? t.accent
     : variant === 'danger' ? t.danger
+    : variant === 'surface' ? t.surface
     : 'transparent';
   const fg =
     variant === 'solid' ? t.surface
@@ -372,8 +379,9 @@ export function Btn({
         justifyContent: 'center',
         padding: m.sp,
         borderRadius: m.r,
-        borderWidth: 2,
-        borderColor: variant === 'plain' ? t.line : fill,
+        borderWidth: variant === 'surface' ? 1 : 2,
+        borderColor:
+          variant === 'plain' ? t.line : variant === 'surface' ? t.rule : fill,
         backgroundColor: fill,
         opacity: disabled ? 0.4 : 1,
       }}

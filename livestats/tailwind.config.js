@@ -11,7 +11,7 @@ const color = (name) => `var(--color-${name})`;
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  content: ['./App.tsx', './components/**/*.{ts,tsx}'],
+  content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}'],
   presets: [require('nativewind/preset')],
   /**
    * Not a styling choice — nothing here uses a `dark:` variant, because the
