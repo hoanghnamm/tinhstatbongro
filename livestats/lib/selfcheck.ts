@@ -36,7 +36,10 @@ const game = (): GameState => ({
 const at = (x: number, y: number): Position => ({ x: x / 792, y: y / 521 });
 const zone = (x: number, y: number) => zoneFor(x / 792, y / 521);
 
-/* ---- geometry ---------------------------------------------------- */
+/* ---- geometry ----------------------------------------------------
+ * Every boundary asserted here is a line PAINTED on the floor in
+ * CourtSvg.tsx. If one of these moves, a line moved with it.
+ * ------------------------------------------------------------------ */
 
 assert.equal(zone(396, 100), 'paint', 'under the basket is the paint');
 assert.equal(zone(277, 276), 'paint', 'the paint includes its own corner');
@@ -50,13 +53,31 @@ assert.equal(zone(514, 100), 'corner2', 'one pixel past it is not');
 assert.equal(zone(68, 0), 'corner3', 'the corner box is a three inside the arc radius');
 assert.equal(zone(69, 0), 'corner2', 'one unit out of the box and distance decides');
 assert.equal(zone(724, 0), 'corner3', 'the right corner box, same rule');
-assert.equal(zone(40, 210), 'corner3', 'below the cut-off, distance alone still says three');
+
+// THE TWO CORNER CUTS ARE AT DIFFERENT HEIGHTS, because two different lines
+// are drawn: the free-throw line extended at y = 101 inside the arc, the stub
+// the three-point line turns on at y = 203.7 outside it. The boundary steps at
+// x = 68 / 724, and a point can be below one cut and above the other.
+assert.equal(zone(600, 100), 'corner2', 'above the free-throw line extended');
+assert.equal(zone(600, 102), 'wing2', 'and below it the corner has ended');
+assert.equal(zone(40, 200), 'corner3', 'the three-point corner runs to its own stub');
+assert.equal(zone(40, 210), 'wing3', 'past the stub it has ended');
+assert.equal(zone(60, 150), 'corner3', 'inside the box, below the 2PT cut, still a corner');
 
 // the arc itself: r = 352 out of (396, 76)
 assert.equal(zone(396, 76 + 351), 'top2', 'one unit inside the arc is a two');
 assert.equal(zone(396, 76 + 353), 'top3', 'one unit outside it is a three');
 
-// behind the backboard flattens onto the baseline, so it is a corner, not a wing
+// the two lane extensions are what open the top, and they start at the
+// free-throw line: (310,276)→(187,521) and (480,276)→(603,521)
+assert.equal(zone(500, 280), 'wing2', 'right of the extension, past the lane');
+assert.equal(zone(470, 280), 'top2', 'between them, the top');
+assert.equal(zone(320, 280), 'top2', 'and on the other side of the lane centre');
+assert.equal(zone(300, 280), 'wing2', 'the extension starts at 310, so the lane edge leaves a sliver');
+assert.equal(zone(590, 519), 'top3', 'the extensions fan out, so the top widens');
+assert.equal(zone(610, 519), 'wing3', 'just past where the line leaves the floor');
+
+// behind the backboard is above every cut, so it is a corner either way
 assert.equal(zone(30, 0), 'corner3', 'behind the backboard, beyond the arc');
 assert.equal(zone(200, 0), 'corner2', 'behind the backboard, inside the arc');
 
@@ -302,6 +323,106 @@ assert.equal(ord(11), '11th');
   assert.equal(litPlayerId({ kind: 'fouledOut', playerId: 'p5' }), 'p5');
   assert.equal(litPlayerId({ kind: 'who' }), null, 'step 2 is a grid, not a row');
   assert.equal(litPlayerId(null), null);
+}
+
+/* ---- the fill ends on a drawn line ---------------------------------
+ * `CourtSvg.tsx` carries this file's partition a second time, as eleven closed
+ * paths, and nothing in the type system ties the two together. So: rasterise
+ * the real `d` strings out of the component and assert all 412,632 cells of
+ * the viewBox resolve to exactly the zone `zoneFor` names — no gap, no
+ * overlap, no drift. Move one vertex and it names the first cell to disagree.
+ *
+ * It samples at (px + 0.31, py + 0.27) rather than at the pixel centre. Every
+ * boundary here is integer, y = 203.7, or a line of slope 123/245, and a
+ * centre lands EXACTLY on one of them often enough to matter — an exact tie is
+ * decided by `<=` on one side and by the scanline's edge rule on the other,
+ * which is noise, not drift. No sample at this offset can sit on a boundary.
+ * -------------------------------------------------------------------- */
+{
+  const W = 792, H = 521, BX = 396, BY = 76, R = 352;
+  const svg = readFileSync(join(process.cwd(), 'components', 'board', 'CourtSvg.tsx'), 'utf8');
+
+  const paths = [...svg.matchAll(/\{ zone: '(\w+)', side: '(\w)', d: '([^']+)' \}/g)];
+  assert.equal(paths.length, 11, 'CourtSvg should carry one closed path per zone');
+
+  // Every arc in those strings is the three-point arc, so it is centred on the
+  // basket and the sweep flag is all that is needed to walk one: 1 = increasing
+  // angle (clockwise on a y-down screen), 0 = decreasing.
+  const flatten = (d: string) => {
+    const pts: [number, number][] = [];
+    let cur: [number, number] = [0, 0];
+    for (const [, op, raw] of d.matchAll(/([MLA])([-\d. ]+)/g)) {
+      const n = raw.trim().split(/\s+/).map(Number);
+      if (op !== 'A') {
+        cur = [n[0], n[1]];
+        pts.push(cur);
+        continue;
+      }
+      const to: [number, number] = [n[5], n[6]];
+      let a0 = Math.atan2(cur[1] - BY, cur[0] - BX);
+      let a1 = Math.atan2(to[1] - BY, to[0] - BX);
+      if (n[4] === 1) while (a1 < a0) a1 += 2 * Math.PI;
+      else while (a1 > a0) a1 -= 2 * Math.PI;
+      for (let i = 1; i <= 2000; i++) {
+        const a = a0 + ((a1 - a0) * i) / 2000;
+        pts.push([BX + R * Math.cos(a), BY + R * Math.sin(a)]);
+      }
+      cur = to;
+    }
+    return pts;
+  };
+
+  const grid: string[] = new Array(W * H).fill('');
+  for (const [, z, s, d] of paths) {
+    const poly = flatten(d);
+    for (let py = 0; py < H; py++) {
+      const y = py + 0.27;
+      const xs: number[] = [];
+      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const [xi, yi] = poly[i], [xj, yj] = poly[j];
+        if (yi > y !== yj > y) xs.push(((xj - xi) * (y - yi)) / (yj - yi) + xi);
+      }
+      xs.sort((a, b) => a - b);
+      for (let k = 0; k + 1 < xs.length; k += 2) {
+        const lo = Math.max(0, Math.ceil(xs[k] - 0.31));
+        const hi = Math.min(W - 1, Math.floor(xs[k + 1] - 0.31));
+        for (let px = lo; px <= hi; px++) {
+          const i = py * W + px;
+          grid[i] = grid[i] ? `${grid[i]}+${z}|${s}` : `${z}|${s}`;
+        }
+      }
+    }
+  }
+
+  let drift = 0;
+  let first = '';
+  for (let py = 0; py < H; py++) {
+    for (let px = 0; px < W; px++) {
+      const nx = (px + 0.31) / W, ny = (py + 0.27) / H;
+      const z = zoneFor(nx, ny);
+      const want = `${z}|${zoneSide(z, nx)}`;
+      const got = grid[py * W + px];
+      if (got === want) continue;
+      drift++;
+      if (!first) first = `(${px}, ${py}) is ${want} but the SVG paints ${got || 'nothing'}`;
+    }
+  }
+  assert.equal(drift, 0, `CourtSvg has drifted off zoneFor on ${drift} of ${W * H} cells — ${first}`);
+
+  // And the drawing itself: every line the partition is cut on must still be
+  // painted. These are the strings zoneFor's constants were read off.
+  for (const d of [
+    'M277 0 L277 276 M513 0 L513 276', // the lane
+    'M277 276 L513 276', // the free-throw line
+    'M68 101 L277 101', // the 2PT corner cut, both ends
+    'M513 101 L724 101',
+    'M0 203.7 L68 203.7', // the 3PT corner cut, both ends
+    'M724 203.7 L792 203.7',
+    'M310 276 L187 521', // the lane extensions
+    'M480 276 L603 521',
+    'M68 0 L68 203.7 A352 352 0 0 0 724 203.7 L724 0', // the three-point line
+  ])
+    assert.ok(svg.includes(`d="${d}"`), `the court no longer draws ${d} — a zone edge lost its line`);
 }
 
 /* ---- styling guards ------------------------------------------------

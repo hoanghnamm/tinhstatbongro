@@ -3,8 +3,12 @@
  * r = 352, paint x ∈ [277, 513] & y ≤ 276, corner cut-off y ≤ 203.7 with
  * x ≤ 68 or x ≥ 724.
  *
- * These constants ARE the SVG path data in CourtSvg.tsx — the two are one
- * geometry written twice, and neither may be changed alone.
+ * Every cut below is a line that is actually PAINTED on the floor in
+ * CourtSvg.tsx — the lane, the free-throw line extended at y = 101, the corner
+ * stub at y = 203.7, the three-point line, and the two lane extensions. The
+ * drawing is the contract: this file answers where a tap landed, the eleven
+ * closed paths there light that answer, and the two are one geometry written
+ * twice. Neither may be changed alone, and neither may drift off a drawn line.
  */
 import { THREES } from '../constants/game';
 import type { Position, ShotType, Zone, ZoneSide } from '../types';
@@ -27,12 +31,18 @@ export function zoneFor(nx: number, ny: number): Zone {
     y = ny * 521;
   if (x >= 277 && x <= 513 && y <= 276) return 'paint';
   const three = (y <= 203.7 && (x <= 68 || x >= 724)) || Math.hypot(x - 396, y - 76) > 352;
-  // Math.max(0, y - 76) flattens anything above the rim line onto the baseline,
-  // so a shot from behind the backboard is a corner, not a wing. That is what
-  // lets every sector be a single wedge the SVG can draw as one path.
-  const a = (Math.atan2(Math.max(0, y - 76), x - 396) * 180) / Math.PI;
-  const sector = a < 22.5 || a > 157.5 ? 'corner' : a < 67.5 || a > 112.5 ? 'wing' : 'top';
-  return (sector + (three ? 3 : 2)) as Zone;
+  // The corner ends where the floor says it ends, and THE TWO CUTS ARE AT
+  // DIFFERENT HEIGHTS because that is what is painted: inside the arc it is the
+  // free-throw line extended (y = 101, drawn lane edge → three-point line);
+  // outside it, the stub the three-point line turns on (y = 203.7, drawn
+  // three-point line → sideline). So the boundary steps at x = 68 / 724.
+  if (y <= (three ? 203.7 : 101)) return three ? 'corner3' : 'corner2';
+  // The two lane extensions, (310,276)→(187,521) and (480,276)→(603,521): one
+  // slope, mirrored about the LANE's centre 395 — not about the basket at 396,
+  // which is why the two zones either side of the top are not mirror images.
+  const spread = ((y - 276) * 123) / 245;
+  const top = y >= 276 && x >= 310 - spread && x <= 480 + spread;
+  return ((top ? 'top' : 'wing') + (three ? 3 : 2)) as Zone;
 }
 
 /** Which mirrored half lit up. The paint and the two top zones are single regions. */

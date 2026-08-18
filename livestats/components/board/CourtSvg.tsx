@@ -1,90 +1,76 @@
 import { memo } from 'react';
-import Svg, { Circle, ClipPath, Defs, G, Mask, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { useTheme } from '../../theme/useTheme';
 import type { Zone, ZoneSide } from '../../types';
 
 /**
- * The court, transcribed from the web build's inline SVG. Every `d` string is
- * byte-for-byte the original: this geometry IS `zoneFor()`, and the two must be
- * edited together or never.
+ * The court. **The line work below is the drawing, and the drawing is the
+ * contract** — every zone fill here ends exactly on a line that is already
+ * painted on the floor, and every line that bounds a region is a zone edge:
  *
- * The eleven zone shapes are five sectors drawn twice over, deliberately
- * oversized and cut down by `courtClip` and the `m2` / `m3` masks, which encode
- * the arc and the two corner boxes exactly as `zoneFor` does. They are never
- * hit-tested — the wrapper owns the pointer — and only the one matching
- * `zone`/`side` is lit.
+ *   the lane          x = 277 / 513, y = 276      the paint
+ *   y = 101           lane edge → 3PT straight    corner2 | wing2
+ *   y = 203.7         3PT straight → sideline     corner3 | wing3
+ *   the 3PT line      x = 68 / 724 + the arc      2PT | 3PT
+ *   the extensions    (310,276)→(187,521)         wing | top
+ *                     (480,276)→(603,521)
  *
- * Fills arrive as props rather than as CSS classes: `var()` inside an SVG
- * presentation attribute is what forced classes on the web, and that problem
- * does not exist here.
+ * The backboard, the rim and the free-throw circle bound nothing; they are
+ * markings, and no one reads a circle as a zone edge.
+ *
+ * **The two corner cuts are at different heights on purpose** — that is what
+ * is drawn. Inside the arc the corner ends at the free-throw line extended
+ * (101); outside it, at the stub the three-point line turns on (203.7). So the
+ * boundary steps at x = 68 / 724, and `lib/court.ts` says exactly that.
+ *
+ * `ZN` is the eleven zones as eleven EXACT CLOSED PATHS. The only two vertices
+ * not read straight off the drawing are where each lane extension crosses the
+ * arc — (540.6904, 396.8874) and (249.6808, 396.1479) — and they are solved,
+ * not eyeballed. **The two sides are not mirrors**: the extensions are
+ * symmetric about the lane's centre 395, the arc about the basket at 396, so
+ * the two crossings differ by three quarters of a unit in y.
+ *
+ * This replaced five oversized wedges cut down by a `courtClip` and two
+ * `Mask`s, which encoded angular sectors the floor has no line for. A closed
+ * path is exact by construction and needs no `Defs`.
+ *
+ * `lib/selfcheck.ts` rasterises the `d` strings below and asserts all 412,632
+ * cells of the viewBox resolve to the zone `zoneFor` names. **These strings
+ * and `lib/court.ts` change together or not at all.**
+ *
+ * The zones are never hit-tested — the wrapper owns the pointer — and only the
+ * one matching `zone`/`side` is rendered at all. Fills arrive as props rather
+ * than as CSS classes: `var()` inside an SVG presentation attribute is what
+ * forced classes on the web, and that problem does not exist here.
  */
 interface Props {
   zone: Zone | null;
   side: ZoneSide | null;
 }
 
-const ZN = [
-  { zone: 'corner2', side: 'r', d: 'M396 -400 L1600 -400 L1600 574.7 L396 76 Z' },
-  { zone: 'corner2', side: 'l', d: 'M396 -400 L-808 -400 L-808 574.7 L396 76 Z' },
-  { zone: 'wing2', side: 'r', d: 'M396 76 L2243.8 841.4 L1161.4 1923.8 Z' },
-  { zone: 'wing2', side: 'l', d: 'M396 76 L-369.4 1923.8 L-1451.8 841.4 Z' },
-  { zone: 'top2', side: 'c', d: 'M396 76 L1161.4 1923.8 L-369.4 1923.8 Z' },
-] as const;
-
-const three = (z: (typeof ZN)[number]) => ({ ...z, zone: z.zone.replace('2', '3') as Zone });
-
+const ZN: { zone: Zone; side: ZoneSide; d: string }[] = [
+  { zone: 'paint', side: 'c', d: 'M277 0 L513 0 L513 276 L277 276 Z' },
+  { zone: 'corner2', side: 'r', d: 'M513 0 L724 0 L724 101 L513 101 Z' },
+  { zone: 'corner2', side: 'l', d: 'M277 0 L68 0 L68 101 L277 101 Z' },
+  { zone: 'corner3', side: 'r', d: 'M724 0 L792 0 L792 203.7 L724 203.7 Z' },
+  { zone: 'corner3', side: 'l', d: 'M68 0 L0 0 L0 203.7 L68 203.7 Z' },
+  { zone: 'wing2', side: 'r', d: 'M513 101 L724 101 L724 203.7 A352 352 0 0 1 540.6904 396.8874 L480 276 L513 276 Z' },
+  { zone: 'wing2', side: 'l', d: 'M277 101 L68 101 L68 203.7 A352 352 0 0 0 249.6808 396.1479 L310 276 L277 276 Z' },
+  { zone: 'wing3', side: 'r', d: 'M724 203.7 L792 203.7 L792 521 L603 521 L540.6904 396.8874 A352 352 0 0 0 724 203.7 Z' },
+  { zone: 'wing3', side: 'l', d: 'M68 203.7 L0 203.7 L0 521 L187 521 L249.6808 396.1479 A352 352 0 0 1 68 203.7 Z' },
+  { zone: 'top2', side: 'c', d: 'M310 276 L480 276 L540.6904 396.8874 A352 352 0 0 1 249.6808 396.1479 Z' },
+  { zone: 'top3', side: 'c', d: 'M540.6904 396.8874 L603 521 L187 521 L249.6808 396.1479 A352 352 0 0 0 540.6904 396.8874 Z' },
+];
 function CourtSvgImpl({ zone, side }: Props) {
   const t = useTheme();
-  const hot = (z: string, s: string) => (z === zone && s === side ? 0.3 : 0);
+  const lit = ZN.find((z) => z.zone === zone && z.side === side);
 
   return (
     <Svg viewBox="0 0 792 521" width="100%" height="100%">
       <Rect x="0" y="0" width="792" height="521" fill={t.court} />
 
-      <Defs>
-        <ClipPath id="courtClip">
-          <Rect x="0" y="0" width="792" height="521" />
-        </ClipPath>
-        {/* inside the arc, outside the corners, outside the paint */}
-        <Mask id="m2" maskUnits="userSpaceOnUse" x="0" y="0" width="792" height="521">
-          <Rect x="0" y="0" width="792" height="521" fill="#000" />
-          <Circle cx="396" cy="76" r="352" fill="#fff" />
-          <Rect x="0" y="0" width="68" height="203.7" fill="#000" />
-          <Rect x="724" y="0" width="68" height="203.7" fill="#000" />
-          <Rect x="277" y="0" width="236" height="276" fill="#000" />
-        </Mask>
-        {/* beyond the arc, plus the two corner boxes */}
-        <Mask id="m3" maskUnits="userSpaceOnUse" x="0" y="0" width="792" height="521">
-          <Rect x="0" y="0" width="792" height="521" fill="#fff" />
-          <Circle cx="396" cy="76" r="352" fill="#000" />
-          <Rect x="0" y="0" width="68" height="203.7" fill="#fff" />
-          <Rect x="724" y="0" width="68" height="203.7" fill="#fff" />
-        </Mask>
-      </Defs>
-
-      <G clipPath="url(#courtClip)">
-        <Rect
-          x="277" y="0" width="236" height="276"
-          fill={t.accent} fillOpacity={hot('paint', 'c')}
-        />
-        <G mask="url(#m2)">
-          {ZN.map((z) => (
-            <Path
-              key={z.zone + z.side} d={z.d}
-              fill={t.accent} fillOpacity={hot(z.zone, z.side)}
-            />
-          ))}
-        </G>
-        <G mask="url(#m3)">
-          {ZN.map(three).map((z) => (
-            <Path
-              key={z.zone + z.side} d={z.d}
-              fill={t.accent} fillOpacity={hot(z.zone, z.side)}
-            />
-          ))}
-        </G>
-      </G>
+      {lit && <Path d={lit.d} fill={t.accent} fillOpacity={0.3} />}
 
       {/* lane lines + free throw line — the lane is the paint's own edge and
           nothing more; the shaded blocks and their inner rails are gone */}

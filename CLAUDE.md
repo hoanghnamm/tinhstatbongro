@@ -89,18 +89,49 @@ from the zone through `THREES`, so the two can never disagree — **there is del
 manual 2/3 override, and no zone label on the shot panel.** Both were built and cut. Do not
 re-add either without being asked.
 
-**Sectors are angular, the paint is not.** The sector is `atan2` out of the basket, cut at
-22.5 / 67.5 / 112.5 / 157.5°, with `y` clamped to the rim line so a shot from behind the
-backboard is a corner rather than a wing. Every sector is therefore a single wedge, which
-is what lets the SVG draw it as one path.
+**The drawing is the contract.** Every cut `zoneFor` makes is a line that is actually
+painted on the floor by `CourtSvg.tsx`, and every line that bounds a region is a zone edge:
 
-`components/board/CourtSvg.tsx` is the same geometry written a second time: eleven zone
-shapes (five sectors × 2PT/3PT, plus the paint), deliberately oversized and cut down by
-`courtClip` and the `m2` / `m3` masks, which encode the arc and the corner boxes exactly as
-`zoneFor` does. **`lib/court.ts` and those path strings change together or not at all.**
-The zones are never hit-tested — the wrapper owns the pointer — and only the one matching
-`ui.zone`/`ui.side` is lit. If `Mask` ever misbehaves on a platform, the fallback is to
-render only the *one* hot wedge under a `ClipPath`.
+| line, as drawn | separates |
+|---|---|
+| the lane, `x = 277 / 513`, `y = 276` | the paint |
+| `y = 101`, lane edge → three-point line | `corner2` \| `wing2` |
+| `y = 203.7`, three-point line → sideline | `corner3` \| `wing3` |
+| the three-point line, `x = 68 / 724` + the arc | 2PT \| 3PT |
+| the lane extensions, `(310,276)→(187,521)` and `(480,276)→(603,521)` | `wing` \| `top` |
+
+The backboard, the rim and the free-throw circle bound nothing; they are markings, and no
+one reads a circle as a zone edge. **Sectors are NOT angular.** An `atan2` fan out of the
+basket, cut at 22.5 / 67.5 / 112.5 / 157.5°, was what `zoneFor` used to do, and the floor
+has no line for any of those four rays — so the lit fill and the paint disagreed by whole
+slabs, which is what "ấn chỗ thì thiếu, chỗ thì thừa" was. Do not re-derive a sector from
+an angle.
+
+**The two corner cuts are at different heights on purpose**, because two different lines
+are drawn: inside the arc the corner ends at the free-throw line extended (101), outside it
+at the stub the three-point line turns on (203.7). The boundary therefore *steps* at
+`x = 68 / 724`, and a point can be below one cut and above the other.
+
+`components/board/CourtSvg.tsx` carries the same partition a second time, as **eleven exact
+closed paths**. The only two vertices not read straight off the drawing are where each lane
+extension crosses the arc — `(540.6904, 396.8874)` and `(249.6808, 396.1479)` — and they
+are solved, not eyeballed. **The two sides are not mirrors:** the extensions are symmetric
+about the lane's centre 395, the arc about the basket at 396, so the two crossings differ
+by three quarters of a unit in `y`.
+
+**`lib/court.ts` and those path strings change together or not at all**, and `selfcheck`
+enforces it two ways: it rasterises the real `d` strings out of the component and asserts
+all 412,632 cells of the viewBox resolve to the zone `zoneFor` names — no gap, no overlap,
+no drift — and it asserts each of the nine bounding lines is still drawn, so a zone edge
+cannot quietly lose its line. It samples at `(px + 0.31, py + 0.27)` rather than at the
+pixel centre: every boundary is an integer, `203.7`, or a slope of `123/245`, and a centre
+lands exactly on one often enough that an inclusive `<=` and a scanline edge rule disagree
+— noise, not drift, and no sample at this offset can sit on a boundary.
+
+The eleven paths replaced five oversized wedges cut down by a `courtClip` and two `Mask`s.
+A closed path is exact by construction and needs no `Defs`. The zones are never hit-tested
+— the wrapper owns the pointer — and only the one matching `ui.zone`/`ui.side` is rendered
+at all.
 
 Taps are normalised and **rounded to 3 dp** (`normalise`). Event payloads are stored and
 compared; do not widen that.
