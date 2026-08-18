@@ -140,6 +140,52 @@ export function Section({
   );
 }
 
+/**
+ * A card's caption strip: a label, and optionally something small pinned to the
+ * far edge — a clock, a date, a count. It is the same construction as `Line`'s
+ * header row and is here for the same reason `Card` is: the lobby, the saved
+ * games and the stats screen all draw one, and a second copy is the one that
+ * would drift a pixel.
+ */
+export function Band({
+  label,
+  note,
+  tone,
+}: {
+  label: string;
+  note?: ReactNode;
+  /** ink only — the band keeps its `surface2`, or it eats the seam under it */
+  tone?: string;
+}) {
+  const m = useMetrics();
+  const t = useTheme();
+  return (
+    <Row
+      gap={m.s2}
+      style={{
+        paddingVertical: m.s2,
+        paddingHorizontal: m.s3,
+        backgroundColor: t.surface2,
+        borderBottomWidth: 1,
+        borderBottomColor: t.rule,
+      }}
+    >
+      <Text
+        numberOfLines={1}
+        style={{
+          fontFamily: fNum(tone ? 700 : 500),
+          fontSize: m.fsXs,
+          letterSpacing: ls(m.fsXs, LS_LABEL),
+          color: tone ?? t.ink2,
+        }}
+      >
+        {label}
+      </Text>
+      {!!note && <View style={{ marginLeft: 'auto', flexGrow: 0, flexShrink: 0 }}>{note}</View>}
+    </Row>
+  );
+}
+
 export function Card({ children }: { children: ReactNode }) {
   const m = useMetrics();
   const t = useTheme();

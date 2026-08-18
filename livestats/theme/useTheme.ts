@@ -1,28 +1,24 @@
-import { useColorScheme } from 'react-native';
 import { vars } from 'nativewind';
 
-import { useGameStore } from '../store/gameStore';
-import { COLOR_KEYS, PALETTES, type Palette, type SkinName } from './tokens';
-import type { Options } from '../constants/options';
+import { COLOR_KEYS, PALETTE, type Palette } from './tokens';
 
 /** `--color-accent-ink` from `accentInk`; the one place the two spellings meet. */
 const cssName = (key: string) => '--color-' + key.replace(/[A-Z]/g, (c) => '-' + c.toLowerCase());
 
-export function resolvePalette(skin: Options['skin'], scheme: string | null | undefined): Palette {
-  const name: SkinName = skin === 'auto' ? (scheme === 'dark' ? 'dark' : 'light') : skin;
-  return PALETTES[name];
+/**
+ * The palette. There is one, so this is a constant wearing a hook's name —
+ * kept as a hook because every component in the app calls it that way, and
+ * because it is the seam a second skin would come back through if one ever
+ * had to. It reads no state and never causes a render.
+ */
+export function useTheme(): Palette {
+  return PALETTE;
 }
 
 /**
- * The resolved palette, and the same values as CSS variables for the root view.
- * Pushing them down means a NativeWind class and a `useTheme()` read always
- * agree, even on a skin `global.css` never heard of.
+ * The same values as CSS variables for the root view. Pushing them down means
+ * a NativeWind class and a `useTheme()` read always agree.
  */
-export function useTheme(): Palette {
-  const skin = useGameStore((s) => s.options.skin);
-  return resolvePalette(skin, useColorScheme());
-}
-
 export function themeVars(p: Palette): Record<string, string> {
   const out: Record<string, string> = {};
   for (const k of COLOR_KEYS) out[cssName(k)] = p[k] as string;

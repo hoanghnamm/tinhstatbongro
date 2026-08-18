@@ -10,19 +10,53 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
-import { FOULS, PERIOD_LEN, SEED_ROSTER, seedRoster } from '../constants/game';
+import { FOULS, PERIOD_LEN, SEED_ROSTER, seedRoster, zeroStats } from '../constants/game';
 import * as A from '../lib/actions';
 import { FT_SPOT, shotTypeFor, zoneFor, zoneSide } from './court';
 import { clockEntry, clockReady, mmss, ord, pushClockDigit, secondsFromClock } from './format';
 import { gridFor } from './grid';
 import { advancedFor, linesFor, periodsOf, report, scoreline, shotsIn } from './box';
 import { litControl, litPlayerId } from './lit';
-import { ROSTER_CAP, STARTERS, buildPlayers, cleanName, numberHolder, validNumber } from './roster';
+import {
+  HISTORY_CAP,
+  pushSummary,
+  resultOf,
+  reviveGame,
+  summarise,
+  type GameSummary,
+} from './history';
+import {
+  ROSTER_CAP,
+  STARTERS,
+  availableIn,
+  buildPlayers,
+  cleanName,
+  migrateRoster,
+  numberHolder,
+  validNumber,
+} from './roster';
+import { season } from './season';
+import {
+  DEFAULT_TEAM,
+  TEAM_NAME_MAX,
+  NOTE_MAX,
+  OPPONENT_MAX,
+  cleanCoach,
+  cleanNote,
+  cleanOpponent,
+  cleanTeamName,
+  opponentLabel,
+  initials,
+  logoName,
+  migrateTeam,
+} from './team';
 import { efficiency, efg, plusMinus, ptsOffSteals, totals, zoneSplits } from './stats';
 import type { GameEvent, GameState, Position, RosterPlayer } from '../types';
 
 const game = (): GameState => ({
   team: { name: 'T' },
+  opponent: '',
+  note: '',
   score: 0,
   oppScore: 0,
   period: 1,
@@ -338,8 +372,8 @@ assert.equal(shotTypeFor(396 / 792, 100 / 521), '2PT');
 /* ---- the roster form ----------------------------------------------- */
 {
   const roster: RosterPlayer[] = [
-    { id: 'a', number: 12, name: 'bd' },
-    { id: 'b', number: 7, name: 'a.n' },
+    { id: 'a', number: 12, name: 'bd', available: true },
+    { id: 'b', number: 7, name: 'a.n', available: true },
   ];
 
   // the duplicate check NAMES the holder, because the error has to be actionable
@@ -359,6 +393,210 @@ assert.equal(shotTypeFor(396 / 792, 100 / 521), '2PT');
 
   assert.equal(cleanName('  bd  '), 'bd', 'names are trimmed');
   assert.equal(cleanName('x'.repeat(40)).length, 20, 'and capped — the rail truncates anyway');
+}
+
+/* ---- availability, and the migration that keeps it honest -----------
+ * `available` is read as a FILTER, `undefined` is falsy, and a roster
+ * persisted before the key existed rehydrates without it. Without the
+ * migration that is an empty starter picker at tip-off, which is the one
+ * failure this app cannot recover from in front of a scorer.
+ * ------------------------------------------------------------------ */
+{
+  const stored = [
+    { id: 'a', number: 12, name: 'bd' },
+    { id: 'b', number: 7, name: 'a.n' },
+    { id: 'c', number: 9, name: 'x', position: 'PG' },
+    { id: 'd', number: 3, name: 'y', position: 'POINT GUARD' },
+    { id: 'e', number: 4, name: 'z', available: false },
+  ];
+  const migrated = migrateRoster(stored);
+
+  assert.equal(migrated.length, 5, 'nobody is lost in the migration');
+  assert.ok(
+    migrated.slice(0, 4).every((p) => p.available),
+    'a roster that has never heard of availability has everyone available',
+  );
+  assert.equal(migrated[4].available, false, 'and an explicit false survives it');
+  assert.equal(migrated[2].position, 'PG', 'a known position is kept');
+  assert.equal(migrated[3].position, undefined, 'an unknown one is dropped, not rendered');
+  assert.equal(migrated[0].position, undefined, 'and a missing one stays missing');
+
+  assert.equal(availableIn(migrated).length, 4, 'the picker offers four of the five');
+  assert.equal(
+    migrateRoster(undefined).length,
+    0,
+    'nothing persisted is an empty roster, not a crash',
+  );
+
+  // POSITION IS A LABEL. The one crossing into a game copies field by field,
+  // so neither of the two team-only keys can arrive in a stat line.
+  const built = buildPlayers(migrated, ['a', 'b', 'c', 'e', 'd']);
+  assert.equal(built.length, 5, 'buildPlayers copies whatever it is handed');
+  for (const p of built) {
+    assert.equal('position' in p, false, 'a position never reaches a game');
+    assert.equal('available' in p, false, 'and neither does availability');
+  }
+}
+
+/* ---- the club ------------------------------------------------------
+ * The half of "my team" that is not a list of people. Nothing here opens a
+ * file: the crest's copying and deleting lives in `teamStore`, because
+ * `expo-file-system` cannot be imported into this script.
+ * ------------------------------------------------------------------ */
+{
+  assert.equal(cleanTeamName('  Hanoi   Buffaloes  '), 'Hanoi Buffaloes', 'trimmed and collapsed');
+  assert.equal(cleanTeamName('x'.repeat(60)).length, TEAM_NAME_MAX, 'and capped');
+  assert.equal(cleanCoach('  a  b '), 'a b');
+
+  // the crest when there is no crest, and it is NEVER empty
+  assert.equal(initials('MY TEAM'), 'MT');
+  assert.equal(initials('Hanoi'), 'H');
+  assert.equal(initials('a b c d'), 'AB', 'two letters at most — the third is unreadable');
+  assert.equal(initials('   '), '?', 'a blank name still gets a mark');
+
+  // A LOGO URI IS NOT TRUSTED. iOS moves the document directory between
+  // installs, so anything that is not a file:// URI is dropped here and the
+  // store checks the file still exists on rehydrate.
+  const kept = migrateTeam({
+    name: 'Hanoi',
+    logoUri: 'file:///var/app/team/crest-1.jpg',
+    coach: 'Vu',
+    assistant: 'Linh',
+  });
+  assert.equal(kept.logoUri, 'file:///var/app/team/crest-1.jpg', 'a real file URI survives');
+  assert.equal(kept.coach, 'Vu');
+
+  assert.equal(
+    migrateTeam({ name: 'Hanoi', logoUri: 'https://example.com/x.png' }).logoUri,
+    null,
+    'and anything that is not a file is not a crest',
+  );
+  assert.equal(migrateTeam({}).name, DEFAULT_TEAM.name, 'a nameless club falls back');
+  assert.equal(migrateTeam({ name: '   ' }).name, DEFAULT_TEAM.name, 'and so does a blank one');
+  assert.equal(migrateTeam(undefined).logoUri, null, 'nothing persisted is the default club');
+  assert.equal(migrateTeam({ name: 'x' }).coach, '', 'the coaches are optional and start empty');
+
+  // the file name is STAMPED, because React Native caches an <Image> by URI and
+  // a second crest at the same path keeps showing the first
+  assert.equal(logoName('file:///tmp/pic.PNG', 0), 'crest-0.png', 'the extension is kept, lowercased');
+  assert.equal(logoName('file:///tmp/pic.jpeg', 0), 'crest-0.jpeg');
+  assert.equal(logoName('file:///tmp/pic', 0), 'crest-0.jpg', 'and guessed when there is none');
+  assert.notEqual(logoName('a.png', 1), logoName('a.png', 2), 'two crests never share a name');
+}
+
+/* ---- the other side ------------------------------------------------
+ * A GAME's two labels, cleaned by the club's own function because they are
+ * the same kind of thing. Neither is required, and a blank one reads as the
+ * word the board has always used rather than as an empty gap.
+ * ------------------------------------------------------------------ */
+{
+  assert.equal(cleanOpponent('  Hanoi   Rockets '), 'Hanoi Rockets', 'trimmed and collapsed');
+  assert.equal(cleanOpponent('x'.repeat(99)).length, OPPONENT_MAX, 'and capped');
+  assert.equal(cleanNote('x'.repeat(99)).length, NOTE_MAX, 'the note gets a line, not a name');
+
+  assert.equal(opponentLabel('Hanoi Rockets'), 'HANOI ROCKETS');
+  assert.equal(opponentLabel(''), 'OPPONENT', 'a game started in a hurry still says something');
+  assert.equal(opponentLabel('   '), 'OPPONENT');
+  assert.equal(opponentLabel(undefined), 'OPPONENT', 'a summary from before opponents existed');
+}
+
+/* ---- the shelf ----------------------------------------------------- */
+{
+  const g = game();
+  g.opponent = 'Hanoi Rockets';
+  g.score = 55;
+  g.oppScore = 48;
+  g.period = 3;
+  const s = summarise(g, 'g1', 1700000000000);
+  assert.equal(s.score, 55);
+  assert.equal(s.periods, 3, 'a quarter with nothing logged in it was still played');
+  assert.equal(s.opponent, 'Hanoi Rockets', 'the shelf row says who it was against');
+  assert.equal(resultOf(s), 'W');
+  assert.equal(resultOf({ ...s, score: 48 }), 'D', 'a draw is not a loss');
+  assert.equal(resultOf({ ...s, score: 40 }), 'L');
+
+  // the cap drops the OLDEST, and hands it back so its key can go too
+  let index: GameSummary[] = [];
+  for (let i = 0; i < HISTORY_CAP + 3; i++) {
+    const out = pushSummary(index, { ...s, id: 'g' + i, endedAt: i });
+    index = out.index;
+    if (i < HISTORY_CAP) assert.equal(out.dropped.length, 0, 'nothing falls off under the cap');
+    else assert.equal(out.dropped.length, 1, 'and exactly one does over it');
+  }
+  assert.equal(index.length, HISTORY_CAP, 'the shelf holds thirty');
+  assert.equal(index[0].id, 'g' + (HISTORY_CAP + 2), 'newest first');
+  assert.equal(
+    index.some((x) => x.id === 'g0'),
+    false,
+    'and the oldest is the one that went',
+  );
+
+  // a game read back off disk is a game, whatever the build that wrote it knew
+  const revived = reviveGame(JSON.parse(JSON.stringify(g)) as unknown);
+  assert.equal(revived?.score, 55);
+  assert.equal(revived?.ended, true, 'a saved game is over by definition');
+  assert.equal(revived?.running, false, 'and its clock is not running');
+  assert.equal(reviveGame(null), null, 'a row that is not a game is not one');
+  assert.equal(reviveGame({ players: [] }), null, 'and half a game is not one either');
+}
+
+/* ---- the season ----------------------------------------------------
+ * PER GAME divides by the games a player APPEARED IN, never by the games
+ * the team played. Anything else punishes a twelfth man for the nights the
+ * team played without them.
+ * ------------------------------------------------------------------ */
+{
+  const roster: RosterPlayer[] = [
+    { id: 'p1', number: 1, name: 'a.n', available: true },
+    { id: 'p12', number: 12, name: 'bd', available: true },
+  ];
+
+  const played = (pts: number, secs: number) => ({
+    ...zeroStats(),
+    points: pts,
+    fgMade: pts / 2,
+    fgAttempted: pts,
+    secondsPlayed: secs,
+  });
+
+  const one: GameState = {
+    ...game(),
+    score: 20,
+    oppScore: 10,
+    players: [
+      { id: 'p1', number: 1, name: 'a.n', status: 'active', starter: true, stats: played(20, 600) },
+      { id: 'p12', number: 12, name: 'bd', status: 'bench', starter: false, stats: zeroStats() },
+    ],
+  };
+  const two: GameState = {
+    ...game(),
+    score: 10,
+    oppScore: 30,
+    players: [
+      { id: 'p1', number: 1, name: 'a.n', status: 'active', starter: true, stats: played(10, 600) },
+      { id: 'p12', number: 12, name: 'bd', status: 'active', starter: true, stats: played(4, 300) },
+    ],
+  };
+
+  const T = season([one, two], roster, 'totals');
+  assert.equal(T.games, 2);
+  assert.equal(T.wins, 1);
+  assert.equal(T.losses, 1);
+  assert.equal(T.lines.length, 2, 'a player who never appeared is not a season line');
+  assert.equal(T.lines[0].games, 2, 'the one who played both');
+  assert.equal(T.lines[1].games, 1, 'and the one who sat out the first');
+  assert.equal(T.lines[0].stats.points, 30);
+  assert.equal(T.lines[1].stats.points, 4);
+
+  const P = season([one, two], roster, 'perGame');
+  assert.equal(P.lines[0].stats.points, 15, '30 over the two games they played');
+  assert.equal(P.lines[1].stats.points, 4, 'and 4 over the ONE game they played, not over two');
+  assert.equal(P.lines[1].stats.secondsPlayed, 300, 'minutes stay whole seconds');
+
+  // identity is the roster id, so a rename between games does not split a line
+  const renamed = season([one, two], [{ ...roster[0], name: 'A. NGUYEN' }, roster[1]], 'totals');
+  assert.equal(renamed.lines[0].name, 'A. NGUYEN', 'the name shown is the roster name today');
+  assert.equal(renamed.lines[0].stats.points, 30, 'and the line is still one line');
 }
 
 /* ---- formatting --------------------------------------------------- */
@@ -663,8 +901,8 @@ assert.equal(ord(11), '11th');
     .map((f) => ({ path: relative(process.cwd(), f), src: readFileSync(f, 'utf8') }));
   assert.ok(files.length > 20, 'the component tree should be found from the project root');
   assert.ok(
-    files.some((f) => f.path === join('app', 'index.tsx')),
-    'and the routes with it',
+    files.some((f) => f.path === join('app', '(tabs)', 'index.tsx')),
+    'and the routes with it, tab group included',
   );
 
   // 1. Function styles. NativeWind's interop walks the ["style", …] path with
@@ -710,6 +948,7 @@ assert.equal(ord(11), '11th');
     join('components', 'board', 'Court.tsx'), // the live mark is a dot
     join('components', 'stats', 'ShotsTab.tsx'), // made / miss / free-throw dots
     join('components', 'stats', 'ZonesTab.tsx'), // the zone heat and its scale
+    join('components', 'ui', 'Dot.tsx'), // the availability dot, likewise
   ];
   for (const f of files) {
     if (NO_TEXT_INSIDE.includes(f.path)) continue;

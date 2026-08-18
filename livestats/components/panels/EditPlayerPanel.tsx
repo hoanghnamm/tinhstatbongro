@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Switch, Text, TextInput, View } from 'react-native';
 
+import { COURT_POSITIONS } from '../../constants/game';
 import { useAnnounce } from '../../hooks/useAnnounce';
 import { NAME_MAX, numberHolder, validNumber } from '../../lib/roster';
 import { useRosterStore } from '../../store/rosterStore';
@@ -8,7 +9,16 @@ import { useUiStore } from '../../store/uiStore';
 import { useMetrics } from '../../theme/metrics';
 import { LS_LABEL, fNum, fUi, ls } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
+import { Seg, type SegItem } from '../stats/parts';
 import { Btn, PTitle, Row } from './shell';
+import type { CourtPosition } from '../../types';
+
+/** `—` is a real choice and the default one: most players never get a label. */
+type PosKey = '' | CourtPosition;
+const POS_ITEMS: SegItem<PosKey>[] = [
+  { key: '', label: '—' },
+  ...COURT_POSITIONS.map((p) => ({ key: p as PosKey, label: p })),
+];
 
 /**
  * ADD PLAYER and EDIT PLAYER are one panel, because they are one form: the
@@ -22,6 +32,13 @@ import { Btn, PTitle, Row } from './shell';
  *
  * This is the only screen in the app with a text input, which is why the
  * keyboard avoidance lives here and nowhere else — the board never opens one.
+ *
+ * The two fields under the name are the two things that are true of a player
+ * between games rather than during one. POSITION is a LABEL and nothing reads
+ * it — not the picker, not the rail, not a single stat — which is why it can be
+ * left blank and why blank is where it starts. AVAILABLE is the one that does
+ * something: it is what hides an injured player from the starter picker, and
+ * it is a switch rather than a delete because they are still on the team.
  */
 export function EditPlayerPanel({ playerId }: { playerId: string | null }) {
   const m = useMetrics();
@@ -38,6 +55,9 @@ export function EditPlayerPanel({ playerId }: { playerId: string | null }) {
   // different states, and `Number('')` is 0
   const [numText, setNumText] = useState(editing ? String(editing.number) : '');
   const [name, setName] = useState(editing?.name ?? '');
+  const [position, setPosition] = useState<PosKey>(editing?.position ?? '');
+  // a player is added because they are on the team, not because they are hurt
+  const [available, setAvailable] = useState(editing ? editing.available : true);
 
   const title = editing ? 'EDIT PLAYER' : 'ADD PLAYER';
   useAnnounce(title);
@@ -50,8 +70,11 @@ export function EditPlayerPanel({ playerId }: { playerId: string | null }) {
 
   const save = () => {
     if (!ok) return;
-    if (editing) update(editing.id, { number: num, name });
-    else add({ number: num, name });
+    // `position: undefined` is how the blank is stored — the key is optional and
+    // the patch spread clears it, which is what picking `—` has to mean
+    const pos = position === '' ? undefined : position;
+    if (editing) update(editing.id, { number: num, name, position: pos, available });
+    else add({ number: num, name, position: pos, available });
     reset();
   };
 
@@ -115,6 +138,37 @@ export function EditPlayerPanel({ playerId }: { playerId: string | null }) {
           style={field}
         />
       </View>
+
+      <View style={{ flexDirection: 'column', gap: m.s2, marginTop: m.sp }}>
+        {label('POSITION')}
+        <Seg items={POS_ITEMS} value={position} onChange={(k) => setPosition(k)} />
+      </View>
+
+      <Row mt>
+        <View style={{ flex: 1, minWidth: 0, flexDirection: 'column', gap: 2 }}>
+          {label('AVAILABLE')}
+          <Text
+            style={{
+              fontFamily: fUi(400),
+              fontSize: m.fsXs,
+              lineHeight: m.fsXs * 1.5,
+              color: t.ink3,
+            }}
+          >
+            {available ? 'Can be picked to start.' : 'Injured or away — hidden from the picker.'}
+          </Text>
+        </View>
+        <View style={{ flexGrow: 0, flexShrink: 0, justifyContent: 'center' }}>
+          <Switch
+            value={available}
+            onValueChange={setAvailable}
+            accessibilityLabel="available for selection"
+            trackColor={{ false: t.rule, true: t.accent }}
+            thumbColor={t.surface}
+            ios_backgroundColor={t.rule}
+          />
+        </View>
+      </Row>
 
       {/* the one error the form can show, and it says who to go and ask */}
       <Text

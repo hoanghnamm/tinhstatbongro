@@ -10,6 +10,7 @@ import { useMetrics } from '../../theme/metrics';
 import { useTheme } from '../../theme/useTheme';
 import { AssistPanel } from './AssistPanel';
 import { EditPlayerPanel } from './EditPlayerPanel';
+import { EditTeamPanel } from './EditTeamPanel';
 import { EndGamePanel } from './EndGamePanel';
 import { EndQuarterPanel } from './EndQuarterPanel';
 import { FTDockPanel } from './FTDockPanel';
@@ -20,8 +21,11 @@ import { NewGamePanel } from './NewGamePanel';
 import { PlayerActionsPanel } from './PlayerActionsPanel';
 import { PlaysPanel } from './PlaysPanel';
 import { RebKindPanel } from './RebKindPanel';
+import { RemoveGamePanel } from './RemoveGamePanel';
 import { RemovePlayerPanel } from './RemovePlayerPanel';
+import { SettingsPanel } from './SettingsPanel';
 import { SetClockPanel } from './SetClockPanel';
+import { SetNumberPanel } from './SetNumberPanel';
 import { SubOutPanel } from './SubOutPanel';
 import { TotalsPanel } from './TotalsPanel';
 import { TripShotsPanel } from './TripShotsPanel';
@@ -114,7 +118,11 @@ function body(panel: Panel) {
     case 'plays': return <PlaysPanel />;
     case 'newGame': return <NewGamePanel />;
     case 'editPlayer': return <EditPlayerPanel playerId={panel.playerId} />;
+    case 'setNumber': return <SetNumberPanel playerId={panel.playerId} />;
+    case 'editTeam': return <EditTeamPanel />;
     case 'removePlayer': return <RemovePlayerPanel playerId={panel.playerId} />;
+    case 'removeGame': return <RemoveGamePanel gameId={panel.gameId} />;
+    case 'settings': return <SettingsPanel />;
   }
 }
 

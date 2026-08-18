@@ -26,7 +26,15 @@
     },
     "plugins": [
       "expo-font",
-      "expo-router"
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "HoopLog needs access to your photos so you can set your club crest.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ]
     ],
     "newArchEnabled": true
   }

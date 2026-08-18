@@ -23,6 +23,13 @@ export interface PressProps {
   /** merged on top of `style` while the finger is down */
   pressedStyle?: StyleProp<ViewStyle>;
   onPress?(): void;
+  /**
+   * The one gesture beyond a tap this app has, and it has exactly one caller:
+   * deleting a saved game. It is here rather than on a gesture handler because
+   * a second interaction vocabulary for one destructive action — which already
+   * has a confirm panel behind it — is not worth a dependency.
+   */
+  onLongPress?(): void;
   disabled?: boolean;
   accessibilityLabel?: string;
   /**
@@ -44,6 +51,7 @@ export function Press({
   style,
   pressedStyle,
   onPress,
+  onLongPress,
   disabled = false,
   accessibilityLabel,
   innerRef,
@@ -57,6 +65,7 @@ export function Press({
       ref={innerRef}
       onLayout={onLayout}
       onPress={onPress}
+      onLongPress={onLongPress}
       disabled={disabled || !onPress}
       onPressIn={() => setPressed(true)}
       onPressOut={() => setPressed(false)}

@@ -1,20 +1,22 @@
 import { FlatList, Text, View } from 'react-native';
-import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
-import { PanelHost } from '../components/panels/PanelHost';
-import { Btn, Row as BtnRow } from '../components/panels/shell';
-import { Jersey } from '../components/ui/Jersey';
-import { Press } from '../components/ui/Press';
-import { Row } from '../components/ui/Row';
-import { ROSTER_CAP } from '../lib/roster';
-import { useRosterStore } from '../store/rosterStore';
-import { useUiStore } from '../store/uiStore';
-import { useMetrics } from '../theme/metrics';
-import { LS_BTN, LS_LABEL, fNum, fUi, ls } from '../theme/tokens';
-import { useTheme } from '../theme/useTheme';
-import type { RosterPlayer } from '../types';
+import { PanelHost } from '../../components/panels/PanelHost';
+import { Btn, Row as BtnRow } from '../../components/panels/shell';
+import { ClubCard } from '../../components/team/ClubCard';
+import { Dot } from '../../components/ui/Dot';
+import { Icon, PENCIL } from '../../components/ui/Icon';
+import { Jersey } from '../../components/ui/Jersey';
+import { Press } from '../../components/ui/Press';
+import { Row } from '../../components/ui/Row';
+import { ROSTER_CAP } from '../../lib/roster';
+import { useRosterStore } from '../../store/rosterStore';
+import { useUiStore } from '../../store/uiStore';
+import { useMetrics } from '../../theme/metrics';
+import { LS_LABEL, fNum, fUi, ls } from '../../theme/tokens';
+import { useTheme } from '../../theme/useTheme';
+import type { RosterPlayer } from '../../types';
 
 /**
  * Two columns start here, not at an orientation. A tablet in portrait is wide
@@ -24,16 +26,6 @@ import type { RosterPlayer } from '../types';
 const TWO_UP = 700;
 /** …and past it the count is computed, so a 1180pt iPad gets three, not two. */
 const COL_W = 340;
-
-const ICON = 'M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25z'; // pencil
-
-function Icon({ d, size, color }: { d: string; size: number; color: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24">
-      <Path d={d} fill={color} />
-    </Svg>
-  );
-}
 
 function PlayerRow({ player }: { player: RosterPlayer }) {
   const m = useMetrics();
@@ -59,6 +51,9 @@ function PlayerRow({ player }: { player: RosterPlayer }) {
         paddingVertical: m.s2,
         borderBottomWidth: 1,
         borderBottomColor: t.rule,
+        // dimmed, not hidden — they are still on the team, and the row is still
+        // the way back to the switch that says so
+        opacity: player.available ? 1 : 0.45,
       }}
       pressedStyle={{ backgroundColor: t.surface2 }}
     >
@@ -78,9 +73,29 @@ function PlayerRow({ player }: { player: RosterPlayer }) {
         {player.name}
       </Text>
 
+      {/* the label. `—` when unset, and unset is the common case */}
+      <Text
+        style={{
+          flexGrow: 0,
+          flexShrink: 0,
+          minWidth: m.fsMd * 1.6,
+          fontFamily: fNum(500),
+          fontSize: m.fsSm,
+          letterSpacing: ls(m.fsSm, LS_LABEL),
+          color: t.ink3,
+        }}
+      >
+        {player.position ?? '—'}
+      </Text>
+
+      {/* and the state. It is the ABSENCE that is worth a colour: the board
+          already marks a player who cannot play in `danger`, so this matches it
+          rather than inventing a second vocabulary for the same fact. */}
+      <Dot on={player.available} />
+
       {/* the affordance, so the row reads as editable rather than merely tappable */}
       <View style={{ marginLeft: 'auto', flexGrow: 0, flexShrink: 0 }}>
-        <Icon d={ICON} size={m.fsMd} color={t.ink3} />
+        <Icon d={PENCIL} size={m.fsMd} color={t.ink3} />
       </View>
 
       <Press
@@ -139,42 +154,21 @@ export default function TeamScreen() {
         paddingRight: safe.right + m.s4,
       }}
     >
-      <Row gap={m.s2} style={{ minHeight: m.tap, flexGrow: 0, flexShrink: 0 }}>
-        <Press
-          onPress={() => router.back()}
-          accessibilityLabel="back to home"
-          style={{
-            width: m.tap,
-            minHeight: m.tap,
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: m.rSm,
-          }}
-          pressedStyle={{ backgroundColor: t.surface2 }}
-        >
-          <Svg width={m.fsLg} height={m.fsLg} viewBox="0 0 24 24">
-            <Path
-              d="M15 4L7 12l8 8"
-              stroke={t.ink}
-              strokeWidth={2.2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              fill="none"
-            />
-          </Svg>
-        </Press>
+      {/* no back button: this is a tab root, and the tab bar is the way out */}
+      <ClubCard />
 
+      <Row gap={m.s2} style={{ minHeight: m.tap, flexGrow: 0, flexShrink: 0, marginTop: m.s3 }}>
         <Text
           numberOfLines={1}
           style={{
             flexShrink: 1,
             fontFamily: fNum(700),
-            fontSize: m.fsXl,
-            letterSpacing: ls(m.fsXl, LS_BTN),
-            color: t.ink,
+            fontSize: m.fsMd,
+            letterSpacing: ls(m.fsMd, LS_LABEL),
+            color: t.ink2,
           }}
         >
-          MY TEAM
+          PLAYERS
         </Text>
 
         <Text

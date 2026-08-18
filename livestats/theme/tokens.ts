@@ -3,19 +3,21 @@
  *
  * Two layers, exactly as the web build had them:
  *   1. PALETTE — raw values, the only place a hex is written.
- *   2. SEMANTIC — what the UI asks for, aliased onto the palette, so a skin
- *      only has to swap layer 1.
+ *   2. SEMANTIC — what the UI asks for, aliased onto the palette.
  *
- * This file is the single runtime source of truth. `global.css` carries a
- * light-mode copy purely as a fallback for NativeWind classes; the root view
- * pushes the resolved palette back down as CSS variables (see `useTheme`), so
- * a class and a `useTheme()` read can never disagree.
+ * There is ONE skin and it is light. The switcher, `auto`, the dark palette and
+ * the two frosted ones were built and cut: a scorer picks a theme once and
+ * never again, and every branch that existed to serve the choice — the blur in
+ * `Surface`, the background wash in `_layout`, the `skin` option — was paying
+ * for a decision nobody makes at courtside. The two-layer split survives the
+ * cut because it is what keeps the hexes in one place, not because a second
+ * skin is coming.
+ *
+ * This file is the single runtime source of truth. `global.css` carries a copy
+ * purely as a fallback for NativeWind classes; the root view pushes the palette
+ * back down as CSS variables (see `useTheme`), so a class and a `useTheme()`
+ * read can never disagree.
  */
-
-export type SkinName = 'light' | 'dark' | 'glass' | 'glassDark';
-
-/** A two-stop gradient. Only the frosted skins' background wash uses one. */
-export type Grad = readonly [string, string];
 
 export interface Palette {
   /* ink & surface */
@@ -27,15 +29,10 @@ export interface Palette {
   surface2: string;
   /**
    * The fill a board control wears while the finger is on it: one step AWAY
-   * from `surface`, and on a dark skin that step goes UP. `surface2` is the
-   * canvas, which is darker than the surface in every skin, so using it here
-   * made a press read as the cell dimming — backwards for the one moment the
-   * cell is the thing you are looking at. It carries no hue of its own; a lit
-   * cell is a lighter cell and nothing more.
-   *
-   * A light skin has no headroom — its surface is already white — so there
-   * `press` stays the canvas, which is the only direction left with contrast
-   * to spend.
+   * from `surface`. On a light skin there is no headroom — the surface is
+   * already white — so `press` is the canvas, the only direction left with
+   * contrast to spend. It carries no hue of its own; a lit cell is a different
+   * cell and nothing more.
    */
   press: string;
   rule: string;
@@ -52,18 +49,12 @@ export interface Palette {
   /**
    * The live mark: the ring that says WHERE the tap landed. It is the one
    * thing on the floor that is not a result, so it does not borrow `accent`,
-   * which two dots away means MADE. Basketball orange — the one hue no skin
-   * spends anywhere else.
+   * which two dots away means MADE. Basketball orange — the one hue the
+   * palette spends nowhere else.
    */
   mark: string;
   markMiss: string;
   liveFill: string;
-  /* skin behaviour */
-  /** drives the status bar and the blur tint; not a colour */
-  dark: boolean;
-  glass: boolean;
-  /** frosted skins paint a wash behind the blur; a flat fill has nothing to show */
-  bgWash: Grad | null;
 }
 
 interface Raw {
@@ -75,7 +66,7 @@ interface Raw {
   court: string;
   surface: string;
   canvas: string;
-  /** the pressed fill; a lift off `surface`, or the canvas where white caps it */
+  /** the pressed fill; the canvas, because white has nowhere brighter to go */
   press: string;
   rule: string;
   danger: string;
@@ -83,124 +74,51 @@ interface Raw {
   mark: string;
   onAccent: string;
   liveFill: string;
-  dark?: boolean;
-  glass?: boolean;
-  bgWash?: Grad;
 }
 
-/** Layer 2. A skin is a palette swap and nothing more. */
-const semantic = (r: Raw): Palette => ({
-  ink: r.ink,
-  ink2: r.ink60,
-  ink3: r.ink30,
-  bg: r.canvas,
-  surface: r.surface,
-  surface2: r.canvas,
-  press: r.press,
-  rule: r.rule,
-  line: r.rule,
-  accent: r.teal600,
-  accent2: r.teal700,
-  accentInk: r.onAccent,
-  danger: r.danger,
-  dangerInk: r.onAccent,
-  court: r.court,
-  courtLine: r.courtLine,
-  mark: r.mark,
-  markMiss: r.surface,
-  liveFill: r.liveFill,
-  dark: r.dark ?? false,
-  glass: r.glass ?? false,
-  bgWash: r.bgWash ?? null,
-});
-
-const RAW: Record<SkinName, Raw> = {
-  light: {
-    teal600: '#15788A',
-    teal700: '#0F5F6E',
-    ink: '#1A2226',
-    ink60: '#5C6A70',
-    ink30: '#9AA6AC',
-    court: '#B9C6CB',
-    surface: '#FFFFFF',
-    canvas: '#EEF1F2',
-    press: '#EEF1F2', // white has nowhere brighter to go
-    rule: '#D5DCDF',
-    danger: '#B3261E',
-    courtLine: '#FFFFFF',
-    mark: '#E2611A',
-    onAccent: '#FFFFFF',
-    liveFill: 'rgba(255,255,255,0.55)',
-  },
-  dark: {
-    teal600: '#3FC6E4',
-    teal700: '#2AA9C6',
-    ink: '#EFF1F4',
-    ink60: '#A8AEB8',
-    ink30: '#78818C',
-    court: '#2C3238',
-    surface: '#181B20',
-    canvas: '#0E1013',
-    press: '#272D36', // a clear step above both the surface and its rule
-    rule: '#2B3038',
-    danger: '#E4576A',
-    courtLine: '#FFFFFF',
-    mark: '#FF8C42',
-    onAccent: '#0E1013',
-    liveFill: 'rgba(24,27,32,0.55)',
-    dark: true,
-  },
-  glass: {
-    teal600: '#4A5FE0',
-    teal700: '#3547BE',
-    ink: '#151A2E',
-    ink60: '#5A6480',
-    ink30: '#98A0BC',
-    court: '#A9B4DC',
-    surface: '#FFFFFF',
-    canvas: '#E9ECFA',
-    press: '#E9ECFA', // as with `light`: the surface is already white
-    rule: '#CED6F0',
-    danger: '#D2394C',
-    courtLine: '#FFFFFF',
-    mark: '#E2611A',
-    onAccent: '#FFFFFF',
-    liveFill: 'rgba(255,255,255,0.55)',
-    glass: true,
-    // the web build used a three-stop radial; a linear pass reads the same
-    // behind 16px of blur and costs no extra dependency
-    bgWash: ['#DEE4FF', '#F7EDFB'],
-  },
-  glassDark: {
-    teal600: '#5BD7F0',
-    teal700: '#38B2CC',
-    ink: '#EAEDF7',
-    ink60: '#A2AAC4',
-    ink30: '#6F7793',
-    court: '#252C46',
-    surface: '#1A2038',
-    canvas: '#0C1020',
-    press: '#2D3557', // a clear step above both the surface and its rule
-    rule: '#333B58',
-    danger: '#FF6B7E',
-    courtLine: '#FFFFFF',
-    mark: '#FF9147',
-    onAccent: '#0B1020',
-    liveFill: 'rgba(26,32,56,0.55)',
-    dark: true,
-    glass: true,
-    bgWash: ['#1D2653', '#241340'],
-  },
+/** Layer 1. The only place in the app a hex is written. */
+const RAW: Raw = {
+  teal600: '#15788A',
+  teal700: '#0F5F6E',
+  ink: '#1A2226',
+  ink60: '#5C6A70',
+  ink30: '#9AA6AC',
+  court: '#B9C6CB',
+  surface: '#FFFFFF',
+  canvas: '#EEF1F2',
+  press: '#EEF1F2', // white has nowhere brighter to go
+  rule: '#D5DCDF',
+  danger: '#B3261E',
+  courtLine: '#FFFFFF',
+  mark: '#E2611A',
+  onAccent: '#FFFFFF',
+  liveFill: 'rgba(255,255,255,0.55)',
 };
 
-export const PALETTES: Record<SkinName, Palette> = {
-  light: semantic(RAW.light),
-  dark: semantic(RAW.dark),
-  glass: semantic(RAW.glass),
-  glassDark: semantic(RAW.glassDark),
+/** Layer 2. What the UI asks for, aliased onto layer 1. */
+export const PALETTE: Palette = {
+  ink: RAW.ink,
+  ink2: RAW.ink60,
+  ink3: RAW.ink30,
+  bg: RAW.canvas,
+  surface: RAW.surface,
+  surface2: RAW.canvas,
+  press: RAW.press,
+  rule: RAW.rule,
+  line: RAW.rule,
+  accent: RAW.teal600,
+  accent2: RAW.teal700,
+  accentInk: RAW.onAccent,
+  danger: RAW.danger,
+  dangerInk: RAW.onAccent,
+  court: RAW.court,
+  courtLine: RAW.courtLine,
+  mark: RAW.mark,
+  markMiss: RAW.surface,
+  liveFill: RAW.liveFill,
 };
 
-/** Every palette key that is a plain colour, for pushing into CSS variables. */
+/** Every palette key, for pushing into CSS variables. */
 export const COLOR_KEYS = [
   'ink',
   'ink2',
@@ -250,7 +168,8 @@ export const ls = (fontSize: number, em: number): number => fontSize * em;
 
 /**
  * `color-mix(in srgb, X n%, transparent)` from the web build, precomputed.
- * Only the glass skins need it, and only for the frosted fill.
+ * The zone heat map is the only caller: opacity is what carries the
+ * percentage, so the fill has to be the accent at an arbitrary alpha.
  */
 export function withAlpha(color: string, a: number): string {
   const hex = color.trim();

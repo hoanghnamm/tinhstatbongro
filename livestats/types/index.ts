@@ -43,18 +43,69 @@ export interface PlayerStats {
 }
 
 /**
+ * THE CLUB — the half of "my team" that is not a list of people.
+ *
+ * It lives in `teamStore` beside the roster and outlives every game, exactly
+ * as the roster does. Only the NAME crosses into a game, copied by `startGame`
+ * the way a jersey and a name are copied into a `Player`: a box score should
+ * say who it was played by even after the club is renamed. The crest and the
+ * two coaches do not cross — they are facts about the club today, not about a
+ * game that is already over.
+ */
+export interface TeamProfile {
+  name: string;
+  /**
+   * A `file://` URI inside the app's DOCUMENT directory, or null.
+   *
+   * Never the URI the picker handed back: that one is in the cache, which the
+   * OS may empty whenever it likes, and a crest that vanishes on a low-storage
+   * morning is worse than no crest. `teamStore.setLogo` copies it out.
+   */
+  logoUri: string | null;
+  coach: string;
+  assistant: string;
+}
+
+/**
+ * A LABEL, and nothing else. It is never read by a rule: the starter picker,
+ * the rail and every stat behave exactly the same whether a player has one or
+ * not, which is why it is optional and why nothing anywhere branches on it.
+ */
+export type CourtPosition = 'PG' | 'SG' | 'SF' | 'PF' | 'C';
+
+/**
  * A player as the TEAM knows them, which is the part that outlives a game:
- * a jersey and a name, and nothing that a final whistle invalidates. It is
- * `rosterStore`'s whole shape, and the argument `startGame` takes.
+ * a jersey, a name, and the two things that are true of them between games.
+ * It is `rosterStore`'s whole shape, and the argument `startGame` takes.
  */
 export interface RosterPlayer {
   id: string;
   number: number;
   name: string;
+  /** optional — a roster written before positions existed has none */
+  position?: CourtPosition;
+  /**
+   * Injured or absent. An unavailable player is hidden from the starter picker
+   * and dimmed in the roster list, and that is the whole of it — they are still
+   * on the team, and a game already in progress does not hear about it.
+   *
+   * NOT optional, because `undefined` would be falsy and every player persisted
+   * before this key existed would vanish from the picker. `rosterStore` bumps
+   * its persist version and migrates instead.
+   */
+  available: boolean;
 }
 
-/** A roster entry plus everything that belongs to ONE game. */
-export interface Player extends RosterPlayer {
+/**
+ * A roster entry plus everything that belongs to ONE game.
+ *
+ * It extends the roster entry MINUS the two team-only keys: a position is a
+ * label the box score has no use for, and availability is a fact about the
+ * next game rather than about this one — a player who is on the floor is on
+ * the floor. Narrowing the base here is what keeps `buildPlayers` honest, the
+ * same way writing every field out by hand does.
+ */
+export interface Player extends Omit<RosterPlayer, 'position' | 'available'> {
   status: PlayerStatus;
   starter: boolean;
   stats: PlayerStats;
@@ -133,6 +184,18 @@ export type GameEvent = EventMeta & EventBody;
 
 export interface GameState {
   team: { name: string };
+  /**
+   * WHO IT WAS AGAINST, and it is a string beside the integer rather than a
+   * roster. The opponent's whole model is still one number and three buttons;
+   * this is the label on that number, filled in once at tip-off, so a shelf of
+   * thirty games says who each of them was played against.
+   *
+   * `''` is ordinary and is not an error — a scorer in a hurry starts the game
+   * and never types it. Every reader prints OPPONENT in its place.
+   */
+  opponent: string;
+  /** One free line about the night — the round, the venue, the weather. Never read by a rule. */
+  note: string;
   score: number;
   oppScore: number;
   period: number;

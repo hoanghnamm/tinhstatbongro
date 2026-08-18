@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { Stack } from 'expo-router';
@@ -21,8 +20,7 @@ import { useClock } from '../hooks/useClock';
 import { themeVars, useTheme } from '../theme/useTheme';
 
 /**
- * The shell every route sits in: the palette, the wash the frosted skins need
- * behind their blur, and the status bar.
+ * The shell every route sits in: the palette and the status bar.
  *
  * The game clock is started HERE rather than on the board, and that is not an
  * oversight. A running clock is a fact about the game, not about which screen
@@ -36,19 +34,12 @@ function Root() {
 
   return (
     <View style={[{ flex: 1, backgroundColor: t.bg }, themeVars(t)]}>
-      {t.bgWash && (
-        <LinearGradient
-          colors={[t.bgWash[0], t.bgWash[1]]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ position: 'absolute', inset: 0 }}
-        />
-      )}
-      <StatusBar style={t.dark ? 'light' : 'dark'} />
+      {/* one skin, and it is light: dark ink in the status bar, always */}
+      <StatusBar style="dark" />
       <Stack
         screenOptions={{
           headerShown: false,
-          // transparent, or every route paints over the wash above
+          // transparent, so the shell's fill above is the one background
           contentStyle: { backgroundColor: 'transparent' },
         }}
       />

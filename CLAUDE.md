@@ -18,9 +18,9 @@ Four constraints drive every decision:
 - **The court is the primary input.** A tap on the floor starts a shot entry.
 - **Nothing scrolls on the board.** The board is exactly one viewport. Only panels scroll.
 
-Those four are about the BOARD. The three screens around it — home, my team, the starter
-picker — are ordinary responsive screens and are held to ordinary rules; `app/team.tsx` has
-a `FlatList` that scrolls, and that is not a violation of anything.
+Those four are about the BOARD. The screens around it — the four tabs, the starter picker
+and the two stats screens — are ordinary responsive screens held to ordinary rules;
+`app/(tabs)/team.tsx` has a `FlatList` that scrolls, and that is not a violation of anything.
 
 ## Commands
 
@@ -48,20 +48,34 @@ reason). `babel-preset-expo` is also direct, which is unusual: NativeWind needs 
 
 ## Routing
 
-Expo Router, six files, headers hidden:
+Expo Router, a stack with a tab group inside it, headers hidden:
 
 ```
-app/_layout.tsx   Stack + SafeAreaProvider + the palette + the fonts
-app/index.tsx     HOME     — resume / stats / new / my team
-app/team.tsx      MY TEAM  — the durable roster
-app/start.tsx     the starting-five picker
-app/game.tsx      THE BOARD
-app/stats.tsx     THE STATS SCREEN — where a finished game goes
+app/_layout.tsx        Stack + SafeAreaProvider + the palette + the fonts
+app/(tabs)/_layout.tsx the four tabs
+  (tabs)/index.tsx     LOBBY  — the team profile and the way into a game
+  (tabs)/games.tsx     GAMES  — the shelf of finished games
+  (tabs)/season.tsx    STATS  — every saved game added up
+  (tabs)/team.tsx      TEAM   — the durable roster
+app/start.tsx          NEW GAME — the squad, the five, and who it is against
+app/game.tsx           THE BOARD
+app/stats.tsx          THE STATS SCREEN — one game, in full
+app/history/[id].tsx   ONE SAVED GAME — its box score and its play log
 ```
+
+**The board is outside the tab group, and that is the point of the group.** A
+tab bar under the board would steal a strip of height the court cannot spare and
+would put navigation controls in the same row as UNDO and POSS. `start`, `stats`
+and `history/[id]` are outside it too, for the softer version of the same reason:
+each is a place you go INTO and come back out of, so each gets a back button
+rather than a tab that suggests it is a fifth room.
+
+**TEAM is singular.** There is one team; a plural label promises a switcher that
+does not exist and is not coming.
 
 **`app/_layout.tsx` is the old `App.tsx`, minus the board.** It writes the palette with
-`vars()`, paints the frosted skins' wash, and **starts the game clock**. The clock is
-deliberately NOT started in `game.tsx`: a running clock is a fact about the game, not about
+`vars()`, sets the status bar and **starts the game clock**. The clock is deliberately
+NOT started in `game.tsx`: a running clock is a fact about the game, not about
 which screen is showing, and walking off to MY TEAM mid-quarter must not quietly stop
 crediting minutes.
 
@@ -72,33 +86,127 @@ its panels stay mounted underneath it, so turning the device back restores the e
 the scorer was in. The gate is keyed on `portrait && min(w,h) < 700`, never on orientation
 alone: **an 820×1180 tablet in portrait is a designed layout and never sees it.**
 
-**Home and my team mount their own `<PanelHost />`.** The panel router is the app's one
-modal system; a second one for two forms would be two systems to keep in step. A `center`
-panel needs no measured rect, so it works off the board with nothing else in place.
+**Three of the four tabs mount their own `<PanelHost />`.** The panel router is the app's
+one modal system; a second one off the board would be two systems to keep in step. A
+`center` panel needs no measured rect, so it works with nothing else in place. STATS is the
+one tab without one, because nothing on it opens a panel.
 
 `router.replace('/game')` out of the picker, not `push` — back off the board goes home, not
 to a picker for a game that has already started.
 
-**Home is a team-profile screen, not a menu.** Crest → wordmark → team name → a card →
-three buttons. The card is the point: a band naming the state (`1ST QUARTER` / `FINAL` /
-`NO GAME YET`) with the clock on its right, the score as **US | THEM** where the leader
-takes accent ink, then `THIS GAME` over the six numbers — POINTS, FG%, FT% / REBOUNDS,
-ASSISTS, TURNOVERS. All of it is derived: `totals(players)` and `pct()`, nothing stored.
-The empty state is the same card reading zeros rather than a different screen, which is
-what the reference does and is also the smaller thing to maintain.
+**The lobby's header is the club as it is TODAY; the hero's scoreline is the game as it was
+PLAYED.** The two names come from two different stores on purpose — rename the club in March
+and February's box score still says who it was. The whole identity block is a way into the
+team editor, because the crest is the thing a scorer reaches for when they want to change
+the crest.
+
+**The lobby is a team-profile screen, not a menu.** Crest → wordmark → gear, then a hero
+card, the last game's six numbers, and the verbs. All of it is derived —
+`totals()` and `pct()` over a game state, `index[0]` off the history — and nothing on it is
+stored twice.
+
+**AND IT FITS IN ONE WINDOW.** A roster preview of eight rows, a FINAL STATS button, a MY
+TEAM button and a running `8/8 AVAILABLE` count were all on it and are all cut: every one
+of them pointed at a tab that is one tap away anyway, and together they pushed the screen
+past the fold. What survives of the count is the WARNING — `NEED AT LEAST 5 AVAILABLE
+PLAYERS` — because that one is the reason NEW GAME is dark. The `ScrollView` stays as the
+small-window safety net, not as the design; do not put a list back on this screen.
+
+**The hero card has THREE states and is ONE component.** `NO GAME YET` is the onboarding
+card, `LIVE` carries the running score with the period and clock beside it, `FINAL` carries
+the finished one with US / THEM under the two numbers. Empty is not a different screen with
+a different shape; it is the same card saying what it has, which is nothing yet.
+
+**LAST GAME is the last FINISHED game, never the live one**, and it is hidden outright when
+there is none — six zeros read as a game that went badly rather than as no data. Which copy
+that is comes from `hooks/useLastGame.ts`: `gameStore` while the finished game is still the
+one on the board, `historyStore` once a new game has replaced it.
 
 **Its cells use the 1px seam, but NOT `flex:1`.** The card is in a column sized by its own
 content, and a `flex:1` child of one of those collapses to nothing — so the rows take their
-height from padding and type. `Band` / `Cell` / `Seam` are module-level components for the
-same class of reason: declared inside `HomeScreen` they would be a new component type every
-render, and a running clock would remount the whole card once a second.
+height from padding and type. Every piece is a module-level component for the same class of
+reason: declared inside `LobbyScreen` they would be a new type on every render, and a
+running clock would remount the whole card once a second.
+
+**Layout here is keyed on WIDTH, not orientation** — 700pt, the same line `team.tsx` draws.
+This is not the board: a tablet in portrait is wide enough whichever way it is held, so the
+LAST GAME strip goes six-across above that line and 3+3 below it. There is one column now
+that the roster is off the screen, and it is capped at that same 700 — run full width, a
+tablet draws a scoreline a foot across.
+
+## The new-game screen
+
+**`app/start.tsx` wears the TEAM tab's layout, not a panel's.** It was a tile grid inside the
+foul panel's shell while the only question was "which five". It is now three — who is here,
+who starts, and who it is against — and those are a team screen's questions, so it is the
+team screen: the same `ClubCard`, the same columned rows, the same 1px seams.
+
+**It cannot edit the team, and the one exception is the JERSEY NUMBER.** Not the club name,
+not the crest, not the coaches, not a player's name or position — those are settled once, on
+the tab built for them, and the club name in particular is what the game is about to be FILED
+UNDER, so renaming it here would rewrite the label on the game being started. A number is the
+one fact that changes at the door, because a squad turns up in a different set of shirts.
+
+**`components/team/ClubCard.tsx` is that card, and there is one of it.** `readOnly` is the
+picker: no press, and **no pencil either**, or the card would promise an editor that never
+opens.
+
+**A row is THREE press targets, not one.** The plate opens the number keypad, the name picks
+or unpicks a starter, and the dot is availability — the same `Dot` toggle the TEAM tab draws,
+because it is the same fact an hour later. **Every player shows, unavailable ones dimmed**,
+because this is the screen where "actually, they made it" has to be one tap; what they are
+not is one of the answers to who is starting. `availableIn` is still the only filter that
+reaches `buildPlayers`, and it is applied at `startGame` — an unavailable player never enters
+the game at all. Turning one off drops them from the picked five in the same breath.
+
+**`setNumber` is a KEYPAD, not a field** — the same call `SetClockPanel` makes. Two digits at
+courtside are faster off a grid of big targets than off a keyboard that covers half the
+screen on its way in, and it keeps the panel out of the `KeyboardAvoidingView` business. It
+writes to `rosterStore`, so a new number is durable, and the duplicate error NAMES THE HOLDER
+exactly as `EditPlayerPanel`'s does.
+
+**THE PAGE SCROLLS AND THE LIST DOES NOT**, which is the opposite of the TEAM tab and the
+right way round here: a club card, a roster, a two-field form and a button do not fit a
+667×320 phone however they are stacked, so the whole column scrolls and START GAME stays
+pinned under it. A `FlatList` inside a `ScrollView` would be two scrollers fighting, and the
+roster is capped at 15 anyway — there is nothing to virtualise.
+
+## The other side
+
+**`GameState` carries an `opponent` and a `note`, and they are typed on the picker.** The
+opponent's whole model is still one number and three buttons; the string is the LABEL on that
+number, so a shelf of thirty games can say who each was against. Both are optional and both
+are cleaned by `lib/team.ts`'s own `clean()` — they are the same kind of thing as a club name,
+which is why they live beside it rather than in a fourth lib file.
+
+**A blank opponent reads as OPPONENT, never as a gap.** `opponentLabel()` is the one place
+that decides so. The lobby's hero, the two stats screens and the shelf row all print through
+it; the ones that would rather say nothing than say OPPONENT test the string themselves.
+
+**`GameSummary.opponent` is the one OPTIONAL key on the index**, because a row written before
+opponents existed has none and there is no `reviveGame` for the index. Every reader falls
+back, so an older summary simply says less.
+
+## The lobby
+
+**`accent` is spent on exactly two things on this screen**: the primary button and our own
+score. Not the crest, not the roster count, not the jerseys, not the US pill — the mockup
+paints nine things with it, which teaches the eye to ignore all nine. The active tab and the
+LIVE banner are the other two places in the app it survives.
 
 ## Architecture
 
-**Four stores, one job each.**
+**Six stores, one job each.**
 
-- `store/rosterStore.ts` — the **team**: `{id, number, name}` × 15 max. Persisted plainly,
-  because a roster is edited a handful of times a season and not 600 times a quarter.
+- `store/teamStore.ts` — the **club**: name, crest, head coach, assistant. See "The club".
+
+- `store/rosterStore.ts` — the **team**: `{id, number, name, position?, available}` × 15
+  max. Persisted plainly, because a roster is edited a handful of times a season and not
+  600 times a quarter. **It is on persist version 2**: `available` was added after builds
+  shipped, `undefined` is falsy, and a rehydrate without the migration is an empty starter
+  picker at tip-off. `migrateRoster` lives in `lib/roster.ts` so `npm run check` runs the
+  real one.
+- `store/historyStore.ts` — the games that are **over**. See "The shelf" below.
 - `store/gameStore.ts` — the `GameState`, every action, undo, the options. Persisted to
   AsyncStorage through a debounced writer.
 - `store/uiStore.ts` — the in-flight entry (`mark`/`zone`/`side`/`shotType`/`what`/
@@ -107,10 +215,16 @@ render, and a running clock would remount the whole card once a second.
 - `store/layoutStore.ts` — rects measured via `onLayout` + `measureInWindow`. Only the
   board writes to it.
 
+**The club is not the roster, and they are two stores.** `rosterStore` is a list with a cap
+and a duplicate rule; `teamStore` is a record with a FILE attached, and the file is the part
+with a lifecycle nothing else in the app has. Both are the durable half and both outlive
+every game.
+
 **The roster is not the game, and that split is the point.** A team outlives any number of
 games; a stat line belongs to exactly one. `types/index.ts` says so in the type system —
-`Player extends RosterPlayer` — and `lib/roster.ts`'s **`buildPlayers` is the only
-crossing**. It runs once, at tip-off, from `gameStore.startGame(roster, starterIds)`, and
+`Player extends Omit<RosterPlayer, 'position' | 'available'>` — and `lib/roster.ts`'s
+**`buildPlayers` is the only crossing for people**. It runs once, at tip-off, from
+`gameStore.startGame(roster, starterIds, teamName)`, and
 it copies field by field with a **fresh `zeroStats()` per player**, so editing the team
 after tip-off cannot reach the game being played and no two players can end up on one
 counter. `npm run check` asserts both by renaming, renumbering and deleting a roster entry
@@ -261,11 +375,10 @@ imports outside `components/ui/`, and a fill without its matching ink.
 **`Jersey` is the plate, and there is exactly one of it.** A rectangle, not a bubble — the
 number gets the whole height of the box rather than a circle's inscribed square, which on a
 rail row is most of the difference between two legible digits and two small ones. Its
-resting pair is the FLOOR (`court` fill, `courtLine` ink — the one pair that is white in
-every skin); `selected` and `out` are inversions and are written as pairs. **Both dimensions
-are the caller's**, because the two callers know different things: the rail *measures* its
-row (a `flex:1` leftover no ramp can name), the team list takes a size off the ramp. Do not
-build a second one for a third caller.
+resting pair is the FLOOR (`court` fill, `courtLine` ink); `selected` and `out` are
+inversions and are written as pairs. **Both dimensions are the caller's**, because the two
+callers know different things: the rail *measures* its row (a `flex:1` leftover no ramp can
+name), the team list takes a size off the ramp. Do not build a second one for a third caller.
 
 **`Btn` has six variants and the ladder is deliberate:** `accent` (primary) > `solid` (ink)
 > `surface` (filled, 1px `rule`) > `plain` (transparent, 2px `line`), plus `danger` and
@@ -274,12 +387,12 @@ three weights, where a panel's two-button row only ever needed two.
 
 **A press on the board LIGHTS the cell, and `t.press` is the only fill that does it.** The
 score, the clock, the quarter, POSS, UNDO, a player row and PF/FT/RB all take `t.press` while
-the finger is down, and it is a step *up* from `surface` — `surface2` is the canvas, which is
-darker than the surface in every skin, so using it there read as the cell dimming at the one
-moment it is the thing being looked at. It is a brightness and not a hue: no accent, no tint.
-A light skin is the exception the token records rather than hides — its surface is already
-white, so `press` stays the canvas because down is the only direction left with contrast to
-spend. Panels and `Tile` still press on `surface2`; they sit on a scrim, not on the board.
+the finger is down, and it is a step *away* from `surface` — `surface2` is the canvas, so
+using it there read as the cell dimming at the one moment it is the thing being looked at.
+It is a brightness and not a hue: no accent, no tint. On the light palette there is no
+headroom — the surface is already white — so `press` IS the canvas, because down is the only
+direction left with contrast to spend, and the token records that rather than hiding it.
+Panels and `Tile` still press on `surface2`; they sit on a scrim, not on the board.
 
 **And the light is HELD until the panel it opened closes.** `lib/lit.ts` answers which
 control that is, and it is a function rather than a second `Record<Panel['kind'], …>` beside
@@ -303,11 +416,18 @@ seams. Tiles must be opaque and carry no border and no radius, or the seam disap
 ## Theme and sizing
 
 `theme/tokens.ts` is two layers: a palette (the only place a hex is written) and semantic
-names aliased onto it. **A skin is a palette swap and nothing more.**
+names aliased onto it. **There is exactly one skin and it is light.** The switcher, `auto`,
+the dark palette and the two frosted ones were built and cut — a scorer picks a theme once
+and never again, and every branch that served the choice was paying for a decision nobody
+makes at courtside. The blur in `Surface`, the `bgWash` gradient in `_layout` and the
+`expo-blur` / `expo-linear-gradient` dependencies went with them, and `useTheme()` is now a
+constant wearing a hook's name: it reads no state and never causes a render. The two-layer
+split survives because it is what keeps the hexes in one place, not because a second skin is
+coming — **do not add one back without being asked.**
 
 NativeWind resolves colours through CSS variables rather than literals: the root view
-writes the live palette with `vars()`, so a `bg-surface` class and a `useTheme()` read can
-never disagree. `global.css` carries the light values as the fallback only. **Sizes are
+writes the palette with `vars()`, so a `bg-surface` class and a `useTheme()` read can
+never disagree. `global.css` carries the same values as the fallback only. **Sizes are
 deliberately absent from `tailwind.config.js`** — every one is a `clamp()` off the window
 height, which a static class cannot express.
 
@@ -383,16 +503,19 @@ there would drag every panel in with it. Ask `isDocked()`; never keep a second l
 | `court` | the court's own footprint, top edge to footer | dimmed |
 | `center` / `wide` | a centred dialog | dimmed |
 
-**Three panel kinds live off the board** — `newGame`, `editPlayer`, `removePlayer` — and all
-three are `center`, because there is no court to dock against or cover and because that is
-what they are anyway: a confirm, a form, and a second confirm. They ride the same `Panel`
+**Seven panel kinds live off the board** — `newGame`, `editPlayer`, `setNumber`, `editTeam`,
+`removePlayer`, `removeGame`, `settings` — and all seven are `center`, because there is no
+court to dock against or cover and because that is what they are anyway: two confirms, two
+forms, a keypad, a third confirm and a short list of switches. They ride the same `Panel`
 union and the same exhaustive switch as everything else. `editPlayer` carries
 `playerId: string | null`, where **null is ADD and an id is EDIT** — one panel, because it
 is one form; the only difference is whether the fields start empty and which id the
 duplicate check may ignore.
 
-**`EditPlayerPanel` is the only place in the app with a `TextInput`**, which is why the
-`KeyboardAvoidingView` is there and nowhere else. Its number field is held as TEXT, not a
+**Three places in the app have a `TextInput`** — `EditPlayerPanel`, `EditTeamPanel` and the
+new-game screen's two match fields — and the `KeyboardAvoidingView` is in those three and
+nowhere else; the board never opens a keyboard. `SetNumberPanel` is deliberately not a
+fourth: it is a keypad precisely so it does not have to be. Its number field is held as TEXT, not a
 number: an empty field and a typed `0` are different states and `Number('')` is `0`. The
 duplicate error **names the holder** — `#12 IS TAKEN BY bd` — because "already in use" makes
 the scorer go and look; SAVE stays dark until both fields are good, so the error is the only
@@ -489,10 +612,11 @@ Hardware back is this platform's Escape and calls `reset()`.
 ## The stats screen
 
 `app/stats.tsx` is where a finished game goes: END GAME on the quarter panel confirms, stops
-the clock, closes the panel and **pushes the route** — the board keeps its own totals panel
+the clock, **saves the game to the shelf**, closes the panel and **pushes the route** — the board keeps its own totals panel
 for the mid-game glance, and that panel now has a FULL STATS button beside PLAY BY PLAY.
-Home offers it as GAME STATS / FINAL STATS, and **only once `events.length > 0`**: a stats
-screen of zeros is a worse answer than no button.
+**The lobby no longer offers it**; the way to a finished game's full line is the GAMES tab,
+which is where every other one already lives. For a game that has already left the board it
+is `app/history/[id].tsx` — same numbers, read off its own key.
 
 **It is four screens, not one, and that is the whole design.** The full line after the buzzer
 is about a hundred numbers, and a hundred numbers in one column is a document rather than a
@@ -574,6 +698,107 @@ window height.
 for the same reason: their `accent` and `danger` fills are chart marks — a dot, a dot, a heat
 — and a mark has no ink to lose because nothing is written inside it.
 
+## The club
+
+`store/teamStore.ts` holds what "my team" is besides a list of people: the name, the crest,
+the head coach and the assistant. `lib/team.ts` holds the rules, on the same side of the
+line as `roster.ts` — **nothing in `lib/` touches a file**, because `expo-file-system`
+cannot be imported into the node script `npm run check` runs.
+
+**Only the NAME crosses into a game.** `startGame` copies it the way `buildPlayers` copies a
+jersey, so a box score says who it was played by even after the club is renamed. The crest
+and the two coaches do not cross: they are true of the club today, not of a game that is
+already over. (A coach on a printed box score would be a fair ask; it is not built, and
+building it means putting them in `GameState.team`, not reading `teamStore` from a screen.)
+
+**The picker's URI is never what is stored.** `expo-image-picker` hands back a file in the
+CACHE, which the OS empties when storage runs low, so `setLogo` copies it into
+`Paths.document/team/` and keeps that path. A crest that disappears on a low-storage morning
+is worse than no crest.
+
+**The stored file is STAMPED — `crest-<base36>.jpg`, never `logo.png`.** React Native caches
+an `<Image>` by its URI, so a second crest written to the same path keeps showing the first
+one until the app is killed. A new name each time is the whole fix; the old file is deleted
+after the new one is in place, never before, so a failed copy cannot leave the club with no
+crest at all.
+
+**And the path is checked on rehydrate, not trusted.** iOS moves the document directory
+between installs and a backup restore can bring the record back without the file. A dead URI
+renders as a broken square exactly where the monogram would have rendered as a crest, so
+`onRehydrateStorage` nulls it if the file is gone.
+
+**`components/ui/Crest.tsx` is one component for the crest AND the monogram**, because they
+are one thing — the round mark that says whose board this is — and every screen showing it
+must fall back the same way. A club with no crest is the common case on a fresh install and
+stays the common case for scorers who never upload one, so `initials()` is not an error
+state and is not drawn like one. There is no accent ring; see the lobby's note on accent.
+
+**The crest is applied on PICK, not on SAVE.** The copy is the expensive, failable half, and
+holding it behind a button would mean either doing it twice or keeping a cache URI alive
+long enough to go stale. CANCEL in `EditTeamPanel` therefore drops the three text fields and
+nothing else, and the panel says so out loud rather than leaving it to be discovered.
+
+**The coaches are optional and the name is not.** Most scorers keeping stats for their own
+club ARE the coach, and a form that insisted would be asking them to write their own name
+down to get past it. The name is required because it is the crest's fallback, the lobby's
+subtitle and what every game is filed under.
+
+## The shelf
+
+**A finished game is saved once, by `EndGamePanel`,** after `endGame()` has stamped `ended`
+and before the stats screen opens. Clearing the live game does not touch the saved copy —
+`startGame` is the only thing that clears the board, and it cannot reach `historyStore`.
+
+**The storage shape is the design, and it is TWO keys, not one.** The index holds summaries
+only — a date, a score, a period count — and it is all the lobby and the GAMES list ever
+read. Each full game, which is a few hundred events, lives alone under `gameKey(id)` and is
+read when a row is actually tapped. One blob would put thirty games' events behind every
+render of the home screen and would walk into Android's AsyncStorage row limit on the way.
+**If this ever has to scale further the answer is `expo-sqlite`, not a bigger blob.**
+
+**The cap is 30, and dropping a summary returns it** so the caller can delete its row —
+`pushSummary` hands back what fell off, because an index that forgets a game while its key
+survives is a leak that only ever grows.
+
+**A summary carries the opponent, so a row can say who it was against.** It is the only
+optional key in `GameSummary`; see "The other side".
+
+**The win badge is `accent` and the loss badge is `ink2`, never green and red.** On this
+board `danger` means "this will destroy something", and a game you lost is not an error. A
+draw takes `ink2` too and says D. Deleting is a LONG PRESS with a confirm; a swipe would be
+a second interaction vocabulary for one action that already has a panel waiting for it.
+
+**`app/history/[id].tsx` writes no table of its own.** The box score is `BoxScore` — the
+same component the board's totals panel renders — and the log is `PlaysList`, the same rows
+the plays panel shows. Both take their data as props precisely so a game read off disk and
+the live one can be the same shape. A second table here would only be the one that drifts.
+
+## The season
+
+`app/(tabs)/season.tsx` is the one screen that has to read the full games rather than the
+index, because a season line is made of stat lines and a summary has none. It loads them
+all on mount and re-loads only when the index changes.
+
+**`lib/season.ts` is the whole derivation**, plain functions on the same side of the line as
+`box.ts`, and two of its decisions are invisible in the output:
+
+- **Identity is the ROSTER ID.** A game holds copies, so a player renamed or renumbered
+  since is still the same person and their line still adds up. The name shown is the one the
+  team holds today; a player deleted from the team keeps the name their last game recorded.
+- **PER GAME divides by the games the player APPEARED IN**, not by games in the season. A
+  twelfth man who turned up twice averages over two — the other reading punishes a player
+  for the nights the team played without them. `appeared()` is a start, a second played or
+  anything at all on the line, because minutes are clock-driven and a scorer who never
+  starts the clock would otherwise zero everybody.
+
+**The table is `components/stats/BoxTable.tsx`, and there is one of it.** A game, a quarter
+and a season are the same twenty columns over the same `Player[]` — which is exactly why the
+aggregate is built as `Player`s. `gamesFor` inserts one extra column, G, and only the season
+passes it: an average without its denominator beside it is a number you cannot argue with.
+
+**The headline card is always TOTALS**, whatever the toggle says. Points per game computed
+off per-game numbers divides by the games twice.
+
 ## Rules that look arbitrary and are not
 
 **A roster edit is not a game edit, and `undo()` does not reach it.** Removing a player
@@ -581,11 +806,26 @@ from MY TEAM mid-game leaves the game exactly as it was — they stay on the flo
 their stats — because the game holds copies. That is the intended behaviour and the remove
 confirm says so out loud. `undo()` covers the game; the roster has its own confirm instead.
 
+**`position` is a LABEL and nothing reads it.** Not the picker, not the rail, not one stat.
+It is optional, it renders as `—` when unset, and unset is the common case. **`available` is
+the one that does something**, and it does exactly one thing: `availableIn` filters the
+starter picker, so an unavailable player never reaches `buildPlayers` and the game is played
+by the squad that turned up. There is no second check on the board and there must not be —
+an injury reported after tip-off is not that game's business. Neither key crosses into a
+`Player`: `Player extends Omit<RosterPlayer, 'position' | 'available'>`, and `selfcheck`
+asserts that `buildPlayers` leaves both behind.
+
+**The availability dot is a TOGGLE, not decoration.** `components/ui/Dot.tsx`: `ink3` when
+available, `danger` when not — the same ink the rail gives a player who cannot take the
+floor, because it is the same fact a day earlier. It is its own file so `selfcheck`'s
+inverted-surface guard can exempt it by name (nothing is written inside a dot, so there is
+no ink to lose) without exempting the two screens that use it.
+
 **The starter picker ignores a sixth tap rather than swapping someone out.** Five rail rows
 and up to fifteen on the team, so the app cannot pick for the scorer and must not guess
-which of the five they meant to drop. A selected tile takes **accent ink and an accent ring,
-never a fill** — the 1px seam between tiles is what the grid is made of, and a filled tile
-eats its own seam.
+which of the five they meant to drop. A picked row wears the `Jersey`'s `selected` pair and
+the word STARTER in accent — never a filled row, for the same reason a selected tile never
+took a fill.
 
 **PF and FT are deliberately not connected.** Only one team is tracked, so a foul you log
 was committed *by* your player and sends the *opponent* to the line, while a free throw you
@@ -644,22 +884,27 @@ from a wall-clock stamp, and whatever the app missed while backgrounded is credi
 
 ## Options, and what is deliberately absent
 
-`constants/options.ts` holds five switches (`ft`, `tap`, `assist`, `bar`, `skin`), stored in
-`gameStore` and persisted. **Exactly one of them is exposed**: `skin`, as an AUTO / LIGHT /
-DARK segmented control in Home's top-right corner — the spot the reference gives its avatar,
-and outside the centred column so it cannot push the wordmark off centre. `auto` stays first
-and stays the default; removing it would make "follow the system" unreachable. The two
-frosted skins are still not offered, and the other four switches still ship on their
-defaults. `setOption` remains the only writer. Box-score export and a
-configurable period length were both declined; **roster editing was declined and then
-built** — it is `app/team.tsx` and `store/rosterStore.ts` now, and it is the reason the
-store split exists.
+`constants/options.ts` holds four switches (`ft`, `tap`, `assist`, `bar`), stored in
+`gameStore` and persisted. **All four are now exposed, and in exactly one place**: the gear
+in the lobby's top-right opens `SettingsPanel`, four rows of the `Seg` the stats screen
+already uses — no new control and no new modal. **There is no SKIN row**, because there is
+no skin to choose. `skin` was a fifth option and the only one ever offered, as an AUTO / LIGHT / DARK
+segmented control in Home's top-right corner; it is gone, along with the corner it sat in.
+`setOption` remains the only writer, and `onRehydrateStorage` rebuilds `options` from the
+four names that are left, so a game persisted by a build that still had `skin` does not
+carry the stray key forward. Box-score export and a configurable period length were both
+declined; **roster editing was declined and then built** — it is `app/(tabs)/team.tsx` and
+`store/rosterStore.ts` now, and it is the reason the store split exists.
+
+The team NAME is no longer hardcoded — it is `DEFAULT_TEAM.name` in `lib/team.ts`, which is
+what a fresh install starts on and what the editor overwrites. The period length still is.
 
 `SEED_ROSTER` in `constants/game.ts` is the first-run team and **nothing more** — it seeds
 `rosterStore` and is never read again. Its ids stay `p${number}` so a game persisted before
-the split still lines up with the roster it was built from. The team name and the period
-length are still hardcoded there. Both stores persist to AsyncStorage and survive a kill;
-nothing syncs anywhere.
+the split still lines up with the roster it was built from. The PERIOD LENGTH is still
+hardcoded there; the team name is not any more — it is `DEFAULT_TEAM` in `lib/team.ts`, and
+the editor overwrites it. Every store persists to AsyncStorage and survives a kill, the
+crest as a file beside them; nothing syncs anywhere.
 
 **The opponent is a single number.** `oppScore` and nothing else: no opponent roster, no
 opponent shot chart, no opponent fouls.

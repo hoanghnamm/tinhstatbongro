@@ -13,6 +13,7 @@ import { Seg, type SegItem } from '../components/stats/parts';
 import { Press } from '../components/ui/Press';
 import { Col, Row } from '../components/ui/Row';
 import { freeThrowsIn, periodsOf, report, shotsIn, type Split } from '../lib/box';
+import { opponentLabel } from '../lib/team';
 import { useGameStore } from '../store/gameStore';
 import { useMetrics } from '../theme/metrics';
 import { LS_BTN, LS_LABEL, fNum, fUi, ls } from '../theme/tokens';
@@ -64,6 +65,8 @@ export default function StatsScreen() {
     useShallow(
       (s): GameState => ({
         team: s.team,
+        opponent: s.opponent,
+        note: s.note,
         score: s.score,
         oppScore: s.oppScore,
         period: s.period,
@@ -146,8 +149,20 @@ export default function StatsScreen() {
             }}
           >
             {g.team.name.toUpperCase()}
+            {g.opponent ? ` VS ${opponentLabel(g.opponent)}` : ''}
             {split === null ? ' · WHOLE GAME' : ` · ${periodLabel(split)}`}
           </Text>
+          {/* the match note, if the scorer left one at tip-off. Quiet, one
+              line, and absent entirely when empty — which is the common case. */}
+          {!!g.note && (
+            <Text
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              style={{ fontFamily: fUi(400), fontSize: m.fsXs, color: t.ink3 }}
+            >
+              {g.note}
+            </Text>
+          )}
         </Col>
 
         <Row gap={m.s2} style={{ marginLeft: 'auto', flexGrow: 0, flexShrink: 0 }}>

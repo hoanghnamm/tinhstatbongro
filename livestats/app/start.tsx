@@ -1,59 +1,298 @@
 import { useState } from 'react';
-import { View, type LayoutChangeEvent } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
-import {
-  Btn,
-  Row as BtnRow,
-  PGrid,
-  PHead,
-  PTitleText,
-  Pts,
-  Tile,
-} from '../components/panels/shell';
+import { PanelHost } from '../components/panels/PanelHost';
+import { Btn, Row as BtnRow } from '../components/panels/shell';
+import { Band, Card } from '../components/stats/parts';
+import { ClubCard } from '../components/team/ClubCard';
+import { Dot } from '../components/ui/Dot';
+import { Jersey } from '../components/ui/Jersey';
 import { Press } from '../components/ui/Press';
-import { gridFor } from '../lib/grid';
-import { STARTERS } from '../lib/roster';
+import { Col, Row } from '../components/ui/Row';
+import { chunk } from '../lib/grid';
+import { STARTERS, availableIn } from '../lib/roster';
+import { NOTE_MAX, OPPONENT_MAX } from '../lib/team';
 import { useGameStore } from '../store/gameStore';
 import { useRosterStore } from '../store/rosterStore';
+import { useTeamStore } from '../store/teamStore';
+import { useUiStore } from '../store/uiStore';
 import { useMetrics } from '../theme/metrics';
+import { LS_BTN, LS_LABEL, fNum, fUi, ls } from '../theme/tokens';
 import { useTheme } from '../theme/useTheme';
+import type { RosterPlayer } from '../types';
 
 /**
- * Step zero of a game. With up to fifteen on the team and five rows on the
- * rail, the app cannot pick for the scorer, so NEW GAME lands here before the
- * board.
+ * STEP ZERO OF A GAME — and it wears the TEAM tab's layout, not a panel's.
  *
- * It wears the foul panel's shell — header, 1px seams, code-over-caption tiles
- * — and fits its grid with the same `gridFor`, because it is the same kind of
- * decision as every other tile grid in the app: taps out of a short list, made
- * with a shape chosen to fit rather than a hardcoded column count.
+ * It used to be a tile grid inside the foul panel's shell, which was the right
+ * shape while the only question was "which five". It is now three questions —
+ * who is here, who starts, and who it is against — and those are a team
+ * screen's questions, so this is the team screen: the same club card, the same
+ * columned list, the same 1px seams. A scorer who has used MY TEAM has already
+ * used this.
  *
- * A selected tile takes ACCENT INK and an accent ring, never a fill: the 1px
- * seam between tiles is what the grid is made of, and a filled tile eats its
- * own seam.
+ * WHAT IT DELIBERATELY CANNOT DO IS EDIT THE TEAM. Not the club name, not the
+ * crest, not the coaches, not a player's name or position. Those are facts
+ * about the club that a scorer settles once, on the tab built for it — and the
+ * club name in particular is what this game is about to be FILED UNDER, so
+ * renaming it here would rewrite the label on the game being started.
  *
- * Leaving without starting is a back tap. Nothing is discarded until START
- * GAME, so arriving here from a live game costs nothing if it was a mis-tap.
+ * The ONE exception is the JERSEY NUMBER, because it is the one thing that
+ * changes at the door: a squad turns up in a different set of shirts. It opens
+ * `setNumber`, a keypad and nothing else, and it writes to the roster — a new
+ * number is true of the player, not only of tonight.
+ *
+ * The three controls on a row are three separate press targets rather than one
+ * row with a menu: the PLATE edits the number, the NAME picks or unpicks a
+ * starter, and the DOT is availability — the same toggle it is on the TEAM tab,
+ * because it is the same fact an hour later.
+ *
+ * AN UNAVAILABLE PLAYER STILL SHOWS, dimmed, and cannot be picked. They are on
+ * the team and this is the screen where "actually, they made it" is one tap;
+ * what they are not is one of the answers to "who is starting". `availableIn`
+ * is still the only filter that reaches `buildPlayers`, so an unavailable
+ * player never enters the game at all.
+ *
+ * Leaving without starting is a back tap. Nothing is written until START GAME
+ * — except a number and an availability, which are roster edits and are meant
+ * to outlive the visit — so arriving here from a live game costs nothing.
+ *
+ * THE PAGE SCROLLS AND THE LIST DOES NOT, which is the opposite of the TEAM
+ * tab and is the right way round here. There is a club card, a roster, a
+ * two-field form and a button on this screen, and on a 667×320 phone in
+ * landscape they do not fit however they are stacked — so the whole column
+ * scrolls and START GAME stays pinned under it, where a thumb can always find
+ * it. A `FlatList` inside a `ScrollView` would be two scrollers fighting; the
+ * roster is capped at `ROSTER_CAP` anyway, so there is nothing to virtualise
+ * and the rows are simply chunked into their columns and laid out.
  */
+
+/** Two columns start here. The same line `team.tsx` and `RotateGate` draw. */
+const TWO_UP = 700;
+/** …and past it the count is computed, so a 1180pt iPad gets three, not two. */
+const COL_W = 340;
+
+/* ---- the pieces ---------------------------------------------------- */
+
+function Label({ children, tone }: { children: string; tone?: string }) {
+  const m = useMetrics();
+  const t = useTheme();
+  return (
+    <Text
+      numberOfLines={1}
+      style={{
+        fontFamily: fNum(500),
+        fontSize: m.fsXs,
+        letterSpacing: ls(m.fsXs, LS_LABEL),
+        color: tone ?? t.ink2,
+      }}
+    >
+      {children}
+    </Text>
+  );
+}
+
+function PlayerRow({
+  player,
+  starting,
+  onPick,
+  onNumber,
+  onAvailable,
+}: {
+  player: RosterPlayer;
+  starting: boolean;
+  onPick(): void;
+  onNumber(): void;
+  onAvailable(): void;
+}) {
+  const m = useMetrics();
+  const t = useTheme();
+  const jh = Math.round(m.tap * 0.72);
+
+  return (
+    <View
+      style={{
+        flex: 1,
+        minWidth: 0,
+        minHeight: m.tap,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: m.s2,
+        borderBottomWidth: 1,
+        borderBottomColor: t.rule,
+        // dimmed, not hidden — they are still on the team, and the dot beside
+        // them is still the way to say they turned up after all
+        opacity: player.available ? 1 : 0.45,
+      }}
+    >
+      {/* THE PLATE IS THE NUMBER EDITOR, and the only editor on this screen */}
+      <Press
+        onPress={onNumber}
+        accessibilityLabel={`change the number for #${player.number} ${player.name}`}
+        style={{
+          flexGrow: 0,
+          flexShrink: 0,
+          minHeight: m.tap,
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingHorizontal: m.s2,
+          borderRadius: m.rSm,
+        }}
+        pressedStyle={{ backgroundColor: t.surface2 }}
+      >
+        <Jersey
+          number={player.number}
+          w={Math.round(jh * 1.15)}
+          h={jh}
+          tone={starting ? 'selected' : 'floor'}
+        />
+      </Press>
+
+      {/* the name is the pick. It takes the rest of the row, so the target for
+          the thing done most is everything the other two do not need. */}
+      <Press
+        onPress={player.available ? onPick : undefined}
+        accessibilityLabel={
+          player.available
+            ? `#${player.number} ${player.name}${starting ? ', starting' : ''}`
+            : `#${player.number} ${player.name}, unavailable`
+        }
+        style={{
+          flex: 1,
+          minWidth: 0,
+          minHeight: m.tap,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: m.s2,
+          paddingHorizontal: m.s1,
+          borderRadius: m.rSm,
+        }}
+        pressedStyle={{ backgroundColor: t.surface2 }}
+      >
+        <Text
+          numberOfLines={1}
+          ellipsizeMode="tail"
+          style={{
+            flexShrink: 1,
+            minWidth: 0,
+            fontFamily: fUi(600),
+            fontSize: m.fsMd,
+            color: t.ink,
+          }}
+        >
+          {player.name}
+        </Text>
+        {starting && (
+          <View style={{ marginLeft: 'auto', flexGrow: 0, flexShrink: 0 }}>
+            <Label tone={t.accent}>STARTER</Label>
+          </View>
+        )}
+      </Press>
+
+      {/* and the state, which is the same toggle the TEAM tab draws */}
+      <Press
+        onPress={onAvailable}
+        accessibilityLabel={
+          player.available
+            ? `mark #${player.number} ${player.name} unavailable`
+            : `mark #${player.number} ${player.name} available`
+        }
+        style={{
+          flexGrow: 0,
+          flexShrink: 0,
+          width: m.tap,
+          minHeight: m.tap,
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderRadius: m.rSm,
+        }}
+        pressedStyle={{ backgroundColor: t.surface2 }}
+      >
+        <Dot on={player.available} />
+      </Press>
+    </View>
+  );
+}
+
+/** One row of the match card: a label, and the line the scorer types on. */
+function Field({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  maxLength,
+  onSubmitEditing,
+}: {
+  label: string;
+  value: string;
+  onChangeText(v: string): void;
+  placeholder: string;
+  maxLength: number;
+  onSubmitEditing?(): void;
+}) {
+  const m = useMetrics();
+  const t = useTheme();
+  return (
+    <Row
+      gap={m.s3}
+      style={{
+        minHeight: m.tap,
+        paddingHorizontal: m.s3,
+        borderTopWidth: 1,
+        borderTopColor: t.rule,
+      }}
+    >
+      <View style={{ flexGrow: 0, flexShrink: 0, width: Math.round(m.fsXs * 6.2) }}>
+        <Label>{label}</Label>
+      </View>
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        maxLength={maxLength}
+        autoCapitalize="words"
+        autoCorrect={false}
+        returnKeyType="done"
+        onSubmitEditing={onSubmitEditing}
+        placeholder={placeholder}
+        placeholderTextColor={t.ink3}
+        accessibilityLabel={label}
+        style={{
+          flex: 1,
+          minWidth: 0,
+          minHeight: m.tap,
+          padding: 0,
+          color: t.ink,
+          fontFamily: fUi(600),
+          fontSize: m.fsMd,
+        }}
+      />
+    </Row>
+  );
+}
+
+/* ---- the screen ----------------------------------------------------- */
+
 export default function StartScreen() {
   const m = useMetrics();
   const t = useTheme();
   const safe = useSafeAreaInsets();
 
+  // EVERY player, not only the available ones. The filter that matters is
+  // still `availableIn`, and it is applied at the one crossing — `startGame`
+  // below — so an unavailable player is shown here and never reaches the game.
   const roster = useRosterStore((s) => s.players);
+  const update = useRosterStore((s) => s.update);
   const startGame = useGameStore((s) => s.startGame);
+  const open = useUiStore((s) => s.open);
+  // the name the game will be filed under, read at tip-off and copied
+  const teamName = useTeamStore((s) => s.profile.name);
 
   const [picked, setPicked] = useState<string[]>([]);
-  // measured, not calculated — the same rule the court panels follow, and it is
-  // the whole card that is measured because `gridFor` takes the header off
-  const [box, setBox] = useState({ w: m.win.w, h: m.win.h });
-  const onBox = (e: LayoutChangeEvent) => {
-    const { width, height } = e.nativeEvent.layout;
-    if (width !== box.w || height !== box.h) setBox({ w: width, h: height });
-  };
+  const [opponent, setOpponent] = useState('');
+  const [note, setNote] = useState('');
 
   const toggle = (id: string) =>
     setPicked((cur) =>
@@ -66,93 +305,190 @@ export default function StartScreen() {
           : [...cur, id],
     );
 
+  // turning a player off has to take them off the floor with them, or START
+  // GAME would send five ids in where one of them is no longer selectable
+  const setAvailable = (p: RosterPlayer) => {
+    update(p.id, { available: !p.available });
+    if (p.available) setPicked((cur) => cur.filter((x) => x !== p.id));
+  };
+
   const ready = picked.length === STARTERS;
-  const grid = gridFor(Math.max(1, roster.length), box.w, box.h, m.tap);
+
+  const usable = m.win.w - safe.left - safe.right - 2 * m.s4;
+  const columns = usable >= TWO_UP ? Math.max(2, Math.floor(usable / COL_W)) : 1;
+
+  const rows = chunk(roster, columns);
+
+  const start = () => {
+    if (!ready) return;
+    startGame(availableIn(roster), picked, teamName, opponent, note);
+    // replace, not push: back off the board goes home, not to a picker for a
+    // game that has already started
+    router.replace('/game');
+  };
 
   return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: t.bg,
-        paddingTop: safe.top + m.s2,
-        paddingBottom: safe.bottom + m.s3,
-        paddingLeft: safe.left + m.s4,
-        paddingRight: safe.right + m.s4,
-      }}
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={{ flex: 1, backgroundColor: t.bg }}
     >
       <View
-        onLayout={onBox}
         style={{
           flex: 1,
-          minHeight: 0,
-          flexDirection: 'column',
-          alignItems: 'stretch',
-          backgroundColor: t.surface,
-          borderWidth: 1,
-          borderColor: t.line,
-          borderRadius: m.r,
-          overflow: 'hidden',
+          paddingTop: safe.top + m.s2,
+          paddingBottom: safe.bottom + m.s3,
+          paddingLeft: safe.left + m.s4,
+          paddingRight: safe.right + m.s4,
         }}
       >
-        <PHead>
-          <PTitleText>PICK YOUR STARTING FIVE</PTitleText>
-          <Pts>
-            {picked.length}/{STARTERS}
-          </Pts>
+        {/* this screen is pushed, not a tab root, so it owns its way out */}
+        <Row gap={m.s2} style={{ minHeight: m.tap, flexGrow: 0, flexShrink: 0 }}>
           <Press
             onPress={() => router.back()}
             accessibilityLabel="back, start no game"
             style={{
-              marginLeft: 'auto',
-              alignSelf: 'stretch',
               flexGrow: 0,
               flexShrink: 0,
+              width: m.tap,
+              minHeight: m.tap,
               alignItems: 'center',
               justifyContent: 'center',
-              paddingHorizontal: m.s3,
-              minWidth: m.tap,
-              borderLeftWidth: 1,
-              borderLeftColor: t.rule,
+              marginLeft: -m.s2,
+              borderRadius: m.rSm,
             }}
             pressedStyle={{ backgroundColor: t.surface2 }}
           >
-            <Svg width={m.fsMd} height={m.fsMd} viewBox="0 0 24 24">
-              <Path d="M5 5l14 14M19 5L5 19" stroke={t.ink2} strokeWidth={2.4} fill="none" />
+            <Svg width={m.fsLg} height={m.fsLg} viewBox="0 0 24 24">
+              <Path
+                d="M15 5l-7 7 7 7"
+                stroke={t.ink2}
+                strokeWidth={2.2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+              />
             </Svg>
           </Press>
-        </PHead>
 
-        <PGrid columns={grid.columns}>
-          {roster.map((p) => {
-            const on = picked.includes(p.id);
-            return (
-              <Tile
-                key={p.id}
-                code={p.number}
-                caption={p.name}
-                selected={on}
-                tone={on ? 'accent' : 'ink'}
-                onPress={() => toggle(p.id)}
-                accessibilityLabel={`#${p.number} ${p.name}${on ? ', starting' : ''}`}
+          <Text
+            numberOfLines={1}
+            style={{
+              flexShrink: 1,
+              fontFamily: fNum(700),
+              fontSize: m.fsXl,
+              letterSpacing: ls(m.fsXl, LS_BTN),
+              color: t.ink,
+            }}
+          >
+            NEW GAME
+          </Text>
+        </Row>
+
+        <ScrollView
+          style={{ flex: 1, marginTop: m.s2 }}
+          contentContainerStyle={{ paddingBottom: m.s2 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* who this board belongs to, and it is not editable from here */}
+          <ClubCard readOnly />
+
+          <Row gap={m.s2} style={{ minHeight: m.tap, marginTop: m.s3 }}>
+            <Text
+              numberOfLines={1}
+              style={{
+                flexShrink: 1,
+                fontFamily: fNum(700),
+                fontSize: m.fsMd,
+                letterSpacing: ls(m.fsMd, LS_LABEL),
+                color: t.ink2,
+              }}
+            >
+              STARTING FIVE
+            </Text>
+
+            <Text
+              style={{
+                marginLeft: 'auto',
+                flexGrow: 0,
+                flexShrink: 0,
+                fontFamily: fNum(500),
+                fontSize: m.fsMd,
+                color: ready ? t.accent : t.ink2,
+                fontVariant: ['tabular-nums'],
+              }}
+            >
+              {picked.length}/{STARTERS}
+            </Text>
+          </Row>
+
+          {roster.length ? (
+            rows.map((row, i) => (
+              <Row key={i} align="stretch" gap={m.s3}>
+                {row.map((p) => (
+                  <PlayerRow
+                    key={p.id}
+                    player={p}
+                    starting={picked.includes(p.id)}
+                    onPick={() => toggle(p.id)}
+                    onNumber={() => open({ kind: 'setNumber', playerId: p.id })}
+                    onAvailable={() => setAvailable(p)}
+                  />
+                ))}
+                {/* a short last row keeps its cells the width of every other */}
+                {Array.from({ length: columns - row.length }, (_, k) => (
+                  <View key={'gap' + k} style={{ flex: 1 }} />
+                ))}
+              </Row>
+            ))
+          ) : (
+            <Col align="center" gap={m.s2} style={{ paddingVertical: m.s6 }}>
+              <Text
+                style={{
+                  fontFamily: fNum(500),
+                  fontSize: m.fsMd,
+                  letterSpacing: ls(m.fsMd, LS_LABEL),
+                  color: t.ink3,
+                }}
+              >
+                NO PLAYERS YET
+              </Text>
+              <Label tone={t.ink3}>ADD THEM ON THE TEAM TAB</Label>
+            </Col>
+          )}
+
+          {/* THE MATCH — the two things true of this game and of no other.
+              Both are optional: a scorer at the buzzer starts the game and
+              types neither, and a blank opponent reads as OPPONENT. */}
+          <View style={{ marginTop: m.s3 }}>
+            <Card>
+              <Band label="THE MATCH" />
+              <Field
+                label="OPPONENT"
+                value={opponent}
+                onChangeText={setOpponent}
+                placeholder="who you are playing"
+                maxLength={OPPONENT_MAX}
               />
-            );
-          })}
-        </PGrid>
+              <Field
+                label="NOTE"
+                value={note}
+                onChangeText={setNote}
+                placeholder="round, venue, anything"
+                maxLength={NOTE_MAX}
+                onSubmitEditing={start}
+              />
+            </Card>
+          </View>
+        </ScrollView>
+
+        <BtnRow mt>
+          <Btn label="START GAME" variant="accent" disabled={!ready} onPress={start} />
+        </BtnRow>
       </View>
 
-      <BtnRow mt>
-        <Btn
-          label="START GAME"
-          variant="accent"
-          disabled={!ready}
-          onPress={() => {
-            startGame(roster, picked);
-            // replace, not push: back off the board goes home, not to a picker
-            // for a game that has already started
-            router.replace('/game');
-          }}
-        />
-      </BtnRow>
-    </View>
+      {/* the number keypad opens from here, so this screen needs the router */}
+      <PanelHost />
+    </KeyboardAvoidingView>
   );
 }

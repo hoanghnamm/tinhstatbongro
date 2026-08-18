@@ -1,4 +1,12 @@
-import type { FoulKindKey, Player, PlayerStats, RosterPlayer, TallyType, Zone } from '../types';
+import type {
+  CourtPosition,
+  FoulKindKey,
+  Player,
+  PlayerStats,
+  RosterPlayer,
+  TallyType,
+  Zone,
+} from '../types';
 
 export const FOULS = 5;
 export const PERIOD_LEN = 600; // 10:00
@@ -92,20 +100,33 @@ export const zeroStats = (): PlayerStats => ({
  * still lines up with the roster it was built from.
  */
 export const SEED_ROSTER: RosterPlayer[] = [
-  { id: 'p1', number: 1, name: 'a.n' },
-  { id: 'p12', number: 12, name: 'bd' },
-  { id: 'p13', number: 13, name: 'No. 13' },
-  { id: 'p15', number: 15, name: 'b.1' },
-  { id: 'p16', number: 16, name: 'No. 16' },
-  { id: 'p7', number: 7, name: 'No. 7' },
-  { id: 'p9', number: 9, name: 'No. 9' },
-  { id: 'p21', number: 21, name: 'No. 21' },
+  { id: 'p1', number: 1, name: 'a.n', available: true },
+  { id: 'p12', number: 12, name: 'bd', available: true },
+  { id: 'p13', number: 13, name: 'No. 13', available: true },
+  { id: 'p15', number: 15, name: 'b.1', available: true },
+  { id: 'p16', number: 16, name: 'No. 16', available: true },
+  { id: 'p7', number: 7, name: 'No. 7', available: true },
+  { id: 'p9', number: 9, name: 'No. 9', available: true },
+  { id: 'p21', number: 21, name: 'No. 21', available: true },
 ];
 
-/** The game a fresh install opens on: the seed roster, first five starting. */
+/**
+ * The five the picker offers, plus the blank. `—` is a real choice and the
+ * default one: a position is a label, and most scorers never set it.
+ */
+export const COURT_POSITIONS: CourtPosition[] = ['PG', 'SG', 'SF', 'PF', 'C'];
+
+/**
+ * The game a fresh install opens on: the seed roster, first five starting.
+ *
+ * Field by field rather than spread, for the same reason `buildPlayers` is —
+ * `position` and `available` belong to the team and must not arrive in a game.
+ */
 export function seedRoster(): Player[] {
   return SEED_ROSTER.map((r, i) => ({
-    ...r,
+    id: r.id,
+    number: r.number,
+    name: r.name,
     status: i > 4 ? 'bench' : 'active',
     starter: i <= 4,
     stats: zeroStats(),

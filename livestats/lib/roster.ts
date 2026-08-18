@@ -9,8 +9,8 @@
  * exactly once per game, and it copies — so editing the team after tip-off
  * cannot reach the game being played.
  */
-import { zeroStats } from '../constants/game';
-import type { Player, RosterPlayer } from '../types';
+import { COURT_POSITIONS, zeroStats } from '../constants/game';
+import type { CourtPosition, Player, RosterPlayer } from '../types';
 
 /** Five rail rows and a bench; past this the picker stops being a picker. */
 export const ROSTER_CAP = 15;
@@ -36,6 +36,44 @@ export function numberHolder(
 ): RosterPlayer | null {
   return roster.find((p) => p.number === number && p.id !== exceptId) ?? null;
 }
+
+/**
+ * Every player who can be picked for a game. It is the ONE reading of
+ * `available` in the app: an unavailable player is hidden from the picker and
+ * therefore never reaches `buildPlayers`, which is the whole mechanism. There
+ * is no second check on the board, because a game that has started no longer
+ * has an opinion about who was injured before it.
+ */
+export const availableIn = (roster: RosterPlayer[]): RosterPlayer[] =>
+  roster.filter((p) => p.available);
+
+/**
+ * What a roster loaded off disk has to be put through.
+ *
+ * `available` was added after the first builds shipped, so a persisted entry
+ * can be missing it — and missing is falsy, which would hide every player from
+ * the picker and read as the whole team vanishing. The migration is written
+ * here rather than inline in the store so `npm run check` can run it, and it
+ * defaults to TRUE: a roster that has never heard of availability is a roster
+ * where everyone is available.
+ */
+export const migrateRoster = (players: unknown): RosterPlayer[] => {
+  if (!Array.isArray(players)) return [];
+  return players.map((raw) => {
+    const p = raw as Partial<RosterPlayer>;
+    return {
+      id: String(p.id),
+      number: Number(p.number),
+      name: String(p.name ?? ''),
+      // an unknown string is dropped rather than kept: the field is a label out
+      // of a fixed list, and a sixth value would have nothing to render
+      position: COURT_POSITIONS.includes(p.position as CourtPosition)
+        ? (p.position as CourtPosition)
+        : undefined,
+      available: p.available !== false,
+    };
+  });
+};
 
 /**
  * A fresh game's `players`, built from the durable roster.

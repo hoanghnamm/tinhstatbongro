@@ -5,6 +5,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import { PERIOD_LEN, seedRoster } from '../constants/game';
 import { buildPlayers } from '../lib/roster';
 import { DEFAULT_OPTIONS, type Options } from '../constants/options';
+import { DEFAULT_TEAM, cleanNote, cleanOpponent } from '../lib/team';
 import * as A from '../lib/actions';
 import type {
   FoulKindKey,
@@ -35,11 +36,27 @@ export interface GameStore extends GameState {
   /**
    * Tip-off. The roster is copied into fresh zeroed `Player`s, the five picked
    * ids start and everyone else sits, and score, clock, period, events and the
-   * undo stack all go back to nothing. It is the ONE writer that crosses from
-   * `rosterStore` into a game, and it does not go through `edit()`: starting a
-   * game is not a stat to be undone.
+   * undo stack all go back to nothing. It does not go through `edit()`:
+   * starting a game is not a stat to be undone.
+   *
+   * It is the ONE writer that crosses from the durable half of the app into a
+   * game, and `teamName` is the second thing it carries across. A game records
+   * the name it was PLAYED under, the same way it records the jersey a player
+   * wore that night — rename the club in March and February's box score still
+   * says who it was. The crest and the coaches do not cross: they are true of
+   * the club today, not of a game that is already over.
+   *
+   * `opponent` and `note` come the other way — they are typed on the picker and
+   * belong to this game alone, so there is nowhere else for them to live. Both
+   * may be empty, and empty is the common case for the note.
    */
-  startGame(roster: RosterPlayer[], starterIds: string[]): void;
+  startGame(
+    roster: RosterPlayer[],
+    starterIds: string[],
+    teamName: string,
+    opponent?: string,
+    note?: string,
+  ): void;
 
   recordShot(
     playerId: string,
@@ -71,8 +88,15 @@ export interface GameStore extends GameState {
   setOption<K extends keyof Options>(key: K, value: Options[K]): void;
 }
 
-const freshGame = (players: Player[] = seedRoster()): GameState => ({
-  team: { name: 'MY TEAM' },
+const freshGame = (
+  players: Player[] = seedRoster(),
+  teamName: string = DEFAULT_TEAM.name,
+  opponent = '',
+  note = '',
+): GameState => ({
+  team: { name: teamName },
+  opponent,
+  note,
   score: 0,
   oppScore: 0,
   period: 1,
@@ -136,7 +160,8 @@ export const useGameStore = create<GameStore>()(
           if (undoStack.length > UNDO_CAP) undoStack.shift();
         }
         const g: GameState = clone({
-          team: s.team, score: s.score, oppScore: s.oppScore, period: s.period,
+          team: s.team, opponent: s.opponent, note: s.note,
+          score: s.score, oppScore: s.oppScore, period: s.period,
           remaining: s.remaining, running: s.running, ended: s.ended,
           possessions: s.possessions, players: s.players, events: s.events,
         });
@@ -149,10 +174,17 @@ export const useGameStore = create<GameStore>()(
         ...freshGame(),
         options: { ...DEFAULT_OPTIONS },
 
-        startGame: (roster, starterIds) => {
+        startGame: (roster, starterIds, teamName, opponent = '', note = '') => {
           // a new game's undo history is empty, not the last game's
           undoStack.length = 0;
-          set(freshGame(buildPlayers(roster, starterIds)));
+          set(
+            freshGame(
+              buildPlayers(roster, starterIds),
+              teamName,
+              cleanOpponent(opponent),
+              cleanNote(note),
+            ),
+          );
         },
 
         recordShot: (playerId, position, shotType, made, assistId, shotNote) =>
@@ -243,17 +275,56 @@ export const useGameStore = create<GameStore>()(
       // the undo stack is not persisted: it is a session's worth of "oops",
       // and rehydrating 80 deep copies would cost more than it is worth
       partialize: (s) => ({
-        team: s.team, score: s.score, oppScore: s.oppScore, period: s.period,
+        team: s.team, opponent: s.opponent, note: s.note,
+        score: s.score, oppScore: s.oppScore, period: s.period,
         remaining: s.remaining, ended: s.ended, possessions: s.possessions,
         players: s.players, events: s.events, options: s.options,
       }),
       onRehydrateStorage: () => (s) => {
+        if (!s) return;
         // a game restored from disk is stopped, whatever it was doing when the
         // OS killed it — the seconds since then were not played
-        if (s) s.running = false;
+        s.running = false;
+        // a build from before the skin switcher was cut persisted a fifth
+        // option. Nothing reads it, but naming the four that are left is what
+        // keeps the stray from outliving the update in storage too.
+        const { ft, tap, assist, bar } = s.options;
+        s.options = {
+          ft: ft ?? DEFAULT_OPTIONS.ft,
+          tap: tap ?? DEFAULT_OPTIONS.tap,
+          assist: assist ?? DEFAULT_OPTIONS.assist,
+          bar: bar ?? DEFAULT_OPTIONS.bar,
+        };
       },
     },
   ),
 );
 
 export const undoDepth = (): number => undoStack.length;
+
+/**
+ * The GAME, without the store's machinery around it.
+ *
+ * `getState()` hands back the actions and the options as well, and both would
+ * be written to disk by a `JSON.stringify` that does not know the difference —
+ * the options are a preference and not a fact about the game, and a function
+ * serialises to nothing at all. Naming the thirteen keys is what keeps a saved
+ * game the same shape as the one every reader here already takes.
+ */
+export const currentGame = (): GameState => {
+  const s = useGameStore.getState();
+  return {
+    team: s.team,
+    opponent: s.opponent,
+    note: s.note,
+    score: s.score,
+    oppScore: s.oppScore,
+    period: s.period,
+    remaining: s.remaining,
+    running: s.running,
+    ended: s.ended,
+    possessions: s.possessions,
+    players: s.players,
+    events: s.events,
+  };
+};

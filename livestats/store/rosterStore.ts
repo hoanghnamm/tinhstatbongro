@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { SEED_ROSTER } from '../constants/game';
-import { ROSTER_CAP, cleanName, newRosterId } from '../lib/roster';
+import { ROSTER_CAP, cleanName, migrateRoster, newRosterId } from '../lib/roster';
 import type { RosterPlayer } from '../types';
 
 /**
@@ -25,8 +25,12 @@ import type { RosterPlayer } from '../types';
 export interface RosterState {
   players: RosterPlayer[];
 
-  /** Refused past `ROSTER_CAP`; the ADD button is disabled there anyway. */
-  add(p: Omit<RosterPlayer, 'id'>): void;
+  /**
+   * Refused past `ROSTER_CAP`; the ADD button is disabled there anyway.
+   * `available` is optional here and nowhere else — the form has a switch for
+   * it, but a caller that does not care means "on the team".
+   */
+  add(p: Omit<RosterPlayer, 'id' | 'available'> & { available?: boolean }): void;
   update(id: string, patch: Partial<Omit<RosterPlayer, 'id'>>): void;
   remove(id: string): void;
 }
@@ -42,7 +46,18 @@ export const useRosterStore = create<RosterState>()(
         const players = get().players;
         if (players.length >= ROSTER_CAP) return;
         set({
-          players: [...players, { id: newRosterId(), number: p.number, name: cleanName(p.name) }],
+          players: [
+            ...players,
+            {
+              id: newRosterId(),
+              number: p.number,
+              name: cleanName(p.name),
+              position: p.position,
+              // the form's default, and the only sane one: a player is added
+              // because they are on the team, not because they are injured
+              available: p.available ?? true,
+            },
+          ],
         });
       },
 
@@ -64,6 +79,19 @@ export const useRosterStore = create<RosterState>()(
     {
       name: 'hooplog-roster',
       storage: createJSONStorage(() => AsyncStorage),
+      /**
+       * 1 → 2 added `position` and `available`.
+       *
+       * The migration is not optional politeness: `available` is read as a
+       * filter by the starter picker, `undefined` is falsy, and a roster
+       * rehydrated without it would put an empty picker in front of a scorer
+       * at tip-off. `migrateRoster` defaults it to true and lives in `lib/`,
+       * so `npm run check` runs the real thing.
+       */
+      version: 2,
+      migrate: (persisted, _version) => ({
+        players: migrateRoster((persisted as Partial<RosterState> | undefined)?.players),
+      }),
     },
   ),
 );
