@@ -1,4 +1,5 @@
 import { ScrollView, Text, View } from 'react-native';
+import { router } from 'expo-router';
 
 import { ZONES, ZONE_LABEL } from '../../constants/game';
 import { useAnnounce } from '../../hooks/useAnnounce';
@@ -57,12 +58,18 @@ const cells = (p: Player): string[] => {
 };
 
 /**
- * The box score. Two of these numbers are deliberately partial, because only
- * our roster is tracked: ON is team points scored while a player was on the
- * floor — the "for" half of a plus-minus with no "against" half available — and
- * PTS OFF STEALS reads the event log, so it can read high if an opponent
- * rebound goes unlogged. Neither may be relabelled without tracking who was on
- * the floor for each opponent basket.
+ * The box score, as a GLANCE — the whole game, no quarter split, no charts.
+ * The full line lives on `app/stats.tsx`, which FULL STATS below opens.
+ *
+ * ON is deliberately the "for" half only: team points scored while the player
+ * was on the floor, which is the number a scorer actually checks mid-game. The
+ * against half exists now (`onCourtOppPoints`) and the real +/- is on the
+ * stats screen; it is not on this panel because a signed number is a thing you
+ * read after the buzzer, not between possessions.
+ *
+ * PTS OFF STEALS is still partial: it reads the event log, so it can run high
+ * if an opponent rebound goes unlogged. Do not relabel it "points off
+ * turnovers" — a steal is the only opponent turnover this board hears about.
  */
 export function TotalsPanel() {
   const m = useMetrics();
@@ -232,6 +239,15 @@ export function TotalsPanel() {
 
       <Row mt>
         <Btn label="PLAY BY PLAY" onPress={() => open({ kind: 'plays' })} />
+        {/* this panel is the glance mid-game; the screen is the full line, by
+            quarter, with the shot chart and the zones on it */}
+        <Btn
+          label="FULL STATS"
+          onPress={() => {
+            reset();
+            router.push('/stats');
+          }}
+        />
         <Btn label="CLOSE" variant="solid" onPress={reset} />
       </Row>
     </>

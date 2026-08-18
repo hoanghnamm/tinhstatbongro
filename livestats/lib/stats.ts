@@ -1,11 +1,14 @@
 import { ZONES } from '../constants/game';
 import { pct1 } from './format';
-import type { GameEvent, Player, Zone } from '../types';
+import type { GameEvent, Player, PlayerStats, Zone } from '../types';
 
 export interface Totals {
   pts: number;
   fgm: number;
   fga: number;
+  /** the two-point split, which the FG line alone cannot be read back into */
+  twom: number;
+  twoa: number;
   tpm: number;
   tpa: number;
   ftm: number;
@@ -17,10 +20,45 @@ export interface Totals {
   to: number;
   st: number;
   bs: number;
+  /** fouls drawn — the other side of PF, and its own tally */
+  fd: number;
   pf: number;
   tf: number;
   fl: number;
+  /** seconds, not minutes: formatted once, at the edge, by `mmss` */
+  sec: number;
+  pm: number;
+  ef: number;
 }
+
+/**
+ * The real plus-minus. Both halves are counted the same way — every point,
+ * ours and theirs, is credited to the five standing on the floor when it went
+ * up — so this is a plus-minus and not the half of one the board shows as ON.
+ *
+ * The `?? 0` is not decoration: a game persisted before the against-half
+ * existed rehydrates without the key, and a missing number would make the
+ * whole line read `NaN` rather than merely read low.
+ */
+export const plusMinus = (s: PlayerStats): number =>
+  (s.onCourtPoints ?? 0) - (s.onCourtOppPoints ?? 0);
+
+/**
+ * Efficiency, the one-number line every box score in the world prints:
+ * everything you did minus everything you wasted. A missed shot, a missed free
+ * throw and a turnover are the three ways to waste a possession, so those are
+ * the three subtractions.
+ */
+export const efficiency = (s: PlayerStats): number =>
+  s.points +
+  s.offensiveRebounds +
+  s.defensiveRebounds +
+  s.assists +
+  s.steals +
+  s.blocks -
+  (s.fgAttempted - s.fgMade) -
+  (s.ftAttempted - s.ftMade) -
+  s.turnovers;
 
 export function totals(players: Player[]): Totals {
   return players.reduce<Totals>(
@@ -29,6 +67,8 @@ export function totals(players: Player[]): Totals {
       a.pts += s.points;
       a.fgm += s.fgMade;
       a.fga += s.fgAttempted;
+      a.twom += s.twoMade;
+      a.twoa += s.twoAttempted;
       a.tpm += s.threeMade;
       a.tpa += s.threeAttempted;
       a.ftm += s.ftMade;
@@ -40,14 +80,19 @@ export function totals(players: Player[]): Totals {
       a.to += s.turnovers;
       a.st += s.steals;
       a.bs += s.blocks;
+      a.fd += s.foulsDrawn;
       a.pf += s.fouls;
       a.tf += s.technicals;
       a.fl += s.flagrants;
+      a.sec += s.secondsPlayed;
+      a.pm += plusMinus(s);
+      a.ef += efficiency(s);
       return a;
     },
     {
-      pts: 0, fgm: 0, fga: 0, tpm: 0, tpa: 0, ftm: 0, fta: 0,
-      oreb: 0, dreb: 0, reb: 0, ast: 0, to: 0, st: 0, bs: 0, pf: 0, tf: 0, fl: 0,
+      pts: 0, fgm: 0, fga: 0, twom: 0, twoa: 0, tpm: 0, tpa: 0, ftm: 0, fta: 0,
+      oreb: 0, dreb: 0, reb: 0, ast: 0, to: 0, st: 0, bs: 0, fd: 0,
+      pf: 0, tf: 0, fl: 0, sec: 0, pm: 0, ef: 0,
     },
   );
 }

@@ -15,9 +15,10 @@ import * as A from '../lib/actions';
 import { FT_SPOT, shotTypeFor, zoneFor, zoneSide } from './court';
 import { clockEntry, clockReady, mmss, ord, pushClockDigit, secondsFromClock } from './format';
 import { gridFor } from './grid';
+import { advancedFor, linesFor, periodsOf, report, scoreline, shotsIn } from './box';
 import { litControl, litPlayerId } from './lit';
 import { ROSTER_CAP, STARTERS, buildPlayers, cleanName, numberHolder, validNumber } from './roster';
-import { efg, ptsOffSteals, totals, zoneSplits } from './stats';
+import { efficiency, efg, plusMinus, ptsOffSteals, totals, zoneSplits } from './stats';
 import type { GameEvent, GameState, Position, RosterPlayer } from '../types';
 
 const game = (): GameState => ({
@@ -404,6 +405,145 @@ assert.equal(ord(11), '11th');
   assert.equal(litPlayerId(null), null);
 }
 
+/* ---- the quarters ------------------------------------------------
+ * The whole game is the board's counters; a quarter is REBUILT from the log,
+ * and nothing in the type system ties the two together. So: play a small game
+ * across two periods and read both back.
+ *
+ * The floor and the clock are the two things no event counts, and they are
+ * what the walk in `lib/box.ts` reconstructs — so they are what is asserted
+ * hardest here.
+ * ------------------------------------------------------------------ */
+{
+  const g = game();
+  const paint = at(396, 100);
+  const top3 = at(396, 500);
+
+  // Q1: we score two in the paint, they answer with three, we take the lead
+  // back from the top of the key, and the quarter then runs out.
+  A.tickSeconds(g, 60);
+  A.recordShot(g, 'p1', paint, '2PT', true, null, null);
+  A.recordOppPoint(g, 3);
+  A.tickSeconds(g, 60);
+  A.recordShot(g, 'p12', top3, '3PT', true, null, null);
+  A.tickSeconds(g, PERIOD_LEN - 120);
+  assert.equal(g.remaining, 0, 'the quarter ran out');
+
+  // Q2, thirty seconds in: p1 steals it and finishes at the other end.
+  g.period = 2;
+  g.remaining = PERIOD_LEN;
+  A.tickSeconds(g, 30);
+  A.recordTally(g, 'p1', null, 'steal');
+  A.recordShot(g, 'p1', paint, '2PT', true, null, null);
+
+  assert.deepEqual(periodsOf(g), [1, 2], 'both quarters are offered');
+
+  // the against-half of the plus-minus, which is what makes it a plus-minus
+  const p1 = A.byId(g, 'p1')!;
+  assert.equal(p1.stats.onCourtPoints, 7, 'every point we scored, they were on for');
+  assert.equal(p1.stats.onCourtOppPoints, 3, 'and every point against');
+  assert.equal(plusMinus(p1.stats), 4);
+  assert.equal(plusMinus(A.byId(g, 'p7')!.stats), 0, 'the bench is on for nothing');
+  // four points and a steal, two of two, nothing wasted
+  assert.equal(efficiency(p1.stats), 5);
+
+  const q1 = linesFor(g, 1);
+  const line = (ps: typeof q1, id: string) => ps.find((p) => p.id === id)!.stats;
+  assert.equal(line(q1, 'p1').points, 2, 'the quarter keeps its own points');
+  assert.equal(line(q1, 'p12').points, 3);
+  assert.equal(line(q1, 'p1').steals, 0, "and not the next quarter's steal");
+  assert.equal(line(q1, 'p1').secondsPlayed, PERIOD_LEN, 'a starter played all of it');
+  assert.equal(line(q1, 'p7').secondsPlayed, 0, 'the bench played none of it');
+  assert.equal(plusMinus(line(q1, 'p1')), 2, '5-3 in the first');
+
+  const q2 = linesFor(g, 2);
+  assert.equal(line(q2, 'p1').points, 2);
+  assert.equal(line(q2, 'p1').steals, 1);
+  assert.equal(line(q2, 'p1').secondsPlayed, 30, 'thirty seconds of the second');
+  assert.equal(plusMinus(line(q2, 'p1')), 2, 'two unanswered');
+
+  // the quarters add up to the whole game, which is the point of deriving
+  // minutes from the same clock the ticker credits
+  assert.equal(
+    line(q1, 'p1').secondsPlayed + line(q2, 'p1').secondsPlayed,
+    p1.stats.secondsPlayed,
+    'the quarters and the counter tell the same story',
+  );
+
+  // a substitution moves a name, and the quarter's minutes move with it
+  {
+    const h = JSON.parse(JSON.stringify(g)) as GameState;
+    A.substitute(h, 'p1', 'p7');
+    A.tickSeconds(h, 30);
+    const q = linesFor(h, 2);
+    assert.equal(line(q, 'p1').secondsPlayed, 30, 'the one who came off keeps what they played');
+    assert.equal(line(q, 'p7').secondsPlayed, 30, 'the one who came on gets the rest');
+  }
+
+  /* -- the scoreline ------------------------------------------------ */
+  const marks = scoreline(g.events);
+  assert.equal(marks.length, 5, 'four scores and the 0-0 they start from');
+  assert.equal(marks[0].side, null, 'the seed belongs to neither team');
+
+  const all = advancedFor(g, null, g.players);
+  assert.equal(all.biggestLead, 4, '7-3 is the widest it got');
+  assert.equal(all.oppBiggestLead, 1, 'and 2-3 the other way');
+  assert.equal(all.biggestRun, 5, 'the three and the two ran together');
+  assert.equal(all.oppBiggestRun, 3);
+  assert.equal(all.leadChanges, 2, 'they went ahead, then we did');
+  assert.equal(all.timesTied, 0, 'it was never level after the tip');
+  assert.equal(all.timeAhead, 510, 'ahead from the go-ahead three to now');
+  assert.equal(all.paint, 4, 'both twos were in the paint');
+  assert.equal(all.fastBreak, 2, 'the steal was finished inside the window');
+  assert.equal(all.offTurnovers, 2, 'the same basket, counted off the steal');
+  assert.equal(all.secondChance, 0, 'nothing followed an offensive board');
+  assert.equal(all.bench, 0);
+  assert.equal(all.ppp, null, 'no possessions tapped, no points per possession');
+
+  const first = advancedFor(g, 1, linesFor(g, 1));
+  assert.equal(first.biggestLead, 2, 'the first quarter got no further ahead than two');
+  assert.equal(first.biggestRun, 3, "and the run that did it was the three");
+  assert.equal(first.timeAhead, 480, 'clipped at the end of the quarter');
+  assert.equal(first.fastBreak, 0, 'the break was in the second');
+
+  const second = advancedFor(g, 2, linesFor(g, 2));
+  assert.equal(second.biggestLead, 4, 'a lead carried into a quarter is a lead held in it');
+  assert.equal(second.biggestRun, 2, 'but a run is not carried in');
+  assert.equal(second.leadChanges, 0);
+  assert.equal(second.timeAhead, 30);
+
+  /* -- what the screen actually reads ------------------------------- */
+  const rAll = report(g, null);
+  assert.equal(rAll.us, 7);
+  assert.equal(rAll.them, 3);
+  assert.equal(rAll.team.twom, 2, 'the two-point split is its own column');
+  assert.equal(rAll.team.tpm, 1);
+  assert.equal(rAll.team.sec > 0, true, 'the totals row carries minutes');
+
+  const rOne = report(g, 1);
+  assert.equal(rOne.us, 5, "a quarter's score is its own");
+  assert.equal(rOne.them, 3);
+  assert.equal(rOne.zones.paint.m, 1, 'and so are its zone splits');
+  assert.equal(rOne.zones.top3.m, 1);
+
+  assert.equal(shotsIn(g.events, 2).length, 1, 'one shot in the second');
+  assert.equal(shotsIn(g.events, null).length, 3);
+
+  // second chance: an offensive board, then a putback
+  {
+    const h = game();
+    A.recordRebound(h, 'p1', null, 'offensive');
+    A.recordShot(h, 'p1', paint, '2PT', true, null, null);
+    assert.equal(advancedFor(h, null, h.players).secondChance, 2, 'the putback is second chance');
+    A.recordShot(h, 'p1', paint, '2PT', true, null, null);
+    assert.equal(
+      advancedFor(h, null, h.players).secondChance,
+      2,
+      'the possession ended with the first one',
+    );
+  }
+}
+
 /* ---- the fill ends on a drawn line ---------------------------------
  * `CourtSvg.tsx` carries this file's partition a second time, as eleven closed
  * paths, and nothing in the type system ties the two together. So: rasterise
@@ -563,7 +703,14 @@ assert.equal(ord(11), '11th');
     't.danger': 't.dangerInk',
   };
   const FILL = /backgroundColor:\s*(?:[^,\n]*?)(t\.(?:ink2|ink|accentInk|accent|danger))\b/g;
-  const NO_TEXT_INSIDE = [join('components', 'board', 'Court.tsx')]; // the live mark is a dot
+  // the three files whose fills are CHART MARKS rather than surfaces: a shot
+  // dot, a free-throw dot and a zone's heat have no ink to lose because they
+  // have nothing written inside them
+  const NO_TEXT_INSIDE = [
+    join('components', 'board', 'Court.tsx'), // the live mark is a dot
+    join('components', 'stats', 'ShotsTab.tsx'), // made / miss / free-throw dots
+    join('components', 'stats', 'ZonesTab.tsx'), // the zone heat and its scale
+  ];
   for (const f of files) {
     if (NO_TEXT_INSIDE.includes(f.path)) continue;
     for (const [, fill] of f.src.matchAll(FILL)) {

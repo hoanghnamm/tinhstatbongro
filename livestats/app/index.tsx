@@ -386,6 +386,19 @@ export default function HomeScreen() {
             </BtnRow>
           )}
 
+          {/* the card above is the glance; this is the whole thing — and it is
+              only offered once there is a game to read, because a stats screen
+              of zeros is a worse answer than no button */}
+          {played && (
+            <BtnRow>
+              <Btn
+                label={ended ? 'FINAL STATS' : 'GAME STATS'}
+                variant="surface"
+                onPress={() => router.push('/stats')}
+              />
+            </BtnRow>
+          )}
+
           <BtnRow>
             <Btn label="NEW GAME" variant="accent" disabled={!enough} onPress={newGame} />
           </BtnRow>

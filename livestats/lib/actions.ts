@@ -41,6 +41,16 @@ export function creditOnCourt(g: GameState, value: number): void {
   for (const p of onCourt(g)) p.stats.onCourtPoints += value;
 }
 
+/**
+ * The other half of the same idea, and the reason +/- is a real number here.
+ * The opponent has no roster, but a plus-minus never needed one: the three OPP
+ * buttons are tapped while play is in front of you, so the five standing on the
+ * floor at that moment are exactly the five the basket went against.
+ */
+export function debitOnCourt(g: GameState, value: number): void {
+  for (const p of onCourt(g)) p.stats.onCourtOppPoints += value;
+}
+
 function need(g: GameState, id: string): Player {
   const p = byId(g, id);
   if (!p) throw new Error('no such player: ' + id);
@@ -92,6 +102,7 @@ export function recordShot(
 /** The opponent's whole model: a number and an undoable event. */
 export function recordOppPoint(g: GameState, points = 1): void {
   g.oppScore += points;
+  debitOnCourt(g, points);
   log(g, { type: 'oppPoint', playerId: null, position: null, value: points });
 }
 

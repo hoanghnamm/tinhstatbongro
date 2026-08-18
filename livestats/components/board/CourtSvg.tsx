@@ -47,6 +47,14 @@ import type { Zone, ZoneSide } from '../../types';
 interface Props {
   zone: Zone | null;
   side: ZoneSide | null;
+  /**
+   * The stats screen's zone chart: one fill per zone, painted under the line
+   * work. It reads the SAME eleven paths the lit fill does — a second copy of
+   * the partition for the chart is the one thing this file exists to prevent —
+   * and both mirrored halves of a zone take its colour, because a zone is one
+   * bucket in `zoneSplits` however many regions draw it.
+   */
+  heat?: Partial<Record<Zone, string>> | null;
 }
 
 const ZN: { zone: Zone; side: ZoneSide; d: string }[] = [
@@ -62,13 +70,18 @@ const ZN: { zone: Zone; side: ZoneSide; d: string }[] = [
   { zone: 'top2', side: 'c', d: 'M310 276 L480 276 L540.6904 396.8874 A352 352 0 0 1 249.6808 396.1479 Z' },
   { zone: 'top3', side: 'c', d: 'M540.6904 396.8874 L603 521 L187 521 L249.6808 396.1479 A352 352 0 0 0 540.6904 396.8874 Z' },
 ];
-function CourtSvgImpl({ zone, side }: Props) {
+function CourtSvgImpl({ zone, side, heat = null }: Props) {
   const t = useTheme();
   const lit = ZN.find((z) => z.zone === zone && z.side === side);
 
   return (
     <Svg viewBox="0 0 792 521" width="100%" height="100%">
       <Rect x="0" y="0" width="792" height="521" fill={t.court} />
+
+      {heat &&
+        ZN.map((z) =>
+          heat[z.zone] ? <Path key={z.zone + z.side} d={z.d} fill={heat[z.zone]} /> : null,
+        )}
 
       {lit && <Path d={lit.d} fill={t.accent} fillOpacity={0.3} />}
 

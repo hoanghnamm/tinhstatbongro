@@ -48,14 +48,15 @@ reason). `babel-preset-expo` is also direct, which is unusual: NativeWind needs 
 
 ## Routing
 
-Expo Router, five files, headers hidden:
+Expo Router, six files, headers hidden:
 
 ```
 app/_layout.tsx   Stack + SafeAreaProvider + the palette + the fonts
-app/index.tsx     HOME     — resume / new / my team
+app/index.tsx     HOME     — resume / stats / new / my team
 app/team.tsx      MY TEAM  — the durable roster
 app/start.tsx     the starting-five picker
 app/game.tsx      THE BOARD
+app/stats.tsx     THE STATS SCREEN — where a finished game goes
 ```
 
 **`app/_layout.tsx` is the old `App.tsx`, minus the board.** It writes the palette with
@@ -485,6 +486,94 @@ back chip** — CANCEL already covers getting one wrong.
 
 Hardware back is this platform's Escape and calls `reset()`.
 
+## The stats screen
+
+`app/stats.tsx` is where a finished game goes: END GAME on the quarter panel confirms, stops
+the clock, closes the panel and **pushes the route** — the board keeps its own totals panel
+for the mid-game glance, and that panel now has a FULL STATS button beside PLAY BY PLAY.
+Home offers it as GAME STATS / FINAL STATS, and **only once `events.length > 0`**: a stats
+screen of zeros is a worse answer than no button.
+
+**It is four screens, not one, and that is the whole design.** The full line after the buzzer
+is about a hundred numbers, and a hundred numbers in one column is a document rather than a
+screen. Two `Seg` strips ask the two questions — the tab strip asks WHICH KIND of number
+(TEAM / PLAYERS / SHOTS / ZONES) and the quarter strip asks WHICH PART of the game (ALL, then
+`Q1…Q4`, then `OT`, `OT2`, …). Every tab answers both. `Seg` is ONE control used twice
+rather than two that drift apart.
+
+**This screen scrolls, and that is not a violation.** The one-viewport rule is about the
+BOARD, where a thumb has to find a control without looking. Nobody reads a box score with one
+thumb during a possession. The players table also scrolls SIDEWAYS — twenty columns do not
+fit a phone and never will.
+
+**`lib/box.ts` is the whole derivation, and nothing on the screen mutates anything.** It is
+plain functions over a `GameState`, on the same side of the line as `lib/actions.ts`, so
+`npm run check` exercises all of it without React.
+
+**The whole game is the board's counters; a quarter is REBUILT from the log.** `split` is the
+one argument every reader takes: a period number, or null. **Null does not re-derive** — it
+returns `g.players` untouched, because those counters are what `undo()` keeps correct and
+re-deriving them would only invite the two to disagree. A period walks `state.events` and
+rebuilds the two things no event counts:
+
+- **the floor** — `player.starter` is who tipped off, and every `substitution` and `foulOut`
+  after it moves one name, so replaying them gives the five who were out there at any point.
+  That is what a quarter's plus-minus is made of.
+- **the clock** — every event carries its period and game clock, so the gap between two
+  consecutive events is game time the floor between them played. It is the same second the
+  live ticker credits, which is why **the quarters add up to the whole-game minutes** rather
+  than competing with them. `selfcheck` asserts that sum.
+
+**One approximation, stated out loud in the code and in the note under the table:** a gap
+that spans the end of a period is credited as if the period ran out. That is the right guess
+— a quarter almost always ends on 0:00, whereas two minutes with nothing logged in them are
+ordinary — but a quarter ENDED EARLY hands its unplayed tail to whoever was on the floor.
+
+**Three numbers are derived from the LOG'S SHAPE rather than from a tap**, and the screen
+prints what each one actually measured rather than hiding it:
+
+| shown as | what it really is |
+|---|---|
+| POINTS FROM TURNOVERS | points after a steal — the only opponent turnover we hear about |
+| SECOND CHANCE POINTS | points after one of our offensive rebounds, before the possession ends |
+| FAST BREAK POINTS | points within `BREAK_WINDOW` (7s) of a steal or a defensive rebound |
+
+The break window is a window on the GAME CLOCK, not a tap, so a clock left stopped makes it
+read high. Do not drop the note under any of the three; the note is what makes printing them
+honest.
+
+**POINTS PER POSSESSION is whole-game only.** `possessions` is a plain team counter with no
+event behind it, so no quarter can claim a share of it — the quarter view reads `—` and says
+why. Anything else would be inventing a denominator.
+
+**The scoreline is built once and read six ways.** `scoreline()` replays every scoring event
+into a running `us`/`them` with the absolute game second on it, and BIGGEST LEAD, BIGGEST RUN,
+LEAD CHANGES, TIMES TIED and TIME WITH THE LEAD all come off that one array. A margin carried
+INTO a quarter counts as a lead held in it; **a run and a lead change do not carry** — both
+are things that happen, and one that happened in the first is not a fact about the third.
+Going ahead from 0-0 at the tip is not a lead change.
+
+**The two charts reuse the board's, they do not copy it.** SHOTS is the same grammar as the
+court's own chart — `accent` for a make, `markMiss` for a miss, one `danger` dot for the free
+throws however many were taken, because every one of them is logged at `FT_SPOT`. ZONES hands
+`CourtSvg` a **`heat` fill per zone** rather than carrying the partition a third time; both
+mirrored halves take the zone's colour, because a zone is one bucket in `zoneSplits` however
+many regions draw it. Opacity carries the percentage and **starts at 0.18, not 0** — a zone
+shot five times and missed five times is not the same thing as a zone never shot from.
+
+**The zone numbers live in the table, not on the floor.** Labels on the court were the obvious
+thing and do not survive contact with a phone: the corner threes are a 68-unit strip out of
+792, so a pill reading `4-9  44%` is wider than the zone it names.
+
+**Neither chart is sized off `m.court`.** That metric is what is left of the BOARD after the
+rail and the two action columns are subtracted, and this screen has none of them. Both boxes
+are measured with `onLayout`, aspect-locked with `COURT_ASPECT`, then capped against the
+window height.
+
+**`ShotsTab` and `ZonesTab` are on `selfcheck`'s `NO_TEXT_INSIDE` list**, beside `Court.tsx`,
+for the same reason: their `accent` and `danger` fills are chart marks — a dot, a dot, a heat
+— and a mark has no ink to lose because nothing is written inside it.
+
 ## Rules that look arbitrary and are not
 
 **A roster edit is not a game edit, and `undo()` does not reach it.** Removing a player
@@ -575,10 +664,20 @@ nothing syncs anywhere.
 **The opponent is a single number.** `oppScore` and nothing else: no opponent roster, no
 opponent shot chart, no opponent fouls.
 
-**Two metrics are deliberately partial**, because only our roster is tracked:
-`onCourtPoints` (shown as **ON**) is the "for" half of a plus-minus with no "against" half
-available, and `ptsOffSteals()` can read high if an opponent rebound goes unlogged. Do not
-relabel either as `+/-` or "points off turnovers".
+**The plus-minus has both halves, and the opponent's missing roster was never the
+obstacle.** `onCourtPoints` is credited by `creditOnCourt` and `onCourtOppPoints` by
+`debitOnCourt`, which `recordOppPoint` calls — the three OPP buttons are tapped while play
+is in front of you, so the five standing there are exactly the five the basket went
+against. `plusMinus()` is the difference and it is a real +/-. It guards both halves with
+`?? 0`, because a game persisted before the against-half existed rehydrates without the key
+and a missing number would read `NaN` rather than merely read low. **The board's box-score
+panel still shows ON** — the "for" half is what a scorer glances at mid-game — and the
+stats screen shows the +/-.
+
+**`ptsOffSteals()` is still partial**, because a steal is the only opponent turnover a
+one-team board hears about, and it reads high if an opponent rebound goes unlogged. The
+stats screen prints it as POINTS FROM TURNOVERS with the note that says exactly that;
+do not print it without the note.
 
 `livestats/AGENTS.md` (loaded via `livestats/CLAUDE.md`) points at the versioned Expo docs —
 note it currently names v57 while the project is on **SDK 54**.

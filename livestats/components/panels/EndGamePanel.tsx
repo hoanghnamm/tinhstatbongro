@@ -1,3 +1,5 @@
+import { router } from 'expo-router';
+
 import { useAnnounce } from '../../hooks/useAnnounce';
 import { useGameStore } from '../../store/gameStore';
 import { useUiStore } from '../../store/uiStore';
@@ -11,7 +13,6 @@ import { Btn, Note, PTitle, Row } from './shell';
  */
 export function EndGamePanel() {
   const endGame = useGameStore((s) => s.endGame);
-  const open = useUiStore((s) => s.open);
   const reset = useUiStore((s) => s.reset);
 
   useAnnounce('end the game?');
@@ -19,7 +20,10 @@ export function EndGamePanel() {
   return (
     <>
       <PTitle title="End the game?" />
-      <Note>The clock stops and the final box score is shown. Undo still works afterwards.</Note>
+      <Note>
+        The clock stops and the full stats screen opens — the team line, the box score, the shot
+        chart and the zones, whole game or quarter by quarter. Undo still works afterwards.
+      </Note>
       <Row mt>
         <Btn label="KEEP PLAYING" onPress={reset} />
         <Btn
@@ -27,7 +31,11 @@ export function EndGamePanel() {
           variant="danger"
           onPress={() => {
             endGame();
-            open({ kind: 'totals' });
+            // the panel is closed BEFORE the route changes: it belongs to the
+            // board, and a modal left open under a pushed screen is what the
+            // scorer comes back to when they tap BACK
+            reset();
+            router.push('/stats');
           }}
         />
       </Row>

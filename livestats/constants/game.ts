@@ -82,6 +82,7 @@ export const zeroStats = (): PlayerStats => ({
   shootingFouls: 0,
   secondsPlayed: 0,
   onCourtPoints: 0,
+  onCourtOppPoints: 0,
 });
 
 /**

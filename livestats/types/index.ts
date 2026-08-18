@@ -27,11 +27,19 @@ export interface PlayerStats {
   /** clock-driven, NOT action-driven — undo carries this forward */
   secondsPlayed: number;
   /**
-   * Team points scored while this player was on the floor: the "for" half of a
-   * plus-minus. The "against" half needs to know who was on for each opponent
-   * basket, which this board does not track, so it ships as ON, not +/-.
+   * Team points scored while this player was on the floor — the "for" half of
+   * the plus-minus. Shown on the board as ON, because that is the half a
+   * scorer glances at mid-game.
    */
   onCourtPoints: number;
+  /**
+   * Opponent points scored while this player was on the floor: the "against"
+   * half. The opponent has no roster, but it does not need one — the three OPP
+   * buttons are tapped live, so the board knows exactly who was standing there
+   * when the points went up, which is all a plus-minus ever needed. That is
+   * why `plusMinus()` is a real +/- and not a half of one.
+   */
+  onCourtOppPoints: number;
 }
 
 /**
