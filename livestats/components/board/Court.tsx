@@ -63,7 +63,7 @@ function CourtImpl() {
 
   const { w, h } = m.court;
   const dot = clamp(8, 0.019 * m.win.h, 20);
-  const live = clamp(26, 0.04 * m.win.h, 42);
+  const live = clamp(18, 0.027 * m.win.h, 28);
 
   const onPress = (e: GestureResponderEvent) => {
     // no entry may start while the game is over or a panel is up
@@ -125,16 +125,19 @@ function CourtImpl() {
         )}
 
         {/* The live mark is the only proof the app read the right spot, so it
-            is a ring at ~20pt with a contrasting halo under it: it has to read
-            on the floor, on the lane and on a line alike. */}
+            is a ring with a contrasting halo under it: it has to read on the
+            floor, on the lane and on a line alike. It is basketball orange and
+            NOT `accent`, because accent two dots away means MADE — the spot and
+            the result must never be the same colour. Small: it marks a point,
+            and a ring wide enough to cover the spot it names is a worse mark. */}
         {mark && (
           <Animated.View
             entering={reduced ? undefined : ZoomIn.duration(160)}
             style={[
               at(mark, live),
               {
-                borderWidth: 3,
-                borderColor: t.accent,
+                borderWidth: 2,
+                borderColor: t.mark,
                 backgroundColor: t.liveFill,
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -150,7 +153,7 @@ function CourtImpl() {
                 width: live * 0.36,
                 height: live * 0.36,
                 borderRadius: live,
-                backgroundColor: t.accent,
+                backgroundColor: t.mark,
               }}
             />
           </Animated.View>

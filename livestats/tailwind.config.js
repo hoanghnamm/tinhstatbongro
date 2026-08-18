@@ -41,6 +41,7 @@ module.exports = {
         'danger-ink': color('danger-ink'),
         court: color('court'),
         'court-line': color('court-line'),
+        mark: color('mark'),
         'mark-miss': color('mark-miss'),
         'live-fill': color('live-fill'),
         'clock-ink': color('clock-ink'),

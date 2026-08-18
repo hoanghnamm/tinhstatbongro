@@ -49,6 +49,13 @@ export interface Palette {
   /* court */
   court: string;
   courtLine: string;
+  /**
+   * The live mark: the ring that says WHERE the tap landed. It is the one
+   * thing on the floor that is not a result, so it does not borrow `accent`,
+   * which two dots away means MADE. Basketball orange — the one hue no skin
+   * spends anywhere else.
+   */
+  mark: string;
   markMiss: string;
   liveFill: string;
   /* skin behaviour */
@@ -73,6 +80,7 @@ interface Raw {
   rule: string;
   danger: string;
   courtLine: string;
+  mark: string;
   onAccent: string;
   liveFill: string;
   dark?: boolean;
@@ -98,6 +106,7 @@ const semantic = (r: Raw): Palette => ({
   dangerInk: r.onAccent,
   court: r.court,
   courtLine: r.courtLine,
+  mark: r.mark,
   markMiss: r.surface,
   liveFill: r.liveFill,
   dark: r.dark ?? false,
@@ -119,6 +128,7 @@ const RAW: Record<SkinName, Raw> = {
     rule: '#D5DCDF',
     danger: '#B3261E',
     courtLine: '#FFFFFF',
+    mark: '#E2611A',
     onAccent: '#FFFFFF',
     liveFill: 'rgba(255,255,255,0.55)',
   },
@@ -135,6 +145,7 @@ const RAW: Record<SkinName, Raw> = {
     rule: '#2B3038',
     danger: '#E4576A',
     courtLine: '#FFFFFF',
+    mark: '#FF8C42',
     onAccent: '#0E1013',
     liveFill: 'rgba(24,27,32,0.55)',
     dark: true,
@@ -152,6 +163,7 @@ const RAW: Record<SkinName, Raw> = {
     rule: '#CED6F0',
     danger: '#D2394C',
     courtLine: '#FFFFFF',
+    mark: '#E2611A',
     onAccent: '#FFFFFF',
     liveFill: 'rgba(255,255,255,0.55)',
     glass: true,
@@ -172,6 +184,7 @@ const RAW: Record<SkinName, Raw> = {
     rule: '#333B58',
     danger: '#FF6B7E',
     courtLine: '#FFFFFF',
+    mark: '#FF9147',
     onAccent: '#0B1020',
     liveFill: 'rgba(26,32,56,0.55)',
     dark: true,
@@ -205,6 +218,7 @@ export const COLOR_KEYS = [
   'dangerInk',
   'court',
   'courtLine',
+  'mark',
   'markMiss',
   'liveFill',
 ] as const satisfies readonly (keyof Palette)[];
