@@ -6,7 +6,6 @@ import Svg, { Path } from 'react-native-svg';
 import { useShallow } from 'zustand/react/shallow';
 
 import { PlayersTab } from '../components/stats/PlayersTab';
-import { ShotsTab } from '../components/stats/ShotsTab';
 import { TeamTab } from '../components/stats/TeamTab';
 import { ZonesTab } from '../components/stats/ZonesTab';
 import { Seg, type SegItem } from '../components/stats/parts';
@@ -20,12 +19,11 @@ import { LS_BTN, LS_LABEL, fNum, fUi, ls } from '../theme/tokens';
 import { useTheme } from '../theme/useTheme';
 import type { GameState } from '../types';
 
-type Tab = 'team' | 'players' | 'shots' | 'zones';
+type Tab = 'team' | 'players' | 'zones';
 
 const TABS: SegItem<Tab>[] = [
   { key: 'team', label: 'TEAM' },
   { key: 'players', label: 'PLAYERS' },
-  { key: 'shots', label: 'SHOTS' },
   { key: 'zones', label: 'ZONES' },
 ];
 
@@ -35,12 +33,11 @@ const periodLabel = (p: number): string => (p <= 4 ? `Q${p}` : p === 5 ? 'OT' : 
 /**
  * THE STATS SCREEN — where a finished game goes.
  *
- * It is four screens, not one, and that is the whole design: the full line a
+ * It is three screens, not one, and that is the whole design: the full line a
  * scorer wants after the buzzer is roughly a hundred numbers, and a hundred
  * numbers in one column is a document rather than a screen. So the tab strip
- * asks WHICH KIND of number (the team's, the players', the floor's, the
- * zones') and the quarter strip asks WHICH PART OF THE GAME, and every tab
- * answers both.
+ * asks WHICH KIND of number (the team's, the players', the floor's) and the
+ * quarter strip asks WHICH PART OF THE GAME, and every tab answers both.
  *
  * It is an ordinary responsive screen and it scrolls. The rule that nothing
  * scrolls applies to the BOARD, which is one viewport by construction because
@@ -65,6 +62,8 @@ export default function StatsScreen() {
     useShallow(
       (s): GameState => ({
         team: s.team,
+        kind: s.kind,
+        competition: s.competition,
         opponent: s.opponent,
         note: s.note,
         score: s.score,
@@ -206,8 +205,7 @@ export default function StatsScreen() {
       >
         {tab === 'team' && <TeamTab report={rep} split={split} />}
         {tab === 'players' && <PlayersTab report={rep} split={split} />}
-        {tab === 'shots' && <ShotsTab report={rep} shots={shots} ft={ft} />}
-        {tab === 'zones' && <ZonesTab report={rep} />}
+        {tab === 'zones' && <ZonesTab report={rep} shots={shots} ft={ft} />}
       </ScrollView>
     </View>
   );

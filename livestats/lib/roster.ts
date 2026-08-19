@@ -38,6 +38,22 @@ export function numberHolder(
 }
 
 /**
+ * The number a row starts on when `+ ADD PLAYER` writes one straight into the
+ * store: the lowest 0-99 nobody already wears.
+ *
+ * There is no form left to fill a number in on — the row IS the editor — and
+ * `number` is not optional, so a new entry has to arrive wearing something.
+ * The lowest free one is the only answer that cannot collide with a sibling
+ * and needs no explaining. `ROSTER_CAP` is 15, so the 0-99 space can never
+ * actually run out; the fallback is 0 rather than a throw.
+ */
+export function nextFreeNumber(roster: RosterPlayer[]): number {
+  const taken = new Set(roster.map((p) => p.number));
+  for (let n = 0; n <= 99; n++) if (!taken.has(n)) return n;
+  return 0;
+}
+
+/**
  * Every player who can be picked for a game. It is the ONE reading of
  * `available` in the app: an unavailable player is hidden from the picker and
  * therefore never reaches `buildPlayers`, which is the whole mechanism. There

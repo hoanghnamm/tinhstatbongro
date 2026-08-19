@@ -18,9 +18,18 @@
  *   who appeared twice averages over two, which is what an average means — the
  *   other reading punishes a player for the nights the team played without
  *   them.
+ *
+ * And one that is visible: THE SEASON IS THE OFFICIAL GAMES. A practice is a
+ * whole game with a whole box score behind it, and it is on the shelf and it
+ * opens — it is simply not a fact about the season, which is what a scorer
+ * says when they pick PRACTICE at the door. `officialIn` is the filter and it
+ * is applied by the SCREEN rather than inside `season()`, because `season()`
+ * is also what one competition's own page is built from and that page has
+ * already filtered.
  */
 import { zeroStats } from '../constants/game';
 import { totals, type Totals } from './stats';
+import { cleanCompetition, competitionKey } from './team';
 import type { GameState, Player, PlayerStats, RosterPlayer } from '../types';
 
 export type SeasonMode = 'totals' | 'perGame';
@@ -37,7 +46,6 @@ export interface Season {
   games: number;
   wins: number;
   losses: number;
-  draws: number;
 }
 
 /**
@@ -95,12 +103,10 @@ export function season(games: GameState[], roster: RosterPlayer[], mode: SeasonM
   const acc = new Map<string, { player: Player; games: number }>();
   let wins = 0;
   let losses = 0;
-  let draws = 0;
 
   for (const g of games) {
-    if (g.score > g.oppScore) wins++;
-    else if (g.score < g.oppScore) losses++;
-    else draws++;
+    if (g.score >= g.oppScore) wins++;
+    else losses++;
 
     for (const p of g.players) {
       if (!appeared(p)) continue;
@@ -139,5 +145,61 @@ export function season(games: GameState[], roster: RosterPlayer[], mode: SeasonM
     };
   });
 
-  return { lines, team: totals(lines), games: games.length, wins, losses, draws };
+  return { lines, team: totals(lines), games: games.length, wins, losses };
+}
+
+/* ------------------------------------------------------------------ *
+ * The competitions
+ *
+ * A season is the official games; a COMPETITION is a slice of them, and it is
+ * the slice a scorer actually thinks in — "how are we doing in the league" is
+ * a different question from "how are we doing".
+ * ------------------------------------------------------------------ */
+
+/** The games the season counts. A practice is a game; it is not a season game. */
+export const officialIn = (games: GameState[]): GameState[] =>
+  games.filter((g) => g.kind !== 'practice');
+
+export interface CompetitionSeason {
+  /** as the most recent game under it spells it — never the key */
+  name: string;
+  /** case- and space-folded, and the only thing two games are matched on */
+  key: string;
+  /**
+   * The games themselves, still whole. The card above needs the aggregate and
+   * nothing else, but the PAGE behind it re-aggregates on its own TOTALS /
+   * PER GAME toggle — and re-grouping there to get the games back is how a card
+   * and its own page start disagreeing about which games they are made of.
+   */
+  games: GameState[];
+  /** the totals line, which is what a card prints */
+  season: Season;
+}
+
+/**
+ * Every competition on the shelf, each with its own season line.
+ *
+ * ORDER IS THE ORDER THE GAMES ARE HANDED IN, which the screens hand in newest
+ * first, so the competition being played this month heads the list. Games with
+ * no competition name — an official game saved before competitions existed —
+ * are grouped together under `''`, because dropping them would be the season
+ * total disagreeing with the cards under it.
+ */
+export function competitions(games: GameState[], roster: RosterPlayer[]): CompetitionSeason[] {
+  const groups = new Map<string, { name: string; games: GameState[] }>();
+
+  for (const g of officialIn(games)) {
+    const key = competitionKey(g.competition ?? '');
+    const group = groups.get(key);
+    // the FIRST spelling seen wins, and the caller hands the newest game first
+    if (group) group.games.push(g);
+    else groups.set(key, { name: cleanCompetition(g.competition ?? ''), games: [g] });
+  }
+
+  return [...groups.entries()].map(([key, { name, games: gs }]) => ({
+    name,
+    key,
+    games: gs,
+    season: season(gs, roster, 'totals'),
+  }));
 }

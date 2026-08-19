@@ -5,12 +5,13 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import { PERIOD_LEN, seedRoster } from '../constants/game';
 import { buildPlayers } from '../lib/roster';
 import { DEFAULT_OPTIONS, type Options } from '../constants/options';
-import { DEFAULT_TEAM, cleanNote, cleanOpponent } from '../lib/team';
+import { DEFAULT_TEAM, cleanCompetition, cleanNote, cleanOpponent } from '../lib/team';
 import * as A from '../lib/actions';
 import type {
   FoulKindKey,
   FoulOutcome,
   GameState,
+  MatchInfo,
   Player,
   Position,
   RosterPlayer,
@@ -27,8 +28,20 @@ import type {
 const undoStack: string[] = [];
 const UNDO_CAP = 80;
 
-/** What a snapshot covers. The clock is deliberately outside it — see undo(). */
-type Snapshot = Pick<GameState, 'score' | 'oppScore' | 'possessions' | 'players' | 'events'>;
+/**
+ * What a snapshot covers.
+ *
+ * The clock is deliberately outside the fixed part — see undo(). `period` and
+ * `remaining` are the exception and they are OPTIONAL for exactly that reason:
+ * only a mutation whose damage IS the clock puts them in, which today is
+ * `nextQuarter` and nothing else. A snapshot pushed by a basket must not carry
+ * a time, or undoing that basket a minute later would wind the game clock back
+ * to when it was scored.
+ */
+type Snapshot = Pick<GameState, 'score' | 'oppScore' | 'possessions' | 'players' | 'events'> & {
+  period?: number;
+  remaining?: number;
+};
 
 export interface GameStore extends GameState {
   options: Options;
@@ -46,16 +59,17 @@ export interface GameStore extends GameState {
    * says who it was. The crest and the coaches do not cross: they are true of
    * the club today, not of a game that is already over.
    *
-   * `opponent` and `note` come the other way — they are typed on the picker and
-   * belong to this game alone, so there is nowhere else for them to live. Both
-   * may be empty, and empty is the common case for the note.
+   * `match` comes the other way — the kind, the competition, the opponent and
+   * the note are typed on the picker and belong to this game alone, so there is
+   * nowhere else for them to live. It is ONE argument because it is one answer,
+   * and every field of it may be empty: a practice against nobody, noted as
+   * nothing, is an ordinary Tuesday.
    */
   startGame(
     roster: RosterPlayer[],
     starterIds: string[],
     teamName: string,
-    opponent?: string,
-    note?: string,
+    match?: Partial<MatchInfo>,
   ): void;
 
   recordShot(
@@ -91,12 +105,16 @@ export interface GameStore extends GameState {
 const freshGame = (
   players: Player[] = seedRoster(),
   teamName: string = DEFAULT_TEAM.name,
-  opponent = '',
-  note = '',
+  match: Partial<MatchInfo> = {},
 ): GameState => ({
   team: { name: teamName },
-  opponent,
-  note,
+  // a board that has never been through the picker is a practice, because
+  // nothing has been filed and an unnamed OFFICIAL game is the one state the
+  // picker refuses to create
+  kind: match.kind ?? 'practice',
+  competition: match.kind === 'official' ? cleanCompetition(match.competition ?? '') : '',
+  opponent: cleanOpponent(match.opponent ?? ''),
+  note: cleanNote(match.note ?? ''),
   score: 0,
   oppScore: 0,
   period: 1,
@@ -147,20 +165,27 @@ const debouncedStorage = {
 export const useGameStore = create<GameStore>()(
   persist(
     (set, get) => {
-      /** Deep-copy, mutate, publish. New object identities are what React reads. */
-      const edit = <T,>(fn: (g: GameState) => T, snapshot = true): T => {
+      /**
+       * Deep-copy, mutate, publish. New object identities are what React reads.
+       *
+       * `clock` widens the snapshot to the period and the time on it, and it is
+       * for the mutations that MOVE the clock rather than merely happen while it
+       * runs — one of them, today. Everything else leaves the clock out on
+       * purpose; see undo().
+       */
+      const edit = <T,>(fn: (g: GameState) => T, clock = false): T => {
         const s = get();
-        if (snapshot) {
-          undoStack.push(
-            JSON.stringify({
-              score: s.score, oppScore: s.oppScore, possessions: s.possessions,
-              players: s.players, events: s.events,
-            } satisfies Snapshot),
-          );
-          if (undoStack.length > UNDO_CAP) undoStack.shift();
-        }
+        undoStack.push(
+          JSON.stringify({
+            score: s.score, oppScore: s.oppScore, possessions: s.possessions,
+            players: s.players, events: s.events,
+            ...(clock ? { period: s.period, remaining: s.remaining } : null),
+          } satisfies Snapshot),
+        );
+        if (undoStack.length > UNDO_CAP) undoStack.shift();
         const g: GameState = clone({
-          team: s.team, opponent: s.opponent, note: s.note,
+          team: s.team, kind: s.kind, competition: s.competition,
+          opponent: s.opponent, note: s.note,
           score: s.score, oppScore: s.oppScore, period: s.period,
           remaining: s.remaining, running: s.running, ended: s.ended,
           possessions: s.possessions, players: s.players, events: s.events,
@@ -174,17 +199,10 @@ export const useGameStore = create<GameStore>()(
         ...freshGame(),
         options: { ...DEFAULT_OPTIONS },
 
-        startGame: (roster, starterIds, teamName, opponent = '', note = '') => {
+        startGame: (roster, starterIds, teamName, match = {}) => {
           // a new game's undo history is empty, not the last game's
           undoStack.length = 0;
-          set(
-            freshGame(
-              buildPlayers(roster, starterIds),
-              teamName,
-              cleanOpponent(opponent),
-              cleanNote(note),
-            ),
-          );
+          set(freshGame(buildPlayers(roster, starterIds), teamName, match));
         },
 
         recordShot: (playerId, position, shotType, made, assistId, shotNote) =>
@@ -230,6 +248,14 @@ export const useGameStore = create<GameStore>()(
             players,
             events: prev.events,
             ended: false,
+            // the clock comes back ONLY when the action being undone was the one
+            // that moved it — a snapshot without a period is a basket's, and a
+            // basket does not own the time that has run since. Coming back into
+            // a quarter through UNDO never restarts it: the scorer taps the
+            // clock when play does.
+            ...(prev.period !== undefined
+              ? { period: prev.period, remaining: prev.remaining ?? s.remaining, running: false }
+              : null),
           });
         },
 
@@ -261,8 +287,13 @@ export const useGameStore = create<GameStore>()(
         // reset that is not an advance has nowhere else to live.
         resetClock: () => set({ running: false, remaining: PERIOD_LEN }),
 
-        nextQuarter: () =>
-          set({ running: false, period: get().period + 1, remaining: PERIOD_LEN }),
+        // THE ONE CLOCK ACTION THAT IS UNDOABLE, and the only caller that asks
+        // `edit` for a clock snapshot. A quarter is ended once a quarter, from a
+        // tile sat next to END GAME, and SET can put 10:00 back but nothing else
+        // can put the QUARTER back — so this one is worth a step on the stack
+        // where ±1s and the keypad, both of which are corrections already, are
+        // not.
+        nextQuarter: () => edit((g) => A.nextPeriod(g), true),
 
         endGame: () => set({ running: false, ended: true }),
 
@@ -275,7 +306,8 @@ export const useGameStore = create<GameStore>()(
       // the undo stack is not persisted: it is a session's worth of "oops",
       // and rehydrating 80 deep copies would cost more than it is worth
       partialize: (s) => ({
-        team: s.team, opponent: s.opponent, note: s.note,
+        team: s.team, kind: s.kind, competition: s.competition,
+        opponent: s.opponent, note: s.note,
         score: s.score, oppScore: s.oppScore, period: s.period,
         remaining: s.remaining, ended: s.ended, possessions: s.possessions,
         players: s.players, events: s.events, options: s.options,
@@ -285,15 +317,22 @@ export const useGameStore = create<GameStore>()(
         // a game restored from disk is stopped, whatever it was doing when the
         // OS killed it — the seconds since then were not played
         s.running = false;
+        // a live game persisted before the two kinds existed keeps the reading
+        // the shelf gives every game of that vintage: it was official
+        s.kind = s.kind === 'practice' ? 'practice' : 'official';
+        s.competition = s.competition ?? '';
         // a build from before the skin switcher was cut persisted a fifth
         // option. Nothing reads it, but naming the four that are left is what
         // keeps the stray from outliving the update in storage too.
-        const { ft, tap, assist, bar } = s.options;
+        const { ft, tap, assist, bar, labels } = s.options;
         s.options = {
           ft: ft ?? DEFAULT_OPTIONS.ft,
           tap: tap ?? DEFAULT_OPTIONS.tap,
           assist: assist ?? DEFAULT_OPTIONS.assist,
           bar: bar ?? DEFAULT_OPTIONS.bar,
+          // added after builds shipped: a game persisted without it takes the
+          // default rather than rendering a tile with no label at all
+          labels: labels ?? DEFAULT_OPTIONS.labels,
         };
       },
     },
@@ -308,13 +347,15 @@ export const undoDepth = (): number => undoStack.length;
  * `getState()` hands back the actions and the options as well, and both would
  * be written to disk by a `JSON.stringify` that does not know the difference —
  * the options are a preference and not a fact about the game, and a function
- * serialises to nothing at all. Naming the thirteen keys is what keeps a saved
+ * serialises to nothing at all. Naming the fourteen keys is what keeps a saved
  * game the same shape as the one every reader here already takes.
  */
 export const currentGame = (): GameState => {
   const s = useGameStore.getState();
   return {
     team: s.team,
+    kind: s.kind,
+    competition: s.competition,
     opponent: s.opponent,
     note: s.note,
     score: s.score,

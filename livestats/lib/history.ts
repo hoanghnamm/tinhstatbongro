@@ -16,7 +16,8 @@
  * blob.
  */
 import { PERIOD_LEN } from '../constants/game';
-import type { GameState } from '../types';
+import { cleanCompetition, competitionKey } from './team';
+import type { GameKind, GameState } from '../types';
 
 /** Thirty nights. Past that the oldest is dropped, and its key with it. */
 export const HISTORY_CAP = 30;
@@ -36,6 +37,43 @@ export interface GameSummary {
    * reader falls back, so a summary from an older build simply says less.
    */
   opponent?: string;
+  /**
+   * PRACTICE or OFFICIAL. OPTIONAL for the same reason the opponent is: a row
+   * written before the two kinds existed has none, and there is no migration
+   * for the index. Read it through `summaryKind`, never raw — the default is
+   * OFFICIAL, because that is what the season already counted those games as.
+   */
+  kind?: GameKind;
+  /** the competition an official game was filed under, or `''` */
+  competition?: string;
+}
+
+/** The kind a row was written with, or the one every older row already was. */
+export const summaryKind = (s: GameSummary): GameKind =>
+  s.kind === 'practice' ? 'practice' : 'official';
+
+/**
+ * The competitions the shelf already knows about, best spelling first.
+ *
+ * This is what the picker suggests, and it reads the INDEX — thirty summaries
+ * that are already in memory — rather than opening a single game. The order is
+ * the shelf's own, newest first, so the competition being played this month is
+ * the first thing offered; and the SPELLING kept is the newest one, because a
+ * scorer who fixed their own typo last week meant it.
+ */
+export function competitionsIn(index: GameSummary[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const s of index) {
+    if (summaryKind(s) !== 'official') continue;
+    const name = cleanCompetition(s.competition ?? '');
+    if (!name) continue;
+    const key = competitionKey(name);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(name);
+  }
+  return out;
 }
 
 /** One game's own storage key. The index is the only other one. */
@@ -61,6 +99,8 @@ export function summarise(g: GameState, id: string, endedAt: number): GameSummar
     oppScore: g.oppScore,
     periods: g.events.reduce((n, e) => Math.max(n, e.period), g.period),
     opponent: g.opponent,
+    kind: g.kind,
+    competition: g.competition,
   };
 }
 
@@ -80,15 +120,17 @@ export function pushSummary(
   return { index: next.slice(0, cap), dropped: next.slice(cap) };
 }
 
-/** Won, lost, or neither — a draw is possible and is not a loss. */
-export const resultOf = (s: GameSummary): 'W' | 'L' | 'D' =>
-  s.score > s.oppScore ? 'W' : s.score < s.oppScore ? 'L' : 'D';
+/** Won or lost — basketball has no draws. */
+export const resultOf = (s: GameSummary): 'W' | 'L' =>
+  s.score >= s.oppScore ? 'W' : 'L';
 
-/** `4 QUARTERS`, `1 QUARTER`, and overtime said out loud once it exists. */
-export const periodsLabel = (periods: number): string =>
-  periods <= 4
-    ? `${periods} QUARTER${periods === 1 ? '' : 'S'}`
-    : `4 QUARTERS + ${periods - 4} OT`;
+/*
+ * THERE IS NO `periodsLabel` ANY MORE. `4 QUARTERS` was the tail of both the
+ * shelf row's subtitle and the saved game's, and a game that went the normal
+ * distance is every game — a label that reads the same on twenty-nine rows out
+ * of thirty is not telling anybody anything. `periods` is still on the summary,
+ * so the day something wants to say `+ 1 OT` the number is there.
+ */
 
 /**
  * A saved game, only ever read back. Loose on purpose: it comes off disk, it
@@ -101,6 +143,11 @@ export function reviveGame(raw: unknown): GameState | null {
   if (!Array.isArray(g.players) || !Array.isArray(g.events)) return null;
   return {
     team: g.team ?? { name: 'MY TEAM' },
+    // A GAME FROM BEFORE THE TWO KINDS IS OFFICIAL, deliberately: the season
+    // counted it when it was saved, and a migration that quietly dropped a
+    // month of games out of the season line would be the worse surprise.
+    kind: g.kind === 'practice' ? 'practice' : 'official',
+    competition: g.competition ?? '',
     opponent: g.opponent ?? '',
     note: g.note ?? '',
     score: g.score ?? 0,
@@ -118,22 +165,26 @@ export function reviveGame(raw: unknown): GameState | null {
 /* ------------------------------------------------------------------ *
  * Dates
  * A saved game is identified by WHEN it was, so the two labels live here
- * beside the summary rather than being re-derived on each screen that
- * prints one. Both are deliberately locale-free: the app writes its own
- * month names for the same reason it writes its own numerals — so a row
- * is the same width on every device it is read on.
+ * beside the summary rather than being re-derived on each screen that prints
+ * one. Both are deliberately locale-free — day first, zero-padded, so a row is
+ * the same width on every device it is read on.
+ *
+ * BOTH ARE DIGITS NOW, and the spelled month went with the kick-off TIME. The
+ * shelf row's title is the competition, so the date dropped to its subtitle
+ * where it is scanned rather than read; and the hour a game happened to be
+ * saved at is not a fact anybody looks a game up by.
  * ------------------------------------------------------------------ */
 
-const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+const dd = (n: number): string => String(n).padStart(2, '0');
 
-export const dateLabel = (ms: number): string => {
+/** `19/08/2026` — the saved game's own line. */
+export const numDateLabel = (ms: number): string => {
   const d = new Date(ms);
-  return `${String(d.getDate()).padStart(2, '0')} ${MONTHS[d.getMonth()]}`;
+  return `${dd(d.getDate())}/${dd(d.getMonth() + 1)}/${d.getFullYear()}`;
 };
 
-export const yearLabel = (ms: number): string => String(new Date(ms).getFullYear());
-
-export const timeLabel = (ms: number): string => {
+/** `19/08` — the shelf, where thirty rows are one season and the year is noise. */
+export const dayMonthLabel = (ms: number): string => {
   const d = new Date(ms);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  return `${dd(d.getDate())}/${dd(d.getMonth() + 1)}`;
 };

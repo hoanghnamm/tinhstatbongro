@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,11 +11,12 @@ import { Crest } from '../../components/ui/Crest';
 import { Press } from '../../components/ui/Press';
 import { Col, Row } from '../../components/ui/Row';
 import { useLastGame } from '../../hooks/useLastGame';
+import { useSavedGames } from '../../hooks/useSavedGames';
 import { mmss, ord, pct } from '../../lib/format';
-import { dateLabel, timeLabel } from '../../lib/history';
 import { ROSTER_CAP, STARTERS } from '../../lib/roster';
+import { officialIn, season } from '../../lib/season';
 import { opponentLabel } from '../../lib/team';
-import { totals } from '../../lib/stats';
+import { efg, totals, ts } from '../../lib/stats';
 import { useGameStore } from '../../store/gameStore';
 import { useHistoryStore } from '../../store/historyStore';
 import { useRosterStore } from '../../store/rosterStore';
@@ -28,20 +29,49 @@ import { useTheme } from '../../theme/useTheme';
 /**
  * THE LOBBY — a team profile, not a menu.
  *
- * Crest, wordmark, gear; then one hero card, the last game's six numbers, and
- * the one or two things a scorer can do. Everything on it is derived —
- * `totals()` and `pct()` over a game state, `index[0]` out of the history —
- * and nothing on it is stored twice.
+ * Crest, wordmark, gear; then the LIVE game if there is one with the way back
+ * into it, the last game's six numbers, the season's six, and NEW GAME at the
+ * foot. Everything on it is derived — the live score straight off `gameStore`,
+ * `totals()` over the last finished game, `season()` over the saved ones — and
+ * nothing on it is stored twice.
  *
- * IT FITS IN ONE WINDOW, and that is why the roster list is not on it. A
- * preview of eight rows, the FINAL STATS and MY TEAM buttons and the running
- * availability count were four blocks whose only job was to point somewhere a
- * tab already points, and together they pushed the screen past the fold. The
- * `ScrollView` stays as the small-window safety net, not as the design.
+ * THE LAST GAME'S SCORELINE IS NOT HERE, though its stat line is. The scoreline
+ * was the hero's FINAL state, and a card that carries a finished score is one
+ * the eye reads as the live one whenever there IS a live one. Its numbers stay,
+ * as the LAST GAME strip; the score itself lives on the MATCHES shelf and on the
+ * game's own stats screen.
  *
- * THE HERO CARD HAS THREE STATES AND IS ONE COMPONENT. Empty is not a different
- * screen with a different shape; it is the same card saying what it has, which
- * is nothing yet. The mockup only ever drew the third.
+ * IT FITS IN ONE WINDOW DOWN TO THE VERBS, and that is why the roster list is
+ * not on it. A preview of eight rows, the FINAL STATS and MY TEAM buttons and
+ * the running availability count were four blocks whose only job was to point
+ * somewhere a tab already points, and together they pushed the screen past the
+ * fold. The `ScrollView` stays as the small-window safety net, not as the
+ * design.
+ *
+ * THE SEASON CARD IS THE ONE BLOCK BELOW THE BUTTONS, and it is there on
+ * purpose. It moved here off the STATS tab, where it sat above a table nobody
+ * reads during a possession; on the lobby it is the line a scorer actually
+ * opens the app to see. Putting it UNDER the verbs is what keeps the rule
+ * intact — NEW GAME does not move, and the thing that may fall past the fold on
+ * a short phone is six numbers you scroll to rather than the button you came
+ * for. It is a way into the STATS tab, the way the identity block is a way into
+ * TEAM.
+ *
+ * IT IS THE OFFICIAL GAMES, like everything else that says "season" — a
+ * practice keeps its box score and stays out of this. Reading them costs the
+ * lobby every saved game off disk, which is the one thing the two-key storage
+ * shape was meant to avoid on this screen; it is a single pass on mount, off
+ * the render path, and the card simply is not drawn until it lands.
+ *
+ * THE HERO IS THE LIVE GAME AND ONLY THAT, so most of the time there is no
+ * hero at all — a shelf full of games and nothing on the board is an ordinary
+ * Tuesday and the screen says so by being short. The onboarding card stands in
+ * on a fresh install, where there is neither a board nor a shelf.
+ *
+ * CONTINUE GAME rides with the scoreline; NEW GAME is the last thing on the
+ * screen, always, and it does not move between the two states — it only drops
+ * from `accent` to `surface` while a game is on, and goes through the confirm
+ * panel so a mis-tap cannot throw a live game away.
  *
  * ACCENT IS SPENT ON TWO THINGS HERE and no others: the primary button, and our
  * own score. Not the crest ring, not the roster count, not the jerseys, not the
@@ -129,7 +159,8 @@ function Side({ title, value, pill, tone }: { title: string; value: number; pill
   );
 }
 
-/** A cell of the LAST GAME strip. Opaque and edgeless — it lives in a `Seam`. */
+/** A cell of the LAST GAME and THE SEASON strips. Opaque and edgeless — it
+ *  lives in a `Seam`, and the seam is the 1px of parent showing between two. */
 function Stat({ value, label }: { value: string | number; label: string }) {
   const m = useMetrics();
   const t = useTheme();
@@ -173,6 +204,75 @@ function Stat({ value, label }: { value: string | number; label: string }) {
   );
 }
 
+/**
+ * THE SEASON'S SIX NUMBERS — the card that used to head the STATS tab.
+ *
+ * The same six, in the same order, out of the same `season()` call: games,
+ * record and points a game, then the three shooting numbers. It reads TOTALS
+ * whatever anyone's toggle says, because points per game computed off per-game
+ * numbers divides by the games twice.
+ *
+ * It presses on OPACITY rather than on a fill, for the reason a competition
+ * card does: the cells are opaque so their 1px seams can show, and a background
+ * change under them is visible nowhere but the edges.
+ */
+function SeasonCard({
+  games,
+  record,
+  ppg,
+  fg,
+  efgv,
+  tsv,
+  wide,
+  onPress,
+}: {
+  games: number;
+  record: string;
+  ppg: number;
+  fg: string;
+  efgv: string;
+  tsv: string;
+  wide: boolean;
+  onPress(): void;
+}) {
+  const m = useMetrics();
+  const t = useTheme();
+
+  const cells = [
+    <Stat key="g" value={games} label="GAMES" />,
+    <Stat key="r" value={record} label="RECORD" />,
+    <Stat key="p" value={ppg} label="POINTS / GAME" />,
+    <Stat key="fg" value={fg} label="FG%" />,
+    <Stat key="efg" value={efgv} label="EFFECTIVE FG" />,
+    <Stat key="ts" value={tsv} label="TRUE SHOOTING" />,
+  ];
+
+  return (
+    <Press
+      onPress={onPress}
+      accessibilityLabel={`the season, ${games} game${games === 1 ? '' : 's'}, open the stats tab`}
+      style={{
+        borderWidth: 1,
+        borderColor: t.rule,
+        borderRadius: m.r,
+        overflow: 'hidden',
+        backgroundColor: t.surface,
+      }}
+      pressedStyle={{ opacity: 0.6 }}
+    >
+      <Band label="THE SEASON" />
+      {wide ? (
+        <Seam>{cells}</Seam>
+      ) : (
+        <Col gap={1} style={{ backgroundColor: t.rule }}>
+          <Seam>{cells.slice(0, 3)}</Seam>
+          <Seam>{cells.slice(3)}</Seam>
+        </Col>
+      )}
+    </Press>
+  );
+}
+
 /* ---- the screen ----------------------------------------------------- */
 
 export default function LobbyScreen() {
@@ -196,12 +296,25 @@ export default function LobbyScreen() {
   const played = useGameStore((s) => s.events.length > 0);
   const open = useUiStore((s) => s.open);
 
+  // the LAST FINISHED game, wherever it is living — `gameStore` while it is
+  // still the one on the board, `historyStore` once a new game has replaced it
   const last = useLastGame();
-  // the newest summary is what dates a saved game — the state itself does not
-  // carry a date, because a game does not know when it was put on the shelf
-  const newest = useHistoryStore((s) => s.index[0]);
+  const savedCount = useHistoryStore((s) => s.index.length);
+
+  // THE SEASON, which is the one thing on this screen that is not free: it
+  // opens every saved game. The memo is what keeps the aggregate off the clock
+  // — this screen re-renders once a second while a game is live, and
+  // `useSavedGames` hands back the same array until the shelf itself changes.
+  const saved = useSavedGames();
+  const S = useMemo(() => {
+    const official = saved ? officialIn(saved) : null;
+    return official && official.length ? season(official, roster, 'totals') : null;
+  }, [saved, roster]);
 
   const inProgress = played && !ended;
+  // a board with nothing on it and a shelf with nothing on it: the one state
+  // that gets the onboarding card, and it is true exactly once per install
+  const nothingYet = !played && savedCount === 0;
   const available = roster.filter((p) => p.available);
   const enough = available.length >= STARTERS;
   const wide = m.win.w >= TWO_UP;
@@ -218,10 +331,21 @@ export default function LobbyScreen() {
 
   const crestSize = Math.round(m.fsXl * 1.9);
 
-  /* -- the hero, three states, one card -- */
-  const hero = (
-    <Card>
-      {inProgress ? (
+  /* -- THE HERO IS THE LIVE GAME, and now it is only that.
+
+        The FINAL state is cut. One card carrying a scoreline is unambiguous;
+        the same card carrying either a live score or a finished one is a card
+        the eye has to read a band to trust. So it carries the one thing that
+        cannot be got anywhere else: THERE IS A GAME ON THE BOARD RIGHT NOW,
+        with its score, its period and its clock, and CONTINUE directly under it
+        in the same block. A finished score is on the MATCHES shelf.
+
+        The onboarding card takes its place on a fresh install and only there:
+        no board, no shelf. Once a game has been played the lobby simply has no
+        hero, because there is nothing live to be about. -- */
+  const live = inProgress && (
+    <Col gap={m.s2}>
+      <Card>
         <Band
           label="LIVE"
           tone={t.accent}
@@ -247,60 +371,53 @@ export default function LobbyScreen() {
             </Row>
           }
         />
-      ) : last ? (
-        <Band
-          label="FINAL"
-          note={
-            <Label>
-              {last.live || !newest
-                ? `${ord(last.state.period).toUpperCase()} · ${mmss(last.state.remaining)}`
-                : `${dateLabel(newest.endedAt)} · ${timeLabel(newest.endedAt)}`}
-            </Label>
-          }
-        />
-      ) : (
-        <Band label="NO GAME YET" />
-      )}
-
-      {inProgress || last ? (
         <Seam>
-          <Side
-            title={team.toUpperCase()}
-            value={inProgress ? score : last!.state.score}
-            pill="US"
-            tone={t.accent}
-          />
-          <Side
-            title={opponentLabel(inProgress ? oppName : last!.state.opponent)}
-            value={inProgress ? oppScore : last!.state.oppScore}
-            pill="THEM"
-          />
+          <Side title={team.toUpperCase()} value={score} pill="US" tone={t.accent} />
+          <Side title={opponentLabel(oppName)} value={oppScore} pill="THEM" />
         </Seam>
-      ) : (
-        <Col align="center" gap={m.s2} style={{ paddingVertical: m.s6, paddingHorizontal: m.s4 }}>
-          <Text
-            numberOfLines={2}
-            style={{
-              textAlign: 'center',
-              fontFamily: fNum(700),
-              fontSize: m.fsXl,
-              lineHeight: m.fsXl * 1.2,
-              letterSpacing: ls(m.fsXl, LS_BTN),
-              color: t.ink,
-            }}
-          >
-            START YOUR FIRST GAME
-          </Text>
-          <Label>
-            {roster.length}/{ROSTER_CAP} PLAYERS
-          </Label>
-        </Col>
-      )}
+      </Card>
+
+      {/* CONTINUE is part of the live block, not of the verbs at the foot: it
+          is the same tap as the card over it — "the game that is on" — and a
+          scorer coming back mid-quarter should not read past the season to
+          find it. The gap is the tight one, because the two are one thing. */}
+      <Row align="stretch">
+        <Btn label="CONTINUE GAME" variant="accent" onPress={() => router.push('/game')} />
+      </Row>
+    </Col>
+  );
+
+  const onboard = nothingYet && (
+    <Card>
+      <Band label="NO GAME YET" />
+      <Col align="center" gap={m.s2} style={{ paddingVertical: m.s6, paddingHorizontal: m.s4 }}>
+        <Text
+          numberOfLines={2}
+          style={{
+            textAlign: 'center',
+            fontFamily: fNum(700),
+            fontSize: m.fsXl,
+            lineHeight: m.fsXl * 1.2,
+            letterSpacing: ls(m.fsXl, LS_BTN),
+            color: t.ink,
+          }}
+        >
+          START YOUR FIRST GAME
+        </Text>
+        <Label>
+          {roster.length}/{ROSTER_CAP} PLAYERS
+        </Label>
+      </Col>
     </Card>
   );
 
-  /* -- the last game's six numbers. Hidden outright when there is no
-        finished game: six zeros would read as a game that went badly. -- */
+  /* -- THE LAST GAME'S SIX NUMBERS, and they are the last FINISHED game's,
+        never the live one — a final line for a game still being played is a
+        lie. Hidden outright when there is none: six zeros read as a game that
+        went badly rather than as no data.
+
+        Its SCORELINE is not here, and that is what was cut: the hero's FINAL
+        state carried it and the hero is the live game only now. -- */
   const strip = T && (
     <Card>
       <Band label="LAST GAME" />
@@ -330,40 +447,40 @@ export default function LobbyScreen() {
     </Card>
   );
 
-  /* -- the verbs. The primary is whichever one the hero is about.
-
-        FINAL STATS and MY TEAM are deliberately NOT here: both are one tap
-        away on a tab, and the lobby's rule is that it fits in one screen. -- */
-  const buttons: ReactNode[] = [];
-  if (inProgress)
-    buttons.push(
-      <Btn key="resume" label="RESUME GAME" variant="accent" onPress={() => router.push('/game')} />,
-    );
-  buttons.push(
-    <Btn
-      key="new"
-      label="NEW GAME"
-      variant={inProgress ? 'surface' : 'accent'}
-      disabled={!enough}
-      onPress={newGame}
-    />,
+  /* -- the season's six, over NEW GAME. Hidden while the shelf is being read
+        and hidden outright when no OFFICIAL game has been played — six zeros
+        under the word SEASON reads as a bad one, not as an empty one. -- */
+  const seasonCard = S && (
+    <SeasonCard
+      games={S.games}
+      record={`${S.wins}-${S.losses}`}
+      ppg={S.games ? Math.round(S.team.pts / S.games) : 0}
+      fg={pct(S.team.fgm, S.team.fga)}
+      efgv={efg(S.team)}
+      tsv={ts(S.team)}
+      wide={wide}
+      onPress={() => router.push('/season')}
+    />
   );
 
+  /* -- NEW GAME IS THE LAST THING ON THE SCREEN, always, and it is one button.
+
+        It used to share a row with RESUME, which meant the primary verb moved
+        depending on whether a game was on. It does not move now: the way back
+        into a live game is up with the scoreline, and the foot of the screen is
+        where the one thing that starts something lives. While a game IS on it
+        drops to `surface` and goes through the confirm panel — losing a live
+        game to a mis-tap is the worst thing this screen can do. -- */
   const actions = (
     <Col gap={m.s2}>
-      {wide ? (
-        <Row align="stretch" gap={m.s2}>
-          {buttons}
-        </Row>
-      ) : (
-        <Col align="stretch" gap={m.s2}>
-          {buttons.map((b, i) => (
-            <Row key={i} align="stretch">
-              {b}
-            </Row>
-          ))}
-        </Col>
-      )}
+      <Row align="stretch">
+        <Btn
+          label="NEW GAME"
+          variant={inProgress ? 'surface' : 'accent'}
+          disabled={!enough}
+          onPress={newGame}
+        />
+      </Row>
       {/* only the WARNING survives — it is why NEW GAME is dark. A count
           nobody has to act on was a row the screen could not spare. */}
       {!enough && (
@@ -397,10 +514,13 @@ export default function LobbyScreen() {
       {/* ---- identity ------------------------------------------------ */}
       <Row gap={m.s2} style={{ flexGrow: 0, flexShrink: 0, minHeight: m.tap }}>
         {/* the whole block is the way into the club, because the crest is the
-            thing a scorer reaches for when they want to change the crest */}
+            thing a scorer reaches for when they want to change the crest — and
+            it goes to the TAB that edits it rather than opening a second editor
+            over the top of this screen. `EditTeamPanel` was that second editor
+            and is gone: two forms over three fields is one field added twice. */}
         <Press
-          onPress={() => open({ kind: 'editTeam' })}
-          accessibilityLabel="edit team"
+          onPress={() => router.push('/team')}
+          accessibilityLabel="open the team tab to edit the club"
           style={{
             flexShrink: 1,
             minWidth: 0,
@@ -479,9 +599,15 @@ export default function LobbyScreen() {
             a tab of its own, and it was the only block that made this screen
             taller than the window. Capped at the two-up line rather than run
             full width, or a tablet draws a scoreline a foot across. */}
+        {/* live game and its way back in, the season, then the one verb.
+            Nothing between them is a fixed block: on a shelf with no live game
+            the column is the season card and NEW GAME, and that is the whole
+            screen. */}
         <Col gap={m.s3} style={{ width: '100%', maxWidth: TWO_UP }}>
-          {hero}
+          {live}
+          {onboard}
           {strip}
+          {seasonCard}
           {actions}
         </Col>
       </ScrollView>

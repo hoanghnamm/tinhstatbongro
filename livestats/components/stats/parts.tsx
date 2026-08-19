@@ -357,23 +357,9 @@ export function Tile({
   );
 }
 
-/** The small print a derived number owes the reader. */
-export function Note({ children }: { children: ReactNode }) {
-  const m = useMetrics();
-  const t = useTheme();
-  return (
-    <Text
-      style={{
-        marginBottom: m.spLg,
-        fontFamily: fUi(400),
-        fontSize: m.fsXs,
-        lineHeight: m.fsXs * 1.55,
-        color: t.ink3,
-      }}
-    >
-      {children}
-    </Text>
-  );
+/** The small print under stats. Hidden as requested. */
+export function Note(_props: { children: ReactNode }) {
+  return null;
 }
 
 /** Nothing logged in this slice — said once, in the body, not as a blank card. */

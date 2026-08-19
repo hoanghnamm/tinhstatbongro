@@ -1,14 +1,15 @@
 import { Text, View } from 'react-native';
 
 import { useMetrics } from '../../theme/metrics';
-import { LS_LABEL, fNum, fUi, ls } from '../../theme/tokens';
+import { LS_BTN, LS_LABEL, fNum, fUi, ls } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 import { Badge } from './Badge';
 import { Press } from './Press';
 
 /**
- * One cell of a tile grid: an abbreviation dominant, the word under it, and an
- * optional count in the corner.
+ * One cell of a tile grid: one line dominant — an abbreviation, or a word when
+ * `word` is set — an optional smaller line under it, and an optional count in
+ * the corner.
  *
  * Two rules the grid depends on:
  *
@@ -26,6 +27,7 @@ export function Tile({
   selected = false,
   disabled = false,
   big = false,
+  word = false,
   tone = 'ink',
   onPress,
   accessibilityLabel,
@@ -37,6 +39,14 @@ export function Tile({
   disabled?: boolean;
   /** two tiles instead of four, so the abbreviation takes the next size up */
   big?: boolean;
+  /**
+   * `code` is a WORD rather than an abbreviation — DEFENSIVE, not DF. Two
+   * letters and nine are not the same typographic object: the word drops two
+   * steps down the ramp, takes two lines, and keeps `adjustsFontSizeToFit` as
+   * the floor under the one that still will not fit (TURNOVER on a 320pt
+   * landscape phone). Set by `tileWords`, never by hand.
+   */
+  word?: boolean;
   /**
    * INK ONLY. A tile keeps its opaque surface whatever it does — the 1px seam
    * is what the grid is made of — so the one thing that can mark a tile out is
@@ -50,7 +60,7 @@ export function Tile({
 }) {
   const m = useMetrics();
   const t = useTheme();
-  const size = big ? m.fs4xl : m.fs3xl;
+  const size = word ? (big ? m.fs2xl : m.fsXl) : big ? m.fs4xl : m.fs3xl;
   const toned = tone === 'danger' ? t.danger : tone === 'accent' ? t.accent : null;
 
   return (
@@ -81,11 +91,14 @@ export function Tile({
       )}
 
       <Text
-        numberOfLines={1}
+        numberOfLines={word ? 2 : 1}
+        adjustsFontSizeToFit={word}
+        minimumFontScale={0.6}
         style={{
           fontFamily: fNum(700),
           fontSize: size,
           lineHeight: size * 1.1,
+          letterSpacing: word ? ls(size, LS_BTN) : 0,
           textAlign: 'center',
           color: toned ?? t.ink,
           fontVariant: ['tabular-nums'],

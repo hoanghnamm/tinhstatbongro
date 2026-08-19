@@ -18,7 +18,7 @@ import type { Panel } from '../../store/uiStore';
  * rail stay readable under the scrim and the tiles get the whole court to be
  * tapped in.
  */
-export type Mode = 'dock' | 'court' | 'center' | 'wide';
+export type Mode = 'dock' | 'court' | 'center';
 
 export const MODE: Record<Panel['kind'], Mode> = {
   what: 'dock',
@@ -39,16 +39,16 @@ export const MODE: Record<Panel['kind'], Mode> = {
   tripShots: 'center',
   fouledOut: 'center',
   foulDenied: 'center',
-  endGame: 'center',
-  totals: 'wide',
-  plays: 'center',
+  // reached from the quarter panel and wearing the same shell it does — a
+  // centred dialog in the middle of a tile chain was a second surface for one
+  // more two-way choice
+  endGame: 'court',
   // the off-board panels. There is no court to dock against or cover, so they
-  // are all centred dialogs — which is what they are anyway: two confirms, two
-  // forms, a third confirm and a short list of switches.
+  // are all centred dialogs — which is what they are anyway: three confirms,
+  // a keypad and a short list of switches. BOTH forms are gone: the TEAM tab
+  // edits a player on its row and the club on its card, inline.
   newGame: 'center',
-  editPlayer: 'center',
   setNumber: 'center',
-  editTeam: 'center',
   removePlayer: 'center',
   removeGame: 'center',
   settings: 'center',

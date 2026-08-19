@@ -1,13 +1,9 @@
-import { Text } from 'react-native';
+import { Text, View } from 'react-native';
 
-import { litControl } from '../../lib/lit';
 import { useGameStore } from '../../store/gameStore';
-import { useLitRect } from '../../store/layoutStore';
-import { useUiStore } from '../../store/uiStore';
 import { useMetrics } from '../../theme/metrics';
 import { fNum } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
-import { Press } from '../ui/Press';
 import { Row } from '../ui/Row';
 
 /**
@@ -18,6 +14,16 @@ import { Row } from '../ui/Row';
  * It used to head the OPP column, above the +1/+2/+3 buttons that move it. The
  * move down cost that adjacency and bought the court a whole strip of height in
  * portrait; the buttons are still the only thing that writes the second number.
+ *
+ * **IT IS A READOUT AND NOT A CONTROL.** It used to open the box-score panel,
+ * which was the board's one door to the mid-game glance and to the play log;
+ * the tap stopped landing, and the panel went with the tap rather than being
+ * repaired — the full line is a screen (`/stats`, and each saved game's own
+ * page) and not a dialog over a live board. So there is no `Press` here, no
+ * held light and no rect for the scrim to cut around: nothing on the footer's
+ * middle third opens anything now, which is why `litControl` no longer answers
+ * `'score'` at all. Do not put a panel back behind these two digits without
+ * being asked.
  *
  * It is a **footer cell**, so it wears no border, no radius and no fill of its
  * own: the footer's `Surface` is the panel, the 1px `Divider` is the edge, and
@@ -42,11 +48,6 @@ export function ScoreCell({ grow }: { grow: number }) {
   const t = useTheme();
   const score = useGameStore((s) => s.score);
   const oppScore = useGameStore((s) => s.oppScore);
-  const open = useUiStore((s) => s.open);
-  // and it stays lit for as long as the box score is up, with the scrim cut
-  // around it so "lit" means undimmed rather than merely less dim
-  const lit = useUiStore((s) => litControl(s.panel, s.what) === 'score');
-  const hole = useLitRect(lit);
 
   // the ramp's footer step is the rendered size now, and all three numbers in
   // the middle block share it — see `fsFtr`, which is capped against this text
@@ -54,11 +55,9 @@ export function ScoreCell({ grow }: { grow: number }) {
   const line = size * 1.2;
 
   return (
-    <Press
-      onPress={() => open({ kind: 'totals' })}
-      accessibilityLabel={`open the box score, ${score} to ${oppScore}`}
-      innerRef={hole.ref}
-      onLayout={hole.onLayout}
+    <View
+      accessibilityRole="text"
+      accessibilityLabel={`score, ${score} to ${oppScore}`}
       style={{
         // the widest of the three numbers in its third, so it takes the widest
         // share of it — see the Footer, which owns all three weights
@@ -72,9 +71,7 @@ export function ScoreCell({ grow }: { grow: number }) {
         justifyContent: 'center',
         paddingHorizontal: m.s1,
         overflow: 'hidden',
-        backgroundColor: lit ? t.press : 'transparent',
       }}
-      pressedStyle={{ backgroundColor: t.press }}
     >
       <Row gap={m.s1} align="center" justify="center">
         <Text
@@ -108,6 +105,6 @@ export function ScoreCell({ grow }: { grow: number }) {
           {oppScore}
         </Text>
       </Row>
-    </Press>
+    </View>
   );
 }

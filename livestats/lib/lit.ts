@@ -18,16 +18,15 @@ import type { Panel, What } from '../store/uiStore';
  * Anything that opens nothing is absent by design. UNDO, POSS and the clock
  * fire and are done — there is no panel to close, so there is nothing to hold
  * them lit past the finger. Adding them here would mean inventing a state the
- * model does not have.
+ * model does not have. **The SCORE is absent for a stronger reason**: it is not
+ * a control any more at all. The box-score panel it opened is gone, the cell is
+ * a plain readout, and `'score'` is not a light this board has.
  */
-export type Lit = 'score' | 'quarter' | 'pf' | 'ft' | 'rb';
+export type Lit = 'quarter' | 'pf' | 'ft' | 'rb';
 
 export function litControl(panel: Panel | null, what: What | null): Lit | null {
   if (!panel) return null;
   switch (panel.kind) {
-    case 'totals':
-      return 'score';
-
     // the quarter cell opened the menu these two are reached from
     case 'endQuarter':
     case 'setClock':

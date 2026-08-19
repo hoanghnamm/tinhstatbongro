@@ -48,6 +48,17 @@ const writeGame = (id: string, g: GameState): void => {
   void AsyncStorage.setItem(gameKey(id), JSON.stringify(g));
 };
 
+/**
+ * The game that was saved last, held in memory.
+ *
+ * END GAME files a game and opens its page in the same breath, and the write is
+ * fire-and-forget — so `loadGame` would be reading a row that may not have
+ * landed yet. This is the copy it reads instead: the game is already in memory
+ * at that point, so the one path that cannot afford the disk read does not make
+ * it. Everything else falls through to AsyncStorage as before.
+ */
+let justSaved: { id: string; game: GameState } | null = null;
+
 export const useHistoryStore = create<HistoryState>()(
   persist(
     (set, get) => ({
@@ -61,11 +72,14 @@ export const useHistoryStore = create<HistoryState>()(
         // the oldest game's ROW goes with its summary — an index that forgets a
         // game while its key survives is a leak that only ever grows
         for (const g of dropped) void AsyncStorage.removeItem(gameKey(g.id));
+        justSaved = { id, game: state };
         set({ index });
         return id;
       },
 
       loadGame: async (id) => {
+        // the game we just filed, before its row is guaranteed to be there
+        if (justSaved?.id === id) return justSaved.game;
         try {
           const raw = await AsyncStorage.getItem(gameKey(id));
           return raw ? reviveGame(JSON.parse(raw) as unknown) : null;
@@ -77,6 +91,7 @@ export const useHistoryStore = create<HistoryState>()(
       },
 
       removeGame: (id) => {
+        if (justSaved?.id === id) justSaved = null;
         void AsyncStorage.removeItem(gameKey(id));
         set({ index: get().index.filter((g) => g.id !== id) });
       },

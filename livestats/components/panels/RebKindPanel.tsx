@@ -1,6 +1,6 @@
 import { useAnnounce } from '../../hooks/useAnnounce';
 import { useUiStore } from '../../store/uiStore';
-import { CancelX, PGrid, PHead, PTitleText, Tile } from './shell';
+import { CancelX, PGrid, PHead, PTitleText, StatTile } from './shell';
 
 /**
  * Rebounds off the sidebar: kind first, then who — the foul flow's shell
@@ -27,8 +27,8 @@ export function RebKindPanel() {
         <CancelX />
       </PHead>
       <PGrid columns={2}>
-        <Tile code="DR" caption="DEFENSIVE" big selected={what === 'dreb'} onPress={pick('dreb')} />
-        <Tile code="OR" caption="OFFENSIVE" big selected={what === 'oreb'} onPress={pick('oreb')} />
+        <StatTile short="DR" full="DEFENSIVE" big selected={what === 'dreb'} onPress={pick('dreb')} />
+        <StatTile short="OR" full="OFFENSIVE" big selected={what === 'oreb'} onPress={pick('oreb')} />
       </PGrid>
     </>
   );

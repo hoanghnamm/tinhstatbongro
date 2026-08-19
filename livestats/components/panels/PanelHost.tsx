@@ -9,8 +9,6 @@ import { useUiStore, type Panel } from '../../store/uiStore';
 import { useMetrics } from '../../theme/metrics';
 import { useTheme } from '../../theme/useTheme';
 import { AssistPanel } from './AssistPanel';
-import { EditPlayerPanel } from './EditPlayerPanel';
-import { EditTeamPanel } from './EditTeamPanel';
 import { EndGamePanel } from './EndGamePanel';
 import { EndQuarterPanel } from './EndQuarterPanel';
 import { FTDockPanel } from './FTDockPanel';
@@ -19,7 +17,6 @@ import { FoulKindPanel } from './FoulKindPanel';
 import { FouledOutPanel } from './FouledOutPanel';
 import { NewGamePanel } from './NewGamePanel';
 import { PlayerActionsPanel } from './PlayerActionsPanel';
-import { PlaysPanel } from './PlaysPanel';
 import { RebKindPanel } from './RebKindPanel';
 import { RemoveGamePanel } from './RemoveGamePanel';
 import { RemovePlayerPanel } from './RemovePlayerPanel';
@@ -27,7 +24,6 @@ import { SettingsPanel } from './SettingsPanel';
 import { SetClockPanel } from './SetClockPanel';
 import { SetNumberPanel } from './SetNumberPanel';
 import { SubOutPanel } from './SubOutPanel';
-import { TotalsPanel } from './TotalsPanel';
 import { TripShotsPanel } from './TripShotsPanel';
 import { TripSizePanel } from './TripSizePanel';
 import { WhatPanel } from './WhatPanel';
@@ -114,12 +110,8 @@ function body(panel: Panel) {
     case 'endQuarter': return <EndQuarterPanel />;
     case 'setClock': return <SetClockPanel />;
     case 'endGame': return <EndGamePanel />;
-    case 'totals': return <TotalsPanel />;
-    case 'plays': return <PlaysPanel />;
     case 'newGame': return <NewGamePanel />;
-    case 'editPlayer': return <EditPlayerPanel playerId={panel.playerId} />;
     case 'setNumber': return <SetNumberPanel playerId={panel.playerId} />;
-    case 'editTeam': return <EditTeamPanel />;
     case 'removePlayer': return <RemovePlayerPanel playerId={panel.playerId} />;
     case 'removeGame': return <RemoveGamePanel gameId={panel.gameId} />;
     case 'settings': return <SettingsPanel />;
@@ -163,7 +155,7 @@ export function PanelHost() {
       : mode === 'court'
         ? { position: 'absolute' as const, left: court.left, top: court.top, width: court.w, height: court.h }
         : {
-            width: Math.min(m.win.w * (mode === 'wide' ? 0.96 : 0.92), m.win.h * (mode === 'wide' ? 1.68 : 0.78)),
+            width: Math.min(m.win.w * 0.92, m.win.h * 0.78),
             maxHeight: m.win.h * (m.compact ? 0.94 : 0.92),
           };
 

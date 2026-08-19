@@ -5,7 +5,7 @@
  * and checked without React, Zustand or a device. The store's only job is to
  * snapshot before one of these, call it, and publish the result.
  */
-import { FOULS, FOUL_KINDS, TALLY } from '../constants/game';
+import { FOULS, FOUL_KINDS, PERIOD_LEN, TALLY } from '../constants/game';
 import { FT_SPOT, zoneFor } from './court';
 import { mmss } from './format';
 import type {
@@ -211,6 +211,26 @@ export function substitute(g: GameState, outId: string, inId: string): void {
  */
 export function addPossession(g: GameState, n = 1): void {
   g.possessions = Math.max(0, g.possessions + n);
+}
+
+/**
+ * The buzzer: the next period, a full clock, stopped.
+ *
+ * It goes through the store's `edit()` like a basket does, because END QUARTER
+ * is one tap next to END GAME on the same panel and a mis-tap costs a whole
+ * period otherwise — SET can put 10:00 back but nothing can put the quarter
+ * back. It is the one mutation whose damage is entirely CLOCK, which is why
+ * the snapshot it pushes is the one that carries the clock; see `Snapshot` in
+ * `store/gameStore.ts`.
+ *
+ * It logs no event and touches no player, so a quarter that was ended and
+ * undone leaves nothing behind in the play-by-play. `periodsOf` reads the log,
+ * so a period nobody logged anything in simply is not there.
+ */
+export function nextPeriod(g: GameState): void {
+  g.running = false;
+  g.period += 1;
+  g.remaining = PERIOD_LEN;
 }
 
 /** One second of game clock: minutes accrue only for players on the floor. */

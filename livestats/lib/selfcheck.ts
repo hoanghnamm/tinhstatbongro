@@ -10,19 +10,24 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
-import { FOULS, PERIOD_LEN, SEED_ROSTER, seedRoster, zeroStats } from '../constants/game';
+import { FOULS, FOUL_KINDS, FOUL_MENU, PERIOD_LEN, SEED_ROSTER, TALLY_TILES, seedRoster, zeroStats } from '../constants/game';
+import { DEFAULT_OPTIONS } from '../constants/options';
 import * as A from '../lib/actions';
-import { FT_SPOT, shotTypeFor, zoneFor, zoneSide } from './court';
+import { COURT_LINES, FT_SPOT, ZONE_PATHS, shotTypeFor, zoneFor, zoneSide } from './court';
 import { clockEntry, clockReady, mmss, ord, pushClockDigit, secondsFromClock } from './format';
 import { gridFor } from './grid';
 import { advancedFor, linesFor, periodsOf, report, scoreline, shotsIn } from './box';
+import { gameReportHtml, periodScores, reportFileName, reportTitle } from './pdf';
+import { tileWords } from './labels';
 import { litControl, litPlayerId } from './lit';
 import {
   HISTORY_CAP,
+  competitionsIn,
   pushSummary,
   resultOf,
   reviveGame,
   summarise,
+  summaryKind,
   type GameSummary,
 } from './history';
 import {
@@ -35,16 +40,20 @@ import {
   numberHolder,
   validNumber,
 } from './roster';
-import { season } from './season';
+import { competitions, officialIn, season } from './season';
 import {
+  COMPETITION_MAX,
   DEFAULT_TEAM,
   TEAM_NAME_MAX,
   NOTE_MAX,
   OPPONENT_MAX,
   cleanCoach,
+  cleanCompetition,
   cleanNote,
   cleanOpponent,
   cleanTeamName,
+  competitionKey,
+  competitionLabel,
   opponentLabel,
   initials,
   logoName,
@@ -55,6 +64,8 @@ import type { GameEvent, GameState, Position, RosterPlayer } from '../types';
 
 const game = (): GameState => ({
   team: { name: 'T' },
+  kind: 'official',
+  competition: '',
   opponent: '',
   note: '',
   score: 0,
@@ -243,6 +254,42 @@ assert.equal(shotTypeFor(396 / 792, 100 / 521), '2PT');
   A.tickSeconds(g, 60);
   assert.equal(g.remaining, 0, 'the clock stops at zero');
   assert.equal(g.players[0].stats.secondsPlayed, 35, 'and credits nothing past the buzzer');
+}
+
+/* ---- the buzzer, and the one snapshot that carries a clock -----------
+ * END QUARTER goes through `edit()` like a basket, so a mis-tap on the tile
+ * beside END GAME costs one UNDO rather than a whole period. It is the ONLY
+ * clock mutation that does: see gameStore's Snapshot, whose `period` and
+ * `remaining` are optional for exactly this reason.
+ * ------------------------------------------------------------------ */
+{
+  const g = game();
+  A.recordShot(g, 'p1', { x: 0.5, y: 0.4 }, '2PT', true, null, null);
+  g.running = true;
+  A.tickSeconds(g, 120);
+  const played = g.players[0].stats.secondsPlayed;
+
+  // what edit(fn, true) writes to the stack, and nothing else
+  const snap = { period: g.period, remaining: g.remaining };
+
+  A.nextPeriod(g);
+  assert.equal(g.period, 2, 'the buzzer is one period on');
+  assert.equal(g.remaining, PERIOD_LEN, 'with a full clock');
+  assert.equal(g.running, false, 'and it is stopped — a quarter does not start itself');
+  assert.equal(g.events.length, 1, 'it logs NOTHING: the shot is still the only event');
+  assert.equal(g.score, 2, 'and it is not a scoring action');
+  assert.equal(g.players[0].stats.secondsPlayed, played, 'nor a clock tick');
+
+  // what undo() puts back off that snapshot
+  Object.assign(g, snap, { running: false });
+  assert.equal(g.period, 1, 'undo comes back into the quarter that was ended');
+  assert.equal(g.remaining, PERIOD_LEN - 120, 'on the time it was ended at, not on a fresh one');
+  assert.equal(g.score, 2, 'and the basket scored in it is still there');
+  assert.equal(
+    g.players[0].stats.secondsPlayed,
+    played,
+    'minutes are never rewound — the same rule undo() keeps for every other action',
+  );
 }
 
 /* ---- possessions --------------------------------------------------- */
@@ -498,6 +545,24 @@ assert.equal(shotTypeFor(396 / 792, 100 / 521), '2PT');
   assert.equal(opponentLabel(''), 'OPPONENT', 'a game started in a hurry still says something');
   assert.equal(opponentLabel('   '), 'OPPONENT');
   assert.equal(opponentLabel(undefined), 'OPPONENT', 'a summary from before opponents existed');
+
+  // THE COMPETITION is the third of the three, and the only one two games are
+  // ever MATCHED on — so it is the only one with a folded key beside it
+  assert.equal(cleanCompetition('  VBA   2026 '), 'VBA 2026', 'trimmed and collapsed');
+  assert.equal(cleanCompetition('x'.repeat(99)).length, COMPETITION_MAX, 'and capped');
+  assert.equal(
+    competitionKey('  VBA   2026 '),
+    competitionKey('vba 2026'),
+    'case and spacing are all that is folded — a scorer will not reproduce their own capitals',
+  );
+  assert.notEqual(
+    competitionKey('VBA'),
+    competitionKey('VBA 2026'),
+    'and nothing else is: two seasons of one league are two competitions',
+  );
+  assert.equal(competitionLabel('vba 2026'), 'VBA 2026');
+  assert.equal(competitionLabel(''), 'UNFILED', 'an official game saved before competitions');
+  assert.equal(competitionLabel(undefined), 'UNFILED');
 }
 
 /* ---- the shelf ----------------------------------------------------- */
@@ -507,12 +572,14 @@ assert.equal(shotTypeFor(396 / 792, 100 / 521), '2PT');
   g.score = 55;
   g.oppScore = 48;
   g.period = 3;
+  g.competition = 'VBA 2026';
   const s = summarise(g, 'g1', 1700000000000);
   assert.equal(s.score, 55);
   assert.equal(s.periods, 3, 'a quarter with nothing logged in it was still played');
   assert.equal(s.opponent, 'Hanoi Rockets', 'the shelf row says who it was against');
+  assert.equal(s.kind, 'official', 'and which kind of night it was');
+  assert.equal(s.competition, 'VBA 2026', 'and what it is filed under');
   assert.equal(resultOf(s), 'W');
-  assert.equal(resultOf({ ...s, score: 48 }), 'D', 'a draw is not a loss');
   assert.equal(resultOf({ ...s, score: 40 }), 'L');
 
   // the cap drops the OLDEST, and hands it back so its key can go too
@@ -538,6 +605,36 @@ assert.equal(shotTypeFor(396 / 792, 100 / 521), '2PT');
   assert.equal(revived?.running, false, 'and its clock is not running');
   assert.equal(reviveGame(null), null, 'a row that is not a game is not one');
   assert.equal(reviveGame({ players: [] }), null, 'and half a game is not one either');
+
+  // A GAME OF AN OLDER VINTAGE IS OFFICIAL, both on the shelf and off it. The
+  // season counted it when it was saved, and a migration that quietly dropped a
+  // month of games out of the season line would be the worse surprise.
+  const old = reviveGame({ players: [], events: [], score: 4 } as unknown);
+  assert.equal(old?.kind, 'official', 'a game from before the two kinds is official');
+  assert.equal(old?.competition, '', 'and it is filed under nothing');
+  assert.equal(
+    summaryKind({ id: 'x', endedAt: 0, score: 0, oppScore: 0, periods: 4 }),
+    'official',
+    'a summary of the same vintage reads the same way',
+  );
+  assert.equal(summaryKind({ ...s, kind: 'practice' }), 'practice');
+
+  // what the picker offers: the names the shelf already holds, newest first,
+  // one per competition however many games are under it
+  const row = (id: string, kind: 'practice' | 'official', competition: string): GameSummary => ({
+    id, endedAt: 0, score: 0, oppScore: 0, periods: 4, kind, competition,
+  });
+  assert.deepEqual(
+    competitionsIn([
+      row('a', 'official', 'Cup 2026'),
+      row('b', 'practice', 'not a competition'),
+      row('c', 'official', 'VBA 2026'),
+      row('d', 'official', 'vba  2026'),
+      row('e', 'official', ''),
+    ]),
+    ['Cup 2026', 'VBA 2026'],
+    'newest spelling wins, a practice files nothing, and a blank is not a name',
+  );
 }
 
 /* ---- the season ----------------------------------------------------
@@ -597,6 +694,94 @@ assert.equal(shotTypeFor(396 / 792, 100 / 521), '2PT');
   const renamed = season([one, two], [{ ...roster[0], name: 'A. NGUYEN' }, roster[1]], 'totals');
   assert.equal(renamed.lines[0].name, 'A. NGUYEN', 'the name shown is the roster name today');
   assert.equal(renamed.lines[0].stats.points, 30, 'and the line is still one line');
+
+  /* ---- the season is the OFFICIAL games ----------------------------
+   * A practice keeps its whole box score and stays off the season line —
+   * which is exactly what the scorer said when they tapped PRACTICE at the
+   * door. It is the only thing `kind` is ever read for.
+   * ------------------------------------------------------------------ */
+  const practice: GameState = { ...two, kind: 'practice', competition: '' };
+  assert.equal(officialIn([one, two, practice]).length, 2, 'a practice is not a season game');
+  assert.equal(
+    season(officialIn([one, practice]), roster, 'totals').lines[0].stats.points,
+    20,
+    'and its points are not in the season either',
+  );
+  assert.equal(
+    officialIn([{ ...one, kind: undefined as unknown as GameState['kind'] }]).length,
+    1,
+    'a game with no kind at all is official, the same reading `reviveGame` gives',
+  );
+
+  /* ---- and it is cut into competitions ------------------------------
+   * Grouped on the FOLDED key, so a name typed twice is one competition;
+   * shown under the spelling of the game handed in first, which the screens
+   * hand in newest first.
+   * ------------------------------------------------------------------ */
+  const filed = (g: GameState, competition: string): GameState => ({ ...g, competition });
+  const C = competitions(
+    [filed(two, 'VBA  2026'), filed(one, 'vba 2026'), filed(one, 'Cup'), practice],
+    roster,
+  );
+  assert.equal(C.length, 2, 'two competitions, and the practice is in neither');
+  assert.equal(C[0].name, 'VBA 2026', 'the newest spelling heads the group');
+  assert.equal(C[0].key, 'vba 2026');
+  assert.equal(C[0].games.length, 2, 'both games under it, whichever way it was typed');
+  assert.equal(C[0].season.games, 2);
+  assert.equal(C[0].season.wins, 1, 'a competition keeps its own record');
+  assert.equal(C[0].season.losses, 1);
+  assert.equal(C[1].name, 'Cup');
+  assert.equal(C[1].season.lines[0].stats.points, 20, 'and its own stat lines');
+  assert.equal(
+    competitions([filed(one, '')], roster)[0].key,
+    '',
+    'an official game filed under nothing is its own group, not a dropped one',
+  );
+}
+
+/* ---- what a stat is CALLED -----------------------------------------
+ * One rule for the three panels that name one, so a foul kind and a tally can
+ * never end up reading differently on the same board.
+ * ------------------------------------------------------------------ */
+{
+  assert.equal(DEFAULT_OPTIONS.labels, 'full', 'a fresh install spells the word out');
+
+  assert.deepEqual(
+    tileWords('full', 'DF', 'DEFENSIVE'),
+    { code: 'DEFENSIVE', word: true },
+    'the word takes the big slot, and says so — a word cannot wear DF’s type size',
+  );
+  assert.deepEqual(
+    tileWords('short', 'DF', 'DEFENSIVE'),
+    { code: 'DF', word: false },
+    'the abbreviation alone, with nothing under it',
+  );
+  assert.deepEqual(
+    tileWords('both', 'DF', 'DEFENSIVE'),
+    { code: 'DF', caption: 'DEFENSIVE', word: false },
+    'and BOTH is the tile the board has always drawn',
+  );
+
+  // every pair the three panels pass, through every mode: the full word is
+  // always reachable, and no mode can leave a tile with nothing on it
+  const pairs: [string, string][] = [
+    ...FOUL_MENU.map((k) => [FOUL_KINDS[k].short, FOUL_KINDS[k].label] as [string, string]),
+    ...TALLY_TILES.map(([, abbr, word]) => [abbr, word] as [string, string]),
+    ['DR', 'DEFENSIVE'],
+    ['OR', 'OFFENSIVE'],
+  ];
+  for (const [short, full] of pairs) {
+    assert.ok(short.length && full.length, `${short}/${full}: both halves are written`);
+    for (const mode of ['short', 'full', 'both'] as const) {
+      const w = tileWords(mode, short, full);
+      assert.ok(w.code, `${short}/${full} in ${mode}: a tile is never blank`);
+      assert.equal(
+        w.code === full || w.caption === full || mode === 'short',
+        true,
+        `${short}/${full} in ${mode}: the word is on the tile unless SHORT was asked for`,
+      );
+    }
+  }
 }
 
 /* ---- formatting --------------------------------------------------- */
@@ -611,7 +796,6 @@ assert.equal(ord(11), '11th');
 /* ---- which board control stays lit --------------------------------- */
 {
   assert.equal(litControl(null, null), null, 'nothing open, nothing lit');
-  assert.equal(litControl({ kind: 'totals' }, null), 'score');
 
   // the chain the quarter cell opens stays on the quarter cell
   assert.equal(litControl({ kind: 'endQuarter' }, null), 'quarter');
@@ -782,12 +966,95 @@ assert.equal(ord(11), '11th');
   }
 }
 
+/* ---- the exported sheet --------------------------------------------
+ * `lib/pdf.ts` prints a game onto paper, and paper is the one output nobody
+ * can go back and fix. It is a pure function over a GameState precisely so it
+ * can be run here: play a short game, render it, and read the sheet back.
+ *
+ * The three things asserted are the three that would be silently wrong. THE
+ * NUMBERS ON IT ARE THE SCREEN'S — same `report()`, so the sheet cannot drift
+ * from the tab the button sits on. THE PERIOD LINE ADDS UP to the game's own
+ * score, because it is a second walk over the log and not the board's counter.
+ * And EVERY TYPED STRING IS ESCAPED: a club name is free text, and a sheet is
+ * assembled by concatenation.
+ * ------------------------------------------------------------------ */
+{
+  const g = game();
+  g.team.name = 'KHÁNH HÒA <b>';
+  g.opponent = 'SƠN LA';
+  g.competition = 'VBA 2026';
+  g.note = 'round 12';
+
+  A.tickSeconds(g, 60);
+  A.recordShot(g, 'p1', at(396, 100), '2PT', true, 'p12', null);
+  A.recordOppPoint(g, 3);
+  A.recordFreeThrowTrip(g, 'p12', [true, false], false);
+  A.nextPeriod(g);
+  A.tickSeconds(g, 30);
+  A.recordShot(g, 'p12', at(396, 500), '3PT', false, null, null);
+  A.recordRebound(g, 'p1', null, 'offensive');
+
+  const qs = periodScores(g);
+  assert.deepEqual(
+    qs.map((q) => [q.period, q.us, q.them]),
+    [
+      [1, 3, 3],
+      [2, 0, 0],
+    ],
+    'the period line is walked off the log, both sides of it',
+  );
+  assert.equal(
+    qs.reduce((n, q) => n + q.us, 0),
+    g.score,
+    'and the quarters add up to the score the board kept',
+  );
+
+  const html = gameReportHtml(g, Date.UTC(2026, 7, 19, 12, 0));
+
+  assert.ok(html.includes('KHÁNH HÒA &lt;b&gt;'), 'a typed name is escaped, never injected');
+  assert.ok(!html.includes('KHÁNH HÒA <b>'), 'and the raw markup does not survive anywhere');
+  assert.equal(reportTitle(g), 'VBA 2026', 'an official game is filed under its competition');
+  assert.equal(reportTitle({ ...g, kind: 'practice' }), 'PRACTICE', 'a practice is filed as one');
+
+  // the numbers are the screen's, not a second derivation
+  const rep = report(g, null);
+  assert.ok(html.includes(`>${rep.us}</span>`), 'the headline score is the report’s own');
+  assert.ok(html.includes('PAINT'), 'every zone is named in the table');
+  assert.ok(html.includes('TOP 3'), 'the empty ones included — 0/0 is a fact');
+  assert.ok(html.includes('Play by play'), 'the log is on the sheet');
+  assert.ok(html.includes('3PT MISSED'), 'and it prints the same line the app does');
+  assert.ok(html.includes('DNP'), 'a player who never took the floor says so');
+  // THE SHEET'S FLOOR IS THE BOARD'S FLOOR. Every path on it must be one of
+  // `lib/court.ts`'s own strings — a shape drawn from a local copy is exactly
+  // the drift the two courts exist to prevent. Only the zones actually shot
+  // from are filled, which is why this checks the strings and not the count.
+  const known = new Set([...ZONE_PATHS.map((z) => z.d), ...COURT_LINES]);
+  const drawn = [...html.matchAll(/<path d="([^"]+)"/g)].map((mt) => mt[1]);
+  assert.ok(drawn.length > COURT_LINES.length, 'the sheet draws a floor at all');
+  for (const d of drawn) assert.ok(known.has(d), `the sheet drew a path lib/court.ts does not own: ${d}`);
+  for (const d of COURT_LINES) assert.ok(drawn.includes(d), 'and every line work stroke is on it');
+  const paint = ZONE_PATHS.find((z) => z.zone === 'paint');
+  assert.ok(paint && drawn.includes(paint.d), 'a zone that was shot from is filled');
+  const corner = ZONE_PATHS.find((z) => z.zone === 'corner2');
+  assert.ok(corner && !drawn.includes(corner.d), 'and one that was not is left alone');
+
+  assert.equal(
+    reportFileName({ ...g, team: { name: 'KHÁNH HÒA' } }, Date.UTC(2026, 7, 19, 12, 0)),
+    `HOOPLOG-KHANH-HOA-vs-SON-LA-${new Date(Date.UTC(2026, 7, 19, 12, 0)).getDate()}-08-2026.pdf`,
+    'diacritics are folded, not dropped — the file has to be recognisable in a list',
+  );
+}
+
 /* ---- the fill ends on a drawn line ---------------------------------
- * `CourtSvg.tsx` carries this file's partition a second time, as eleven closed
+ * `ZONE_PATHS` carries `zoneFor`'s partition a second time, as eleven closed
  * paths, and nothing in the type system ties the two together. So: rasterise
- * the real `d` strings out of the component and assert all 412,632 cells of
+ * the real `d` strings out of `lib/court.ts` and assert all 412,632 cells of
  * the viewBox resolve to exactly the zone `zoneFor` names — no gap, no
  * overlap, no drift. Move one vertex and it names the first cell to disagree.
+ *
+ * They are read out of the SOURCE rather than imported, because what is being
+ * checked is the text a human edits: an import would only prove the array
+ * agrees with itself.
  *
  * It samples at (px + 0.31, py + 0.27) rather than at the pixel centre. Every
  * boundary here is integer, y = 203.7, or a line of slope 123/245, and a
@@ -797,10 +1064,11 @@ assert.equal(ord(11), '11th');
  * -------------------------------------------------------------------- */
 {
   const W = 792, H = 521, BX = 396, BY = 76, R = 352;
+  const art = readFileSync(join(process.cwd(), 'lib', 'court.ts'), 'utf8');
   const svg = readFileSync(join(process.cwd(), 'components', 'board', 'CourtSvg.tsx'), 'utf8');
 
-  const paths = [...svg.matchAll(/\{ zone: '(\w+)', side: '(\w)', d: '([^']+)' \}/g)];
-  assert.equal(paths.length, 11, 'CourtSvg should carry one closed path per zone');
+  const paths = [...art.matchAll(/\{ zone: '(\w+)', side: '(\w)', d: '([^']+)' \}/g)];
+  assert.equal(paths.length, 11, 'ZONE_PATHS should carry one closed path per zone');
 
   // Every arc in those strings is the three-point arc, so it is centred on the
   // basket and the sweep flag is all that is needed to walk one: 1 = increasing
@@ -867,7 +1135,9 @@ assert.equal(ord(11), '11th');
   assert.equal(drift, 0, `CourtSvg has drifted off zoneFor on ${drift} of ${W * H} cells — ${first}`);
 
   // And the drawing itself: every line the partition is cut on must still be
-  // painted. These are the strings zoneFor's constants were read off.
+  // painted. These are the strings zoneFor's constants were read off — they
+  // live in COURT_LINES now, and both renderers draw that list rather than a
+  // copy, so the component is checked for the READ rather than for the strings.
   for (const d of [
     'M277 0 L277 276 M513 0 L513 276', // the lane
     'M277 276 L513 276', // the free-throw line
@@ -879,7 +1149,9 @@ assert.equal(ord(11), '11th');
     'M480 276 L603 521',
     'M68 0 L68 203.7 A352 352 0 0 0 724 203.7 L724 0', // the three-point line
   ])
-    assert.ok(svg.includes(`d="${d}"`), `the court no longer draws ${d} — a zone edge lost its line`);
+    assert.ok(art.includes(`'${d}'`), `the court no longer draws ${d} — a zone edge lost its line`);
+  for (const name of ['ZONE_PATHS', 'COURT_LINES'])
+    assert.ok(svg.includes(name), `CourtSvg should draw ${name}, not a second copy of it`);
 }
 
 /* ---- styling guards ------------------------------------------------
@@ -946,9 +1218,9 @@ assert.equal(ord(11), '11th');
   // have nothing written inside them
   const NO_TEXT_INSIDE = [
     join('components', 'board', 'Court.tsx'), // the live mark is a dot
-    join('components', 'stats', 'ShotsTab.tsx'), // made / miss / free-throw dots
-    join('components', 'stats', 'ZonesTab.tsx'), // the zone heat and its scale
+    join('components', 'stats', 'ZonesTab.tsx'), // shot dots, the zone heat, its scale
     join('components', 'ui', 'Dot.tsx'), // the availability dot, likewise
+    join('app', 'player', '[id].tsx'), // shot dots on court
   ];
   for (const f of files) {
     if (NO_TEXT_INSIDE.includes(f.path)) continue;

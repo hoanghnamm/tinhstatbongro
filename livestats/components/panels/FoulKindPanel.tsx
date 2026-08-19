@@ -1,7 +1,7 @@
 import { FOUL_KINDS, FOUL_MENU } from '../../constants/game';
 import { useAnnounce } from '../../hooks/useAnnounce';
 import { useUiStore } from '../../store/uiStore';
-import { CancelX, PGrid, PHead, PTitleText, Tile } from './shell';
+import { CancelX, PGrid, PHead, PTitleText, StatTile } from './shell';
 
 /**
  * Fouls, step 1. A 2×2 grid rather than a row: FLAGRANT ran off the end of a
@@ -26,10 +26,10 @@ export function FoulKindPanel() {
       </PHead>
       <PGrid columns={2}>
         {FOUL_MENU.map((k) => (
-          <Tile
+          <StatTile
             key={k}
-            code={FOUL_KINDS[k].short}
-            caption={FOUL_KINDS[k].label}
+            short={FOUL_KINDS[k].short}
+            full={FOUL_KINDS[k].label}
             selected={foulKind === k}
             onPress={() => {
               setFoulKind(k);

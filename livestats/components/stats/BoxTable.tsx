@@ -1,10 +1,12 @@
 import { ScrollView, Text, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 
 import { mmss } from '../../lib/format';
 import { efficiency, plusMinus } from '../../lib/stats';
 import { useMetrics } from '../../theme/metrics';
 import { LS_LABEL, fNum, fUi, ls } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
+import { Press } from '../ui/Press';
 import { Card } from './parts';
 import type { Totals } from '../../lib/stats';
 import type { Player } from '../../types';
@@ -118,30 +120,20 @@ export function BoxTable({
   lines,
   team,
   gamesFor,
+  onRowPress,
 }: {
   lines: Player[];
   team: Totals;
   gamesFor?: (p: Player) => number;
+  onRowPress?: (playerId: string) => void;
 }) {
   const m = useMetrics();
   const t = useTheme();
 
   const cols: Col[] = gamesFor ? [...BASE, G_COL, ...REST] : [...BASE, ...REST];
 
-  const row = (
-    cells: string[],
-    key: string,
-    opts: { dq?: boolean; total?: boolean; zebra?: boolean },
-  ) => (
-    <View
-      key={key}
-      style={{
-        flexDirection: 'row',
-        borderTopWidth: opts.total ? 2 : 1,
-        borderTopColor: opts.total ? t.ink : t.rule,
-        backgroundColor: opts.total || opts.zebra ? t.surface2 : t.surface,
-      }}
-    >
+  const rowCells = (cells: string[], opts: { dq?: boolean; total?: boolean; zebra?: boolean }) => (
+    <>
       {cells.map((v, i) => (
         <Text
           key={cols[i].key}
@@ -160,6 +152,75 @@ export function BoxTable({
           {v}
         </Text>
       ))}
+    </>
+  );
+
+  const playerRow = (p: Player, i: number) => {
+    const cells = [
+      p.starter ? '1' : '',
+      String(p.number),
+      p.name + (p.status === 'out' ? ' (out)' : ''),
+      ...(gamesFor ? [String(gamesFor(p))] : []),
+      ...statCells(p),
+    ];
+    const opts = { dq: p.status === 'out', zebra: i % 2 === 1 };
+    const bg = opts.zebra ? t.surface2 : t.surface;
+
+    if (onRowPress) {
+      return (
+        <Press
+          key={p.id}
+          onPress={() => onRowPress(p.id)}
+          style={{
+            flexDirection: 'row',
+            borderTopWidth: 1,
+            borderTopColor: t.rule,
+            backgroundColor: bg,
+            alignItems: 'center',
+          }}
+          pressedStyle={{ backgroundColor: t.surface2 }}
+        >
+          {rowCells(cells, opts)}
+          <Svg width={m.fsSm} height={m.fsSm} viewBox="0 0 24 24" style={{ marginRight: 4, opacity: 0.4 }}>
+            <Path
+              d="M9 5l7 7-7 7"
+              stroke={t.ink2}
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              fill="none"
+            />
+          </Svg>
+        </Press>
+      );
+    }
+
+    return (
+      <View
+        key={p.id}
+        style={{
+          flexDirection: 'row',
+          borderTopWidth: 1,
+          borderTopColor: t.rule,
+          backgroundColor: bg,
+        }}
+      >
+        {rowCells(cells, opts)}
+      </View>
+    );
+  };
+
+  const totalRow = (
+    <View
+      key="team"
+      style={{
+        flexDirection: 'row',
+        borderTopWidth: 2,
+        borderTopColor: t.ink,
+        backgroundColor: t.surface2,
+      }}
+    >
+      {rowCells(['', '', 'TEAM', ...(gamesFor ? [''] : []), ...totalCells(team)], { total: true })}
     </View>
   );
 
@@ -186,29 +247,14 @@ export function BoxTable({
                 {c.key}
               </Text>
             ))}
+            {onRowPress && <View style={{ width: m.fsSm + 4 }} />}
           </View>
 
-          {lines.map((p, i) =>
-            row(
-              [
-                p.starter ? '1' : '',
-                String(p.number),
-                p.name + (p.status === 'out' ? ' (out)' : ''),
-                ...(gamesFor ? [String(gamesFor(p))] : []),
-                ...statCells(p),
-              ],
-              p.id,
-              { dq: p.status === 'out', zebra: i % 2 === 1 },
-            ),
-          )}
-
-          {row(
-            ['', '', 'TEAM', ...(gamesFor ? [''] : []), ...totalCells(team)],
-            'team',
-            { total: true },
-          )}
+          {lines.map((p, i) => playerRow(p, i))}
+          {totalRow}
         </View>
       </ScrollView>
     </Card>
   );
 }
+

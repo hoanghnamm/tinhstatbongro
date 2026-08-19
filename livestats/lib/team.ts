@@ -16,7 +16,7 @@ export const TEAM_NAME_MAX = 24;
 export const COACH_NAME_MAX = 24;
 
 /**
- * The two labels a GAME carries, which are not the club's — but they are the
+ * The three labels a GAME carries, which are not the club's — but they are the
  * same kind of thing and are cleaned by the same function, which is why they
  * are here rather than in a fourth lib file. The opponent shares the club's cap
  * because the two sit at the same size on the same scoreline; the note is one
@@ -24,6 +24,11 @@ export const COACH_NAME_MAX = 24;
  */
 export const OPPONENT_MAX = TEAM_NAME_MAX;
 export const NOTE_MAX = 60;
+/**
+ * A competition's name is a heading on the season screen and a tag on a shelf
+ * row, so it gets more room than a club name and less than a note.
+ */
+export const COMPETITION_MAX = 32;
 
 /** What a fresh install is a club of. The name is the one the board shipped. */
 export const DEFAULT_TEAM: TeamProfile = {
@@ -39,6 +44,32 @@ export const cleanTeamName = (name: string): string => clean(name, TEAM_NAME_MAX
 export const cleanCoach = (name: string): string => clean(name, COACH_NAME_MAX);
 export const cleanOpponent = (name: string): string => clean(name, OPPONENT_MAX);
 export const cleanNote = (note: string): string => clean(note, NOTE_MAX);
+export const cleanCompetition = (name: string): string => clean(name, COMPETITION_MAX);
+
+/**
+ * THE KEY TWO GAMES ARE FILED UNDER THE SAME COMPETITION BY.
+ *
+ * Case and spacing only — `VBA 2026`, `vba 2026` and `VBA  2026` are one
+ * competition, because a scorer typing it again three weeks later will not
+ * reproduce their own capitals. Nothing else is normalised: `VBA` and `VBA
+ * 2026` are two seasons of one league and the app has no business merging
+ * them.
+ *
+ * The NAME shown for a group is the spelling of its most recent game, never
+ * the key — a heading in lower case would be the one thing on the screen that
+ * is.
+ */
+export const competitionKey = (name: string): string => cleanCompetition(name).toLowerCase();
+
+/**
+ * What to print where a competition's name goes.
+ *
+ * UNFILED is for the one case that can produce it: an official game saved
+ * before competitions existed. The picker will not start a new official game
+ * without a name, so this is a label for history rather than for a gap.
+ */
+export const competitionLabel = (name: string | undefined): string =>
+  (name ?? '').trim().toUpperCase() || 'UNFILED';
 
 /**
  * What to print where the other side's name goes.

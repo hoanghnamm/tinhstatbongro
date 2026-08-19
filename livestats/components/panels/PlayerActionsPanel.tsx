@@ -4,7 +4,7 @@ import { useFlow } from '../../hooks/useFlow';
 import { useGameStore } from '../../store/gameStore';
 import { usePlayer } from '../../store/selectors';
 import { useUiStore } from '../../store/uiStore';
-import { CancelX, PGrid, PHead, PSub, PTitleText, Pts, Tile } from './shell';
+import { CancelX, PGrid, PHead, PSub, PTitleText, Pts, StatTile } from './shell';
 import type { TallyType } from '../../types';
 
 /**
@@ -43,10 +43,10 @@ export function PlayerActionsPanel({
       </PHead>
       <PGrid columns={2}>
         {TALLY_TILES.map(([type, abbr, word, key]) => (
-          <Tile
+          <StatTile
             key={type}
-            code={abbr}
-            caption={word}
+            short={abbr}
+            full={word}
             badge={p.stats[key]}
             selected={bumped === type}
             accessibilityLabel={`${word}, ${p.stats[key]} so far`}

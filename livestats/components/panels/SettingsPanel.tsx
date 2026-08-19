@@ -11,13 +11,14 @@ import { Btn, PTitle, Row } from './shell';
 import type { Options } from '../../constants/options';
 
 /**
- * The four switches, finally given a face.
+ * The switches, finally given a face.
  *
  * They have been in `gameStore` since the port and nothing has ever written
  * them but their defaults — the web build read them off the query string, and
  * there is no query string here. The gear on HOME is the only way in, and this
- * panel is deliberately the smallest thing that could be one: four rows of the
- * `Seg` the stats screen already uses, no new control and no new modal.
+ * panel is deliberately the smallest thing that could be one: a row of the
+ * `Seg` the stats screen already uses per option, no new control and no new
+ * modal. A row is two choices or three; `Seg` takes either.
  *
  * There is no SKIN row. There is one skin, it is light, and the switcher was
  * cut along with the option — see `theme/tokens.ts`. A row here that offered a
@@ -59,6 +60,16 @@ const ROWS: Choice[] = [
     items: [
       { key: 'ask', label: 'ASK' },
       { key: 'skip', label: 'SKIP' },
+    ],
+  },
+  {
+    key: 'labels',
+    title: 'ON THE PANELS',
+    note: 'What a foul, a rebound or a tally is called once the panel is open. WORD spells it out, SHORT is the scorebook abbreviation, BOTH puts the word under it. The board keys stay PF / FT / RB.',
+    items: [
+      { key: 'full', label: 'WORD' },
+      { key: 'short', label: 'SHORT' },
+      { key: 'both', label: 'BOTH' },
     ],
   },
   {

@@ -3,6 +3,8 @@ import { ScrollView, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { chunk, gridFor } from '../../lib/grid';
+import { tileWords } from '../../lib/labels';
+import { useGameStore } from '../../store/gameStore';
 import { useUiStore } from '../../store/uiStore';
 import { useMetrics } from '../../theme/metrics';
 import { LS_BTN, LS_LABEL, fNum, fUi, ls } from '../../theme/tokens';
@@ -214,6 +216,48 @@ export function PGrid({ columns, children }: { columns: number; children: ReactN
   ]);
 
   return <PRows rows={rows} />;
+}
+
+/**
+ * A tile that NAMES A STAT — a foul kind, a rebound kind, a tally — and
+ * therefore the one kind of tile the LABELS option is about. It is the only
+ * reader of that option: three panels asking it separately is three answers
+ * waiting to drift, and `tileWords` is the rule.
+ *
+ * The screen reader always hears the full word, whatever is drawn. An
+ * abbreviation is a thing to look at, not a thing to say.
+ */
+export function StatTile({
+  short,
+  full,
+  badge,
+  selected,
+  big,
+  onPress,
+  accessibilityLabel,
+}: {
+  short: string;
+  full: string;
+  badge?: number;
+  selected?: boolean;
+  big?: boolean;
+  onPress(): void;
+  accessibilityLabel?: string;
+}) {
+  const mode = useGameStore((s) => s.options.labels);
+  const w = tileWords(mode, short, full);
+  return (
+    <Tile
+      code={w.code}
+      caption={w.caption}
+      word={w.word}
+      badge={badge}
+      selected={selected}
+      big={big}
+      onPress={onPress}
+      accessibilityLabel={accessibilityLabel ?? full}
+    />
+  );
 }
 
 /**

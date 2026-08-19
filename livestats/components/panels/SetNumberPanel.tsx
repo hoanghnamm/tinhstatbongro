@@ -26,7 +26,7 @@ import { Btn, PRows, PTitle, Row, Tile } from './shell';
  *
  * It writes to `rosterStore`, so the change is durable — a new number is true
  * of the player, not of tonight. The duplicate check is the roster's own and
- * the error NAMES THE HOLDER, exactly as `EditPlayerPanel` does: OK stays dark
+ * the error NAMES THE HOLDER, exactly as the TEAM tab's own number field does: OK stays dark
  * until the entry is a number nobody else on the team is wearing.
  */
 export function SetNumberPanel({ playerId }: { playerId: string }) {

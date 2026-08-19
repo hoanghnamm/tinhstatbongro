@@ -6,8 +6,8 @@ import Svg, { Path } from 'react-native-svg';
 import { PanelHost } from '../../components/panels/PanelHost';
 import { Press } from '../../components/ui/Press';
 import { Col, Row } from '../../components/ui/Row';
-import { HISTORY_CAP, dateLabel, periodsLabel, resultOf, timeLabel, yearLabel } from '../../lib/history';
-import { opponentLabel } from '../../lib/team';
+import { HISTORY_CAP, dayMonthLabel, resultOf, summaryKind } from '../../lib/history';
+import { competitionLabel, opponentLabel } from '../../lib/team';
 import { useHistoryStore } from '../../store/historyStore';
 import { useUiStore } from '../../store/uiStore';
 import { useMetrics } from '../../theme/metrics';
@@ -16,7 +16,12 @@ import { useTheme } from '../../theme/useTheme';
 import type { GameSummary } from '../../lib/history';
 
 /**
- * THE SHELF — every game that has ended, newest first.
+ * THE SHELF — every match that has ended, newest first.
+ *
+ * IT IS CALLED MATCHES, and the room is the tab of that name. A "game" is what
+ * the board is keeping and what `GameState` is a state of; a MATCH is one of
+ * them, over, on a shelf. The types keep the old word because they are the old
+ * thing — only the room the scorer walks into is renamed.
  *
  * The list reads the INDEX and nothing else: a summary is five numbers, thirty
  * of them are nothing, and the events — which are the bulk of a game by two
@@ -31,7 +36,7 @@ import type { GameSummary } from '../../lib/history';
  * handler and a second interaction vocabulary for one destructive action that
  * already has a confirm panel waiting for it.
  */
-function Badge({ result }: { result: 'W' | 'L' | 'D' }) {
+function Badge({ result }: { result: 'W' | 'L' }) {
   const m = useMetrics();
   const t = useTheme();
   const d = Math.round(m.fsXl * 1.15);
@@ -64,17 +69,30 @@ function Badge({ result }: { result: 'W' | 'L' | 'D' }) {
   );
 }
 
+/**
+ * ONE ROW — and its TITLE IS WHAT THE MATCH WAS: the competition on an official
+ * game, the word PRACTICE on a practice, UNFILED on an official game saved
+ * before competitions existed.
+ *
+ * The date used to be the title and the kind used to be a pill beside it. That
+ * had the shelf scanned by a number nobody remembers a match by — the eye
+ * looking for "the cup game" was reading thirty dates to find it. So the name
+ * takes the line and the date drops to the subtitle as `19/08`, which is where
+ * the opponent already was.
+ */
 function GameRow({ game }: { game: GameSummary }) {
   const m = useMetrics();
   const t = useTheme();
   const open = useUiStore((s) => s.open);
   const result = resultOf(game);
+  const practice = summaryKind(game) === 'practice';
+  const title = practice ? 'PRACTICE' : competitionLabel(game.competition);
 
   return (
     <Press
       onPress={() => router.push(`/history/${game.id}`)}
       onLongPress={() => open({ kind: 'removeGame', gameId: game.id })}
-      accessibilityLabel={`${dateLabel(game.endedAt)}, ${result === 'W' ? 'won' : result === 'L' ? 'lost' : 'drew'} ${game.score} to ${game.oppScore}`}
+      accessibilityLabel={`${title.toLowerCase()}, ${dayMonthLabel(game.endedAt)}, ${result === 'W' ? 'won' : 'lost'} ${game.score} to ${game.oppScore}`}
       style={{
         minHeight: m.tap,
         flexDirection: 'row',
@@ -90,25 +108,25 @@ function GameRow({ game }: { game: GameSummary }) {
     >
       <Badge result={result} />
 
-      <Col style={{ flexShrink: 1, minWidth: 0 }}>
+      <Col style={{ flexShrink: 1, minWidth: 0 }} align="flex-start">
         <Text
           numberOfLines={1}
           style={{
+            maxWidth: '100%',
             fontFamily: fNum(700),
             fontSize: m.fsMd,
             letterSpacing: ls(m.fsMd, LS_LABEL),
-            color: t.ink,
-            fontVariant: ['tabular-nums'],
+            color: practice ? t.ink2 : t.ink,
           }}
         >
-          {dateLabel(game.endedAt)} {yearLabel(game.endedAt)}
+          {title}
         </Text>
         <Text
           numberOfLines={1}
           style={{ fontFamily: fUi(500), fontSize: m.fsXs, color: t.ink2 }}
         >
           {game.opponent ? `VS ${opponentLabel(game.opponent)} · ` : ''}
-          {timeLabel(game.endedAt)} · {periodsLabel(game.periods)}
+          {dayMonthLabel(game.endedAt)}
         </Text>
       </Col>
 
@@ -141,7 +159,7 @@ function GameRow({ game }: { game: GameSummary }) {
   );
 }
 
-export default function GamesScreen() {
+export default function MatchesScreen() {
   const m = useMetrics();
   const t = useTheme();
   const safe = useSafeAreaInsets();
@@ -169,20 +187,7 @@ export default function GamesScreen() {
             color: t.ink,
           }}
         >
-          GAMES
-        </Text>
-        <Text
-          style={{
-            marginLeft: 'auto',
-            flexGrow: 0,
-            flexShrink: 0,
-            fontFamily: fNum(500),
-            fontSize: m.fsMd,
-            color: t.ink2,
-            fontVariant: ['tabular-nums'],
-          }}
-        >
-          {index.length}/{HISTORY_CAP}
+          MATCHES
         </Text>
       </Row>
 
@@ -205,10 +210,10 @@ export default function GamesScreen() {
                 color: t.ink3,
               }}
             >
-              NO GAMES YET
+              NO MATCHES YET
             </Text>
             <Text style={{ fontFamily: fUi(400), fontSize: m.fsSm, color: t.ink3 }}>
-              A game lands here the moment you end it.
+              A match lands here the moment you end it.
             </Text>
           </Col>
         }
@@ -223,7 +228,7 @@ export default function GamesScreen() {
                 color: t.ink3,
               }}
             >
-              Long press a game to delete it. The last {HISTORY_CAP} are kept.
+              Long press a match to delete it. The last {HISTORY_CAP} are kept.
             </Text>
           ) : null
         }

@@ -6,7 +6,12 @@ import { LS_LABEL, fNum, ls } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 
 /**
- * The four rooms the app has when it is not scoring: LOBBY, GAMES, STATS, TEAM.
+ * The four rooms the app has when it is not scoring: LOBBY, MATCHES, STATS,
+ * TEAM.
+ *
+ * MATCHES is the shelf of finished games, and the word is the scorer's, not the
+ * model's: `GameState` is still a game, `historyStore` still saves games, and a
+ * MATCH is one of those once it is over and on a shelf.
  *
  * **The board is deliberately NOT in this group.** `/game` sits beside it in the
  * root stack, because a tab bar under the board would steal a strip of height
@@ -25,7 +30,7 @@ import { useTheme } from '../../theme/useTheme';
  */
 const ICON = {
   index: 'home-variant',
-  games: 'calendar-blank',
+  matches: 'calendar-blank',
   season: 'chart-bar',
   team: 'account-group',
 } as const;
@@ -64,7 +69,7 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen name="index" options={{ title: 'LOBBY', tabBarIcon: icon('index') }} />
-      <Tabs.Screen name="games" options={{ title: 'GAMES', tabBarIcon: icon('games') }} />
+      <Tabs.Screen name="matches" options={{ title: 'MATCHES', tabBarIcon: icon('matches') }} />
       <Tabs.Screen name="season" options={{ title: 'STATS', tabBarIcon: icon('season') }} />
       <Tabs.Screen name="team" options={{ title: 'TEAM', tabBarIcon: icon('team') }} />
     </Tabs>

@@ -1,106 +1,208 @@
-import { FlatList, Text, View } from 'react-native';
+import { useState } from 'react';
+import {
+  FlatList,
+  InputAccessoryView,
+  Keyboard,
+  Platform,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import { PanelHost } from '../../components/panels/PanelHost';
-import { Btn, Row as BtnRow } from '../../components/panels/shell';
 import { ClubCard } from '../../components/team/ClubCard';
-import { Dot } from '../../components/ui/Dot';
-import { Icon, PENCIL } from '../../components/ui/Icon';
-import { Jersey } from '../../components/ui/Jersey';
 import { Press } from '../../components/ui/Press';
 import { Row } from '../../components/ui/Row';
-import { ROSTER_CAP } from '../../lib/roster';
+import { NAME_MAX, ROSTER_CAP, nextFreeNumber, numberHolder, validNumber } from '../../lib/roster';
 import { useRosterStore } from '../../store/rosterStore';
-import { useUiStore } from '../../store/uiStore';
 import { useMetrics } from '../../theme/metrics';
 import { LS_LABEL, fNum, fUi, ls } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 import type { RosterPlayer } from '../../types';
 
 /**
- * Two columns start here, not at an orientation. A tablet in portrait is wide
- * and should use it; a phone in landscape is wide in pixels and narrow in
- * thumbs, and 700 is the same line `RotateGate` draws between the two devices.
+ * THE TEAM, AND THE ROW IS THE EDITOR.
+ *
+ * There is no form behind this list any more. A jersey and a name are two short
+ * fields, and putting them behind a modal meant three taps and a round trip to
+ * change one digit — on the one screen where a scorer changes twelve of them in
+ * a row, at a table, before anything has tipped off. So the row carries them
+ * inline and the store is written as they are typed.
+ *
+ * THREE PARTS, LEFT TO RIGHT, and each is its own target:
+ *
+ *   #          the jersey, 0–99, digits only. Its border goes `danger` the
+ *              moment the number collides with someone else's.
+ *   name       free text, capped at NAME_MAX. Blank is ordinary and shows the
+ *              placeholder — a row can exist before its name does.
+ *   the slot   dressed. `accent` and a tick when they are, an outline and a
+ *              `danger` dash when they are not.
+ *
+ * A 4px `accent` MARK down the row's left edge and a `×` at its right edge were
+ * both built and cut. The mark said what the slot already says, and the row's
+ * own 0.45 dim says it a third time at a glance; the `×` put a destructive
+ * target a thumb's width from two text fields on the screen a scorer is typing
+ * fastest on. NOTHING REMOVES A PLAYER FROM THIS SCREEN NOW — `RemovePlayerPanel`
+ * survives with no caller, one press away from being reached again.
+ *
+ * `available` is still the only fact on this screen that DOES anything, and it
+ * still does exactly one thing: `availableIn` filters the starter picker. The
+ * ✓/— slot is that switch under another shape, which is why an unavailable row
+ * dims to 0.45 rather than leaving — they are on the team, and turning them
+ * back on has to be one tap.
+ *
+ * WHAT IS DELIBERATELY NOT HERE is a captain, a starting five and a position.
+ * The first two are facts about a GAME, and `app/start.tsx` already asks them at
+ * the door — a starting five chosen on Monday is a starting five that is wrong
+ * by Saturday. `position` survives in the type and in `migrateRoster` so
+ * persisted data is not thrown away, but nothing writes it any more; it was a
+ * label nothing ever read.
+ *
+ * THERE IS NO `KeyboardAvoidingView` HERE, AND THAT IS THE POINT. This screen is
+ * a LIST, not a form: padding the bottom by the keyboard's height shrank the
+ * viewport to a handful of rows at the exact moment the scorer was working
+ * through all fifteen of them. The keyboard is allowed to sit OVER the list
+ * instead, and the list is what moves — `keyboardDismissMode="on-drag"`, so a
+ * scroll both reaches the next row and puts the keyboard away.
+ *
+ * AND THE NUMBER PAD GETS A DONE BAR, because on iOS it is the one keyboard
+ * with no return key at all: two digits go in and there is no way off it.
+ * `InputAccessoryView` is shared by every row — one bar, `Keyboard.dismiss()`,
+ * which blurs whichever field is focused and lets `onBlur` re-seed it. Android
+ * needs none of this and gets none: its numeric pad has a dismiss key, and the
+ * component is a no-op there anyway.
+ *
+ * EVERY FIELD IS COMMITTED AS IT IS TYPED, WITH THE TEXT HELD LOCALLY. That
+ * split is not decoration: `rosterStore.update` runs `cleanName`, which trims,
+ * so a store round trip on every keystroke would eat a space the moment it was
+ * typed. The local copy is what is displayed; blur re-seeds it from the store,
+ * which is also what reverts a bad number and normalises `07` to `7`.
  */
+
+/** One DONE bar for every jersey field on the screen; see the note above. */
+const NUM_DONE = 'hooplog-jersey-done';
+
+/** Two columns start here — the same line `RotateGate` and `start.tsx` draw. */
 const TWO_UP = 700;
 /** …and past it the count is computed, so a 1180pt iPad gets three, not two. */
-const COL_W = 340;
+const COL_W = 380;
 
-function PlayerRow({ player }: { player: RosterPlayer }) {
+function PlayerRow({ player, index }: { player: RosterPlayer; index: number }) {
   const m = useMetrics();
   const t = useTheme();
-  const open = useUiStore((s) => s.open);
 
-  // the rail's plate, off the ramp rather than off a measured row — this list
-  // gives every row the same height, so there is nothing to measure
-  const jh = Math.round(m.tap * 0.72);
+  const roster = useRosterStore((s) => s.players);
+  const update = useRosterStore((s) => s.update);
+
+  // the text is local; see the header note. The list keys rows by id, so a row
+  // never inherits the state of whoever used to sit at its index.
+  const [numText, setNumText] = useState(String(player.number));
+  const [name, setName] = useState(player.name);
+
+  const num = Number(numText);
+  const numOk = numText.length > 0 && validNumber(num);
+  const holder = numOk ? numberHolder(roster, num, player.id) : null;
+  const numBad = !numOk || !!holder;
+
+  const who = player.name || `Player ${index + 1}`;
+
+  const onNum = (v: string) => {
+    const digits = v.replace(/[^0-9]/g, '').slice(0, 2);
+    setNumText(digits);
+    const n = Number(digits);
+    // a colliding or half-typed number is SHOWN but not written: the roster
+    // never holds two of the same shirt, not even for one keystroke
+    if (digits.length > 0 && validNumber(n) && !numberHolder(roster, n, player.id)) {
+      update(player.id, { number: n });
+    }
+  };
+
+  const onName = (v: string) => {
+    setName(v);
+    update(player.id, { name: v });
+  };
+
+  const field = {
+    minHeight: m.tap,
+    paddingHorizontal: m.s2,
+    borderRadius: m.r,
+    borderWidth: 1,
+    borderColor: t.rule,
+    backgroundColor: t.surface,
+    color: t.ink,
+    fontSize: m.fsMd,
+  };
 
   return (
-    <Press
-      onPress={() => open({ kind: 'editPlayer', playerId: player.id })}
-      accessibilityLabel={`edit #${player.number} ${player.name}`}
+    <View
       style={{
         flex: 1,
         minWidth: 0,
         minHeight: m.tap,
         flexDirection: 'row',
         alignItems: 'center',
-        gap: m.s3,
-        paddingHorizontal: m.s2,
-        paddingVertical: m.s2,
-        borderBottomWidth: 1,
-        borderBottomColor: t.rule,
-        // dimmed, not hidden — they are still on the team, and the row is still
-        // the way back to the switch that says so
+        gap: m.s2,
+        marginBottom: m.s2,
+        // dimmed, not hidden — they are still on the team, and the slot beside
+        // them is still the way to say they turned up after all
         opacity: player.available ? 1 : 0.45,
       }}
-      pressedStyle={{ backgroundColor: t.surface2 }}
     >
-      <Jersey number={player.number} w={Math.round(jh * 1.15)} h={jh} />
+      <TextInput
+        value={numText}
+        onChangeText={onNum}
+        onBlur={() => setNumText(String(player.number))}
+        keyboardType="number-pad"
+        inputMode="numeric"
+        maxLength={2}
+        placeholder="#"
+        placeholderTextColor={t.ink3}
+        inputAccessoryViewID={Platform.OS === 'ios' ? NUM_DONE : undefined}
+        accessibilityLabel={`jersey number for ${who}`}
+        style={[
+          field,
+          {
+            flexGrow: 0,
+            flexShrink: 0,
+            width: Math.max(m.tap, Math.round(m.fsMd * 3.2)),
+            textAlign: 'center',
+            fontFamily: fNum(700),
+            fontVariant: ['tabular-nums'],
+            // the one error a row can show, and it needs no words: the number
+            // it collides with is a few rows above or below it
+            borderWidth: numBad ? 2 : 1,
+            borderColor: numBad ? t.danger : t.rule,
+          },
+        ]}
+      />
 
-      <Text
-        numberOfLines={1}
-        ellipsizeMode="tail"
-        style={{
-          flexShrink: 1,
-          minWidth: 0,
-          fontFamily: fUi(600),
-          fontSize: m.fsMd,
-          color: t.ink,
-        }}
-      >
-        {player.name}
-      </Text>
+      <TextInput
+        value={name}
+        onChangeText={onName}
+        onBlur={() => setName(player.name)}
+        maxLength={NAME_MAX}
+        autoCapitalize="words"
+        autoCorrect={false}
+        returnKeyType="done"
+        onSubmitEditing={Keyboard.dismiss}
+        placeholder={`Player ${index + 1}`}
+        placeholderTextColor={t.ink3}
+        accessibilityLabel={`name for ${who}`}
+        style={[field, { flex: 1, minWidth: 0, fontFamily: fUi(600) }]}
+      />
 
-      {/* the label. `—` when unset, and unset is the common case */}
-      <Text
-        style={{
-          flexGrow: 0,
-          flexShrink: 0,
-          minWidth: m.fsMd * 1.6,
-          fontFamily: fNum(500),
-          fontSize: m.fsSm,
-          letterSpacing: ls(m.fsSm, LS_LABEL),
-          color: t.ink3,
-        }}
-      >
-        {player.position ?? '—'}
-      </Text>
-
-      {/* and the state. It is the ABSENCE that is worth a colour: the board
-          already marks a player who cannot play in `danger`, so this matches it
-          rather than inventing a second vocabulary for the same fact. */}
-      <Dot on={player.available} />
-
-      {/* the affordance, so the row reads as editable rather than merely tappable */}
-      <View style={{ marginLeft: 'auto', flexGrow: 0, flexShrink: 0 }}>
-        <Icon d={PENCIL} size={m.fsMd} color={t.ink3} />
-      </View>
-
+      {/* THE SLOT. Filled is on, exactly as the mockup has it — and the OFF
+          state keeps `danger` for its dash, because absence is the half of this
+          fact that is worth a colour everywhere else in the app too. */}
       <Press
-        onPress={() => open({ kind: 'removePlayer', playerId: player.id })}
-        accessibilityLabel={`remove #${player.number} ${player.name}`}
+        onPress={() => update(player.id, { available: !player.available })}
+        accessibilityLabel={
+          player.available
+            ? `${who} is dressed, tap to sit them out`
+            : `${who} is out, tap to dress them`
+        }
         style={{
           flexGrow: 0,
           flexShrink: 0,
@@ -108,21 +210,37 @@ function PlayerRow({ player }: { player: RosterPlayer }) {
           minHeight: m.tap,
           alignItems: 'center',
           justifyContent: 'center',
-          borderRadius: m.rSm,
+          borderRadius: m.r,
+          borderWidth: 1,
+          borderColor: player.available ? t.accent : t.rule,
+          backgroundColor: player.available ? t.accent : t.surface,
         }}
-        pressedStyle={{ backgroundColor: t.rule }}
+        pressedStyle={{ opacity: 0.7 }}
       >
-        <Svg width={m.fsLg} height={m.fsLg} viewBox="0 0 24 24">
-          <Path
-            d="M5 7h14M10 7V4.8h4V7M7.5 7l.8 12.2h7.4L16.5 7"
-            stroke={t.danger}
-            strokeWidth={1.8}
-            strokeLinecap="round"
-            fill="none"
-          />
-        </Svg>
+        {player.available ? (
+          <Svg width={m.fsLg} height={m.fsLg} viewBox="0 0 24 24">
+            <Path
+              d="M5 12.5l4.5 4.5L19 7.5"
+              stroke={t.accentInk}
+              strokeWidth={2.4}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              fill="none"
+            />
+          </Svg>
+        ) : (
+          <Svg width={m.fsLg} height={m.fsLg} viewBox="0 0 24 24">
+            <Path
+              d="M6 12h12"
+              stroke={t.danger}
+              strokeWidth={2.4}
+              strokeLinecap="round"
+              fill="none"
+            />
+          </Svg>
+        )}
       </Press>
-    </Press>
+    </View>
   );
 }
 
@@ -132,7 +250,7 @@ export default function TeamScreen() {
   const safe = useSafeAreaInsets();
 
   const players = useRosterStore((s) => s.players);
-  const open = useUiStore((s) => s.open);
+  const add = useRosterStore((s) => s.add);
 
   const full = players.length >= ROSTER_CAP;
 
@@ -144,84 +262,171 @@ export default function TeamScreen() {
   const data: (RosterPlayer | null)[] = [...players, ...Array<null>(pad).fill(null)];
 
   return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: t.bg,
-        paddingTop: safe.top + m.s2,
-        paddingBottom: safe.bottom + m.s3,
-        paddingLeft: safe.left + m.s4,
-        paddingRight: safe.right + m.s4,
-      }}
-    >
-      {/* no back button: this is a tab root, and the tab bar is the way out */}
-      <ClubCard />
+    <View style={{ flex: 1, backgroundColor: t.bg }}>
+      <View
+        style={{
+          flex: 1,
+          paddingTop: safe.top + m.s2,
+          // NO BOTTOM PAD, and that is what makes this one sheet. The tab bar
+          // already sits above the home indicator and already reserves its own
+          // inset, so `safe.bottom` here was counted a second time — a dead
+          // strip of canvas between the last row and the bar. The list runs to
+          // the bar instead, and the scroll content carries the breathing room.
+          paddingBottom: 0,
+          paddingLeft: safe.left + m.s4,
+          paddingRight: safe.right + m.s4,
+        }}
+      >
+        {/* no back button: this is a tab root, and the tab bar is the way out */}
+        <FlatList
+          // THE CLUB CARD AND THE BAND ARE THE LIST HEADER, not a fixed block
+          // above it: this screen is one sheet, and a header pinned over a
+          // scrolling list is a second surface that has to be justified. It is
+          // an ELEMENT rather than a component so React keeps the same instances
+          // across renders and the fields hold their text.
+          ListHeaderComponent={
+            <>
+              <ClubCard />
 
-      <Row gap={m.s2} style={{ minHeight: m.tap, flexGrow: 0, flexShrink: 0, marginTop: m.s3 }}>
-        <Text
-          numberOfLines={1}
-          style={{
-            flexShrink: 1,
-            fontFamily: fNum(700),
-            fontSize: m.fsMd,
-            letterSpacing: ls(m.fsMd, LS_LABEL),
-            color: t.ink2,
-          }}
-        >
-          PLAYERS
-        </Text>
+              <Row gap={m.s2} style={{ minHeight: m.tap, marginTop: m.s3 }}>
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    flexShrink: 1,
+                    fontFamily: fNum(700),
+                    fontSize: m.fsMd,
+                    letterSpacing: ls(m.fsMd, LS_LABEL),
+                    color: t.ink2,
+                  }}
+                >
+                  PLAYERS
+                </Text>
 
-        <Text
-          style={{
-            marginLeft: 'auto',
-            flexGrow: 0,
-            flexShrink: 0,
-            fontFamily: fNum(500),
-            fontSize: m.fsMd,
-            color: t.ink2,
-            fontVariant: ['tabular-nums'],
-          }}
-        >
-          {players.length}/{ROSTER_CAP}
-        </Text>
-      </Row>
-
-      <FlatList
-        // numColumns cannot change on a live list, so the count keys it
-        key={'cols' + columns}
-        data={data}
-        numColumns={columns}
-        keyExtractor={(p, i) => p?.id ?? 'pad' + i}
-        renderItem={({ item }) =>
-          item ? <PlayerRow player={item} /> : <View style={{ flex: 1 }} />
-        }
-        style={{ flex: 1, marginTop: m.s2 }}
-        contentContainerStyle={players.length ? undefined : { flexGrow: 1 }}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-            <Text
-              style={{
-                fontFamily: fNum(500),
-                fontSize: m.fsMd,
-                letterSpacing: ls(m.fsMd, LS_LABEL),
-                color: t.ink3,
-              }}
-            >
-              NO PLAYERS YET
-            </Text>
-          </View>
-        }
-      />
-
-      <BtnRow mt>
-        <Btn
-          label={full ? 'TEAM IS FULL' : 'ADD PLAYER'}
-          variant="accent"
-          disabled={full}
-          onPress={() => open({ kind: 'editPlayer', playerId: null })}
+                {/* the count is what says why + ADD PLAYER is gone at the cap, so the
+                    count is the thing that has to change colour when it gets there */}
+                <Text
+                  style={{
+                    marginLeft: 'auto',
+                    flexGrow: 0,
+                    flexShrink: 0,
+                    fontFamily: fNum(500),
+                    fontSize: m.fsMd,
+                    color: full ? t.danger : t.ink2,
+                    fontVariant: ['tabular-nums'],
+                  }}
+                >
+                  {players.length}/{ROSTER_CAP}
+                </Text>
+              </Row>
+            </>
+          }
+          // numColumns cannot change on a live list, so the count keys it
+          key={'cols' + columns}
+          data={data}
+          numColumns={columns}
+          columnWrapperStyle={columns > 1 ? { gap: m.s3 } : undefined}
+          keyExtractor={(p, i) => p?.id ?? 'pad' + i}
+          renderItem={({ item, index }) =>
+            item ? <PlayerRow player={item} index={index} /> : <View style={{ flex: 1 }} />
+          }
+          style={{ flex: 1 }}
+          contentContainerStyle={
+            players.length ? { paddingBottom: m.s3 } : { flexGrow: 1, paddingBottom: m.s3 }
+          }
+          showsVerticalScrollIndicator={false}
+          // a field is nearly always focused on this screen, so the first tap on
+          // the slot beside it has to LAND rather than merely dismiss a keyboard
+          keyboardShouldPersistTaps="handled"
+          // …and a DRAG is the other way off it: the keyboard sits over the list
+          // rather than shortening it, so reaching the next row puts it away
+          keyboardDismissMode="on-drag"
+          ListEmptyComponent={
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+              <Text
+                style={{
+                  fontFamily: fNum(500),
+                  fontSize: m.fsMd,
+                  letterSpacing: ls(m.fsMd, LS_LABEL),
+                  color: t.ink3,
+                }}
+              >
+                NO PLAYERS YET
+              </Text>
+            </View>
+          }
+          // AT THE CAP IT IS GONE, not disabled. A dark button on a full roster
+          // is a control still asking to be pressed; the 15/15 above says why.
+          ListFooterComponent={
+            full ? null : (
+              <Press
+                onPress={() => add({ number: nextFreeNumber(players), name: '' })}
+                accessibilityLabel="add a player to the team"
+                style={{
+                  minHeight: m.tap,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: m.r,
+                  borderWidth: 1,
+                  borderStyle: 'dashed',
+                  borderColor: t.rule,
+                }}
+                pressedStyle={{ backgroundColor: t.surface2, borderColor: t.accent }}
+              >
+                <Text
+                  style={{
+                    fontFamily: fNum(700),
+                    fontSize: m.fsMd,
+                    letterSpacing: ls(m.fsMd, LS_LABEL),
+                    color: t.accent,
+                  }}
+                >
+                  + ADD PLAYER
+                </Text>
+              </Press>
+            )
+          }
         />
-      </BtnRow>
+      </View>
+
+      {/* one bar for the whole screen — the number pad's only way out on iOS */}
+      {Platform.OS === 'ios' && (
+        <InputAccessoryView nativeID={NUM_DONE}>
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'flex-end',
+              alignItems: 'center',
+              paddingHorizontal: m.s3,
+              backgroundColor: t.surface2,
+              borderTopWidth: 1,
+              borderTopColor: t.rule,
+            }}
+          >
+            <Press
+              onPress={() => Keyboard.dismiss()}
+              accessibilityLabel="close the keypad"
+              style={{
+                minHeight: m.tap,
+                paddingHorizontal: m.s3,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              pressedStyle={{ opacity: 0.6 }}
+            >
+              <Text
+                style={{
+                  fontFamily: fNum(700),
+                  fontSize: m.fsMd,
+                  letterSpacing: ls(m.fsMd, LS_LABEL),
+                  color: t.accent,
+                }}
+              >
+                DONE
+              </Text>
+            </Press>
+          </View>
+        </InputAccessoryView>
+      )}
 
       <PanelHost />
     </View>

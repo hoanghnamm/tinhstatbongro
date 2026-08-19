@@ -29,16 +29,10 @@ export type Panel =
   | { kind: 'endQuarter' }
   | { kind: 'setClock' }
   | { kind: 'endGame' }
-  | { kind: 'totals' }
-  | { kind: 'plays' }
   /* --- off the board: the tabs use the same router --- */
   | { kind: 'newGame' }
-  /** null is ADD; an id is EDIT. One panel, because it is one form. */
-  | { kind: 'editPlayer'; playerId: string | null }
   /** the jersey keypad — the picker's one edit, and it edits nothing else */
   | { kind: 'setNumber'; playerId: string }
-  /** the club: the crest, the name and the two coaches */
-  | { kind: 'editTeam' }
   | { kind: 'removePlayer'; playerId: string }
   /** a saved game, off the GAMES list — the roster's confirm, one shelf over */
   | { kind: 'removeGame'; gameId: string }

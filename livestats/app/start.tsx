@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -6,33 +6,35 @@ import Svg, { Path } from 'react-native-svg';
 
 import { PanelHost } from '../components/panels/PanelHost';
 import { Btn, Row as BtnRow } from '../components/panels/shell';
-import { Band, Card } from '../components/stats/parts';
+import { Band, Card, Seg, type SegItem } from '../components/stats/parts';
 import { ClubCard } from '../components/team/ClubCard';
 import { Dot } from '../components/ui/Dot';
 import { Jersey } from '../components/ui/Jersey';
 import { Press } from '../components/ui/Press';
 import { Col, Row } from '../components/ui/Row';
 import { chunk } from '../lib/grid';
+import { competitionsIn } from '../lib/history';
 import { STARTERS, availableIn } from '../lib/roster';
-import { NOTE_MAX, OPPONENT_MAX } from '../lib/team';
+import { COMPETITION_MAX, NOTE_MAX, OPPONENT_MAX, cleanCompetition, competitionKey } from '../lib/team';
 import { useGameStore } from '../store/gameStore';
+import { useHistoryStore } from '../store/historyStore';
 import { useRosterStore } from '../store/rosterStore';
 import { useTeamStore } from '../store/teamStore';
 import { useUiStore } from '../store/uiStore';
 import { useMetrics } from '../theme/metrics';
 import { LS_BTN, LS_LABEL, fNum, fUi, ls } from '../theme/tokens';
 import { useTheme } from '../theme/useTheme';
-import type { RosterPlayer } from '../types';
+import type { GameKind, RosterPlayer } from '../types';
 
 /**
  * STEP ZERO OF A GAME — and it wears the TEAM tab's layout, not a panel's.
  *
  * It used to be a tile grid inside the foul panel's shell, which was the right
- * shape while the only question was "which five". It is now three questions —
- * who is here, who starts, and who it is against — and those are a team
- * screen's questions, so this is the team screen: the same club card, the same
- * columned list, the same 1px seams. A scorer who has used MY TEAM has already
- * used this.
+ * shape while the only question was "which five". It is now four questions —
+ * who is here, who starts, who it is against, and what kind of night this is —
+ * and those are a team screen's questions, so this is the team screen: the same
+ * club card, the same columned list, the same 1px seams. A scorer who has used
+ * MY TEAM has already used this.
  *
  * WHAT IT DELIBERATELY CANNOT DO IS EDIT THE TEAM. Not the club name, not the
  * crest, not the coaches, not a player's name or position. Those are facts
@@ -69,6 +71,22 @@ import type { RosterPlayer } from '../types';
  * roster is capped at `ROSTER_CAP` anyway, so there is nothing to virtualise
  * and the rows are simply chunked into their columns and laid out.
  */
+
+/**
+ * THE TWO KINDS, and the picker opens on OFFICIAL.
+ *
+ * Not because most games are — because this is the one question on the screen
+ * that cannot be answered later. A game filed under the wrong kind is wrong for
+ * as long as it is on the shelf: the season either counts a scrimmage or drops
+ * a league game, and nothing in the app edits a saved game. Opening on OFFICIAL
+ * with the competition still empty means START GAME is dark until the scorer
+ * has said one of the two things out loud — typed the competition, or tapped
+ * PRACTICE. One tap either way, once a night.
+ */
+const KINDS: SegItem<GameKind>[] = [
+  { key: 'practice', label: 'PRACTICE' },
+  { key: 'official', label: 'OFFICIAL' },
+];
 
 /** Two columns start here. The same line `team.tsx` and `RotateGate` draw. */
 const TWO_UP = 700;
@@ -217,6 +235,55 @@ function PlayerRow({
   );
 }
 
+/**
+ * A COMPETITION THE SHELF ALREADY KNOWS, offered under the field.
+ *
+ * The first game of a season is typed; every game after it is a tap, and that
+ * is the whole point — a competition is what thirty games are grouped by, and a
+ * group is only a group if the name is spelled the same way each time. The
+ * suggestions come off the INDEX, which is already in memory, so offering them
+ * costs no disk read.
+ *
+ * They FILTER as the scorer types and the exact match drops out of the row:
+ * a chip that would type nothing new is a target that does nothing.
+ */
+function Chip({ label, onPress }: { label: string; onPress(): void }) {
+  const m = useMetrics();
+  const t = useTheme();
+  return (
+    <Press
+      onPress={onPress}
+      accessibilityLabel={`file this game under ${label}`}
+      style={{
+        flexGrow: 0,
+        flexShrink: 1,
+        minWidth: 0,
+        minHeight: Math.round(m.tap * 0.72),
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: m.s3,
+        borderRadius: m.rSm,
+        borderWidth: 1,
+        borderColor: t.rule,
+        backgroundColor: t.surface2,
+      }}
+      pressedStyle={{ backgroundColor: t.surface }}
+    >
+      <Text
+        numberOfLines={1}
+        style={{
+          fontFamily: fNum(500),
+          fontSize: m.fsXs,
+          letterSpacing: ls(m.fsXs, LS_LABEL),
+          color: t.ink2,
+        }}
+      >
+        {label.toUpperCase()}
+      </Text>
+    </Press>
+  );
+}
+
 /** One row of the match card: a label, and the line the scorer types on. */
 function Field({
   label,
@@ -290,9 +357,23 @@ export default function StartScreen() {
   // the name the game will be filed under, read at tip-off and copied
   const teamName = useTeamStore((s) => s.profile.name);
 
+  // the shelf, for the names it already holds — summaries only, no disk read
+  const index = useHistoryStore((s) => s.index);
+  const known = useMemo(() => competitionsIn(index), [index]);
+
   const [picked, setPicked] = useState<string[]>([]);
+  const [kind, setKind] = useState<GameKind>('official');
+  const [competition, setCompetition] = useState('');
   const [opponent, setOpponent] = useState('');
   const [note, setNote] = useState('');
+
+  // what is left to offer: everything the typed text is a prefix or a fragment
+  // of, minus the one it already spells exactly
+  const typed = competitionKey(competition);
+  const suggestions = known.filter((name) => {
+    const key = competitionKey(name);
+    return key !== typed && (!typed || key.includes(typed));
+  });
 
   const toggle = (id: string) =>
     setPicked((cur) =>
@@ -312,7 +393,12 @@ export default function StartScreen() {
     if (p.available) setPicked((cur) => cur.filter((x) => x !== p.id));
   };
 
-  const ready = picked.length === STARTERS;
+  // AN OFFICIAL GAME IS NOT STARTED WITHOUT A COMPETITION. It is the label the
+  // season groups by and there is no editing it afterwards, so the picker is
+  // the only place it can be asked — and PRACTICE is the one tap that says the
+  // question does not apply.
+  const filed = kind === 'practice' || !!cleanCompetition(competition);
+  const ready = picked.length === STARTERS && filed;
 
   const usable = m.win.w - safe.left - safe.right - 2 * m.s4;
   const columns = usable >= TWO_UP ? Math.max(2, Math.floor(usable / COL_W)) : 1;
@@ -321,7 +407,7 @@ export default function StartScreen() {
 
   const start = () => {
     if (!ready) return;
-    startGame(availableIn(roster), picked, teamName, opponent, note);
+    startGame(availableIn(roster), picked, teamName, { kind, competition, opponent, note });
     // replace, not push: back off the board goes home, not to a picker for a
     // game that has already started
     router.replace('/game');
@@ -457,30 +543,89 @@ export default function StartScreen() {
             </Col>
           )}
 
-          {/* THE MATCH — the two things true of this game and of no other.
-              Both are optional: a scorer at the buzzer starts the game and
-              types neither, and a blank opponent reads as OPPONENT. */}
+          {/* THE MATCH — the four things true of this game and of no other.
+              THREE of them are optional: a scorer at the buzzer starts the game
+              and types none of them, and a blank opponent reads as OPPONENT.
+              The COMPETITION is the exception, and only on an official game —
+              see `filed` above. */}
           <View style={{ marginTop: m.s3 }}>
-            <Card>
-              <Band label="THE MATCH" />
-              <Field
-                label="OPPONENT"
-                value={opponent}
-                onChangeText={setOpponent}
-                placeholder="who you are playing"
-                maxLength={OPPONENT_MAX}
-              />
-              <Field
-                label="NOTE"
-                value={note}
-                onChangeText={setNote}
-                placeholder="round, venue, anything"
-                maxLength={NOTE_MAX}
-                onSubmitEditing={start}
-              />
-            </Card>
+            <Col gap={m.s2}>
+              <Seg items={KINDS} value={kind} onChange={(k) => setKind(k)} />
+
+              <Card>
+                <Band label="THE MATCH" />
+
+                {/* the competition field is DRAWN ONLY FOR AN OFFICIAL GAME,
+                    not merely disabled: a practice is not filed under anything,
+                    and a dead field on the card is a question still being asked */}
+                {kind === 'official' && (
+                  <>
+                    <Field
+                      label="LEAGUE"
+                      value={competition}
+                      onChangeText={setCompetition}
+                      placeholder="which competition"
+                      maxLength={COMPETITION_MAX}
+                    />
+                    {suggestions.length > 0 && (
+                      <Row
+                        gap={m.s2}
+                        style={{
+                          flexWrap: 'wrap',
+                          paddingHorizontal: m.s3,
+                          paddingTop: m.s2,
+                          paddingBottom: m.s2,
+                          borderTopWidth: 1,
+                          borderTopColor: t.rule,
+                        }}
+                      >
+                        {suggestions.map((name) => (
+                          <Chip key={name} label={name} onPress={() => setCompetition(name)} />
+                        ))}
+                      </Row>
+                    )}
+                  </>
+                )}
+
+                <Field
+                  label="OPPONENT"
+                  value={opponent}
+                  onChangeText={setOpponent}
+                  placeholder="who you are playing"
+                  maxLength={OPPONENT_MAX}
+                />
+                <Field
+                  label="NOTE"
+                  value={note}
+                  onChangeText={setNote}
+                  placeholder="round, venue, anything"
+                  maxLength={NOTE_MAX}
+                  onSubmitEditing={start}
+                />
+              </Card>
+            </Col>
           </View>
         </ScrollView>
+
+        {/* the one reason START GAME can be dark that is not the five — said
+            out loud, because a dark button with no explanation is a bug */}
+        {!filed && (
+          <Text
+            // two lines, because the narrowest board this runs on is 330 wide
+            // and a truncated reason is worse than no reason
+            numberOfLines={2}
+            style={{
+              marginTop: m.s2,
+              textAlign: 'center',
+              fontFamily: fNum(500),
+              fontSize: m.fsXs,
+              letterSpacing: ls(m.fsXs, LS_LABEL),
+              color: t.danger,
+            }}
+          >
+            NAME THE COMPETITION, OR MARK IT A PRACTICE
+          </Text>
+        )}
 
         <BtnRow mt>
           <Btn label="START GAME" variant="accent" disabled={!ready} onPress={start} />

@@ -4,7 +4,7 @@ import { mmss, pct } from '../../lib/format';
 import { efg, ts } from '../../lib/stats';
 import { useMetrics } from '../../theme/metrics';
 import { useTheme } from '../../theme/useTheme';
-import { Line, Note, Seam, Section, Tile } from './parts';
+import { Line, Seam, Section, Tile } from './parts';
 import type { Report, Split } from '../../lib/box';
 
 /** Past this the two stacks sit side by side — a tablet, or a phone laid down. */
@@ -77,7 +77,7 @@ export function TeamTab({ report, split }: { report: Report; split: Split }) {
   );
 
   const board = (
-    <Section title="THE SCOREBOARD" note={split === null ? undefined : 'margin carried in counts'}>
+    <Section title="THE SCOREBOARD">
       <Line head label="" value="US" sub="THEM" />
       <Line label="Biggest lead" value={a.biggestLead} sub={String(a.oppBiggestLead)} />
       <Line label="Biggest scoring run" value={a.biggestRun} sub={String(a.oppBiggestRun)} />
@@ -114,19 +114,6 @@ export function TeamTab({ report, split }: { report: Report; split: Split }) {
           {board}
         </View>
       </View>
-
-      <Note>
-        Points in the paint is read off the shot chart. The three below it are read off the
-        SHAPE of the log, because this board never asks for them: second chance points are
-        points scored after one of our offensive rebounds, points from turnovers are points
-        after a steal — the only opponent turnover a one-team board hears about — and fast
-        break points are points scored within seven seconds of a steal or a defensive rebound,
-        which is a window on the game clock rather than a tap, so a clock left stopped makes
-        it read high.
-        {split === null
-          ? ' Points per possession divides by the POSS counter on the footer, which belongs to the whole game and cannot be split by quarter.'
-          : ' Points per possession is whole-game only: POSS is a plain counter with no event behind it, so no quarter can claim a share of it.'}
-      </Note>
     </View>
   );
 }

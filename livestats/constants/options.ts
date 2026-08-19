@@ -16,6 +16,13 @@ export interface Options {
   assist: 'ask' | 'skip';
   /** which edge PF/FT/RB lives on; OPP always takes the other. Landscape only. */
   bar: 'right' | 'left';
+  /**
+   * What a stat is CALLED on the panels where it is picked — DF, DEFENSIVE, or
+   * DF with the word under it. Panels only: the board's own PF / FT / RB keys
+   * are abbreviations whatever this says, because the bar is three cells wide
+   * and a scorer already knows them by shape.
+   */
+  labels: 'short' | 'full' | 'both';
 }
 
 export const DEFAULT_OPTIONS: Options = {
@@ -23,4 +30,7 @@ export const DEFAULT_OPTIONS: Options = {
   tap: 'stats',
   assist: 'ask',
   bar: 'right',
+  // the word, spelled out. An abbreviation is faster to read only once you know
+  // it, and the scorer who has just installed this does not.
+  labels: 'full',
 };

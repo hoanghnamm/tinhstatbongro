@@ -182,8 +182,60 @@ export type EventBody =
 
 export type GameEvent = EventMeta & EventBody;
 
+/**
+ * WHICH KIND OF NIGHT THIS WAS, and it is the one fact about a game that
+ * decides whether the season counts it.
+ *
+ * A PRACTICE game is a real game with real stats — it is saved, it opens, it
+ * has a box score and a shot chart — and it is simply not part of the season
+ * line. An OFFICIAL one is played in a competition, is filed under that
+ * competition's name, and is what the season adds up.
+ *
+ * There is no third kind. A friendly against a real club is either something
+ * the scorer wants in the season or it is not, and that question has two
+ * answers.
+ */
+export type GameKind = 'practice' | 'official';
+
+/**
+ * What the picker asks about THE GAME rather than about the team — the four
+ * labels `startGame` carries across, none of which is a stat.
+ *
+ * It is one object rather than four positional arguments because it is one
+ * answer: the picker's match card fills all of it in one place, and a fifth
+ * label later should not move anybody's call site.
+ */
+export interface MatchInfo {
+  kind: GameKind;
+  /** the competition an OFFICIAL game is filed under; `''` on a practice */
+  competition: string;
+  opponent: string;
+  note: string;
+}
+
 export interface GameState {
   team: { name: string };
+  /**
+   * PRACTICE or OFFICIAL, chosen at the door and never again — a game does not
+   * change what it was after it was played. `lib/season.ts` is the only rule
+   * that reads it, and it reads it for exactly one thing: the season line is
+   * the OFFICIAL games and nothing else.
+   *
+   * A game read back off disk that was written before this existed is OFFICIAL,
+   * because that is what the season already counted it as; see `reviveGame`.
+   */
+  kind: GameKind;
+  /**
+   * THE COMPETITION, and it is a string beside the kind for the same reason the
+   * opponent is a string beside the number: it is the LABEL a shelf of games is
+   * grouped by. The picker requires one on an official game — a competition
+   * card with no name is a card nobody can read — and suggests the names
+   * already on the shelf so a season's worth of games spells it one way.
+   *
+   * `''` on a practice game, and on an official one saved before competitions
+   * existed. Both read as UNFILED where a name has to be printed.
+   */
+  competition: string;
   /**
    * WHO IT WAS AGAINST, and it is a string beside the integer rather than a
    * roster. The opponent's whole model is still one number and three buttons;
