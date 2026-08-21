@@ -4,8 +4,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import { PanelHost } from '../../components/panels/PanelHost';
+import { Bloom } from '../../components/ui/Bloom';
 import { Press } from '../../components/ui/Press';
 import { Col, Row } from '../../components/ui/Row';
+import { useTabInset } from '../../hooks/useTabInset';
 import { HISTORY_CAP, dayMonthLabel, resultOf, summaryKind } from '../../lib/history';
 import { competitionLabel, opponentLabel } from '../../lib/team';
 import { useHistoryStore } from '../../store/historyStore';
@@ -35,6 +37,14 @@ import type { GameSummary } from '../../lib/history';
  * Deleting is a LONG PRESS, and it confirms. A swipe would need a gesture
  * handler and a second interaction vocabulary for one destructive action that
  * already has a confirm panel waiting for it.
+ *
+ * IT IS DRAWN ON BLACK, like the other three rooms, and it says so NOWHERE:
+ * the palette is the group's and is declared once in `app/(tabs)/_layout.tsx`.
+ * All this screen adds is the `<Bloom />` — the warm corner every room shares —
+ * and even that is a component rather than a gradient written out here. The
+ * rows themselves are unchanged: they ask for `surface`, `rule` and `ink2`
+ * exactly as they did on the light skin, and the answers happen to be
+ * translucent white now.
  */
 function Badge({ result }: { result: 'W' | 'L' }) {
   const m = useMetrics();
@@ -163,6 +173,7 @@ export default function MatchesScreen() {
   const m = useMetrics();
   const t = useTheme();
   const safe = useSafeAreaInsets();
+  const bar = useTabInset();
 
   const index = useHistoryStore((s) => s.index);
 
@@ -176,6 +187,8 @@ export default function MatchesScreen() {
         paddingRight: safe.right + m.s4,
       }}
     >
+      <Bloom />
+
       <Row gap={m.s2} style={{ minHeight: m.tap, flexGrow: 0, flexShrink: 0 }}>
         <Text
           numberOfLines={1}
@@ -197,7 +210,7 @@ export default function MatchesScreen() {
         renderItem={({ item }) => <GameRow game={item} />}
         style={{ flex: 1, marginTop: m.s2 }}
         contentContainerStyle={
-          index.length ? { paddingBottom: safe.bottom + m.s5 } : { flexGrow: 1 }
+          index.length ? { paddingBottom: bar + m.s5 } : { flexGrow: 1 }
         }
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={

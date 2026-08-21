@@ -79,6 +79,81 @@ rather than a tab that suggests it is a fifth room.
 **TEAM is singular.** There is one team; a plural label promises a switcher that
 does not exist and is not coming.
 
+**THE TAB BAR IS TWO BARS, SPLIT BY PLATFORM.** iOS renders the real UIKit bar through
+`expo-router/unstable-native-tabs`, which on iOS 26 is Liquid Glass; Android keeps the JS
+`<Tabs>` it has always had. Glass is a UIKit material and there is no honest Android
+equivalent — a translucent fill over a blur is a different thing that reads as a bug beside
+the real one — so Android is not asked to imitate it. Both bars are built from ONE `TABS`
+table in `app/(tabs)/_layout.tsx`, so the four rooms cannot drift apart.
+
+**GLASS IS WHAT YOU GET BY NOT ASKING FOR A BACKGROUND.** `backgroundColor` and `blurEffect`
+are both left unset on the native bar, deliberately: either one replaces the system appearance
+with a flat fill or a pre-26 `UIBlurEffect`, and the glass goes with it. The only two colours
+that bar sets are the tint and the label ink. `minimizeBehavior` is `never` against the iOS 26
+default of `automatic` — a bar that shrinks away on scroll is a navigation control that is not
+where it was a moment ago. `letterSpacing` is the one thing that does not cross:
+`NativeTabsLabelStyle` has no such key, so `LS_LABEL` is spent on the Android bar only.
+
+**AND THE GLASS STOPS AT THE TAB BAR — AND AT THE LOBBY.** Not the board, not the rail, not
+the footer, not the score cell, not a panel. The board is read at arm's length in gym lighting
+and glass is contrast spent on decoration; the `dock` panel in particular exists so the court
+stays VISIBLE behind it, and frosting it would undo the one thing it is for.
+
+**THE LOBBY IS THE ONE EXCEPTION AND IT EARNED IT.** It is the room you stand in BEFORE the
+game — the only screen in the app nobody is reading while something is happening — so the
+argument that kills glass everywhere else does not reach it. `expo-blur` came back for that
+screen alone and is still spent there and nowhere else; `expo-linear-gradient` came back with
+it and has since spread to all four rooms as the BLOOM, and to the one button that is lit by it.
+See "The lobby".
+
+**THE FOUR ROOMS ARE DARK, AND THE GROUP IS WHERE THAT IS SAID.** `TabsLayout` wraps both bars
+in `ThemeProvider value={DARK}`, so LOBBY, MATCHES, STATS and TEAM are one place drawn one way,
+and every shared component inside them — `Card`, `Band`, `Btn`, `Crest`, `Seam`, `BoxTable`,
+`ClubCard` — follows with no `dark` prop anywhere. It began as the lobby's own provider with the
+other three inheriting the light palette off the root, which is how the app came to wear two
+skins in the space of one tap. **The board is NOT in this group and is still light**, along with
+`start`, `stats`, `history/[id]`, `competition` and `player/[id]` — walking onto the board is
+meant to feel like the lights coming up. **GLASS DID NOT SPREAD WITH THE PALETTE**: it is still
+the lobby's cards and its one circular control, because the bloom is strongest there and a blur
+needs something to sample.
+
+**THE PALETTE AND THE STATUS BAR TRAVEL TOGETHER, AND THAT PAIR IS `components/ui/DarkRoom.tsx`.**
+Getting one without the other is a bug you only see on a device — a dark screen under a dark
+status bar loses the clock and the battery — so they are one wrapper rather than two things to
+remember, and it has three callers: the tab group, `app/start.tsx` and `app/player/[id].tsx`.
+
+**THE BAR IS FLIPPED ON FOCUS, NOT BY A MOUNTED `<StatusBar>`.** That component sets the style
+when it mounts and the last one mounted wins — and a stack keeps every screen under the top one
+MOUNTED, so a declarative `light` followed the scorer onto the light board and left the clock
+behind an invisible status bar. `useFocusEffect` + `setStatusBarStyle` is the fact the navigator
+actually knows. The cleanup puts the root's `dark` back rather than leaving the last dark room's
+choice standing, and React runs every cleanup in a commit before any effect — so a push from one
+dark room to another sets `dark` then `light`, never the other way round.
+
+**TWO PUSHED PAGES WEAR THE SAME WRAPPER AND ARE NOT IN THE GROUP**, because they are not rooms:
+**`app/start.tsx`**, the door into a game, and **`app/player/[id].tsx`**, a player's own season.
+Both are reached FROM the four rooms and read like it — a light picker between a dark lobby and
+a dark TEAM tab was the app blinking once on the way through. Neither needed a colour changed:
+every value on both was already a token, so the fields, the chips, the seams, `ClubCard`, `Seg`
+and even `CourtSvg`'s floor followed on their own. **START GAME takes the `bloom` variant**, the
+same as NEW GAME — one verb across two screens, and the only two buttons in the app that start
+something. **What stays LIGHT is everything about a game that is over or on**: the board, a
+saved game, a competition.
+
+**THE JS BAR IS `bg`, NOT `surface`, AND THE TAB SCENE IS PAINTED TOO.** Both are the same
+decision twice: this palette's surfaces are TRANSLUCENT and the shell in `app/_layout.tsx`
+paints the LIGHT canvas behind the navigator, so a 5% white bar sampled the wrong ground and
+came out grey. A bar is not a card sitting on the screen above it — it is a strip of the same
+near-black floor, with the 1px seam every card is drawn with along its top edge.
+
+**`components/nav/nativeTabs.ts` is the only module that names `unstable-native-tabs`**, and
+it is a re-export and nothing else. The `unstable-` prefix means the path will be renamed when
+the API settles; keeping it in one file makes that rename one line. A shim that also made
+decisions would be a second place to look when upstream changes — the decisions live in the
+layout beside the JS bar they are the counterpart of. **It needs a development build and
+Xcode 26**: glass comes from linking against the iOS 26 SDK, and there is no `app.json` key
+for it in SDK 54.
+
 **`app/_layout.tsx` is the old `App.tsx`, minus the board.** It writes the palette with
 `vars()`, sets the status bar and **starts the game clock**. The clock is deliberately
 NOT started in `game.tsx`: a running clock is a fact about the game, not about
@@ -110,9 +185,24 @@ twice, and this screen has no room for a card. **`components/ui/Icon.tsx` went w
 pencils it existed for**: the player row and the club card are both fields now, and a field
 needs no affordance saying it can be typed in.
 
-**The lobby is a team-profile screen, not a menu.** Crest → wordmark → gear, then the LIVE
-game if there is one with CONTINUE under it, the last game's six numbers, the season's six,
-and NEW GAME at the foot. All of it is derived — the live score straight off `gameStore`,
+**The lobby is a team-profile screen, not a menu.** The brand lockup and the club headline,
+then the LIVE game if there is one with CONTINUE under it, the last game's six numbers, the
+season's six, and NEW GAME at the foot.
+
+**THE HEADER IS TWO ROWS: A LOCKUP AND A HEADLINE.** Crest + HOOPLOG at the left and one
+circular control at the right; then the CLUB NAME at `fs2xl` underneath. It was crest →
+wordmark → gear on a single row with the club as an `fsXs` subtitle, which put the one thing
+this screen is about in the smallest type on it. The club is the headline now and HOOPLOG is
+the small mark above it — nobody opens this app wondering what it is called.
+
+**The headline is TWO-TONE, and the rule is generic**: every word but the last takes `ink2`,
+the last takes `ink`. It lands the weight on the noun that is actually the club's name, and a
+single-word club needs no special case. It wraps to two lines rather than eliding — this is
+the biggest type on the screen and a truncated club name is worse than a second line.
+
+**THE COACH IS NOT ON THIS SCREEN ANY MORE.** It was the `· NAME` half of the subtitle that
+the headline replaced. It is a fact about the club, it is edited on the TEAM tab, and the
+one-window budget the headline just spent had to come from somewhere. All of it is derived — the live score straight off `gameStore`,
 `totals()` over the last finished game, `season()` over the saved ones — and nothing on it is
 stored twice.
 
@@ -224,15 +314,33 @@ and blur puts the last good name back.
 swatches. The palette has exactly one skin and `theme/tokens.ts` is the only place a hex is
 written, so a per-club colour is a theme change and not a field. It was raised and declined.
 
-**NO BOTTOM PADDING ON THIS SCREEN, and that is the other half of one sheet.** The tab bar
-already sits above the home indicator and already reserves its own inset, so a `safe.bottom`
-here was counted a SECOND time — a dead strip of canvas between the last row and the bar. The
-list runs to the bar and the scroll content carries the breathing room.
+**NO BOTTOM PADDING ON THE FRAME, and that is the other half of one sheet.** The list runs
+all the way to the bar and its SCROLL CONTENT carries the inset, so the last row scrolls out
+from under the bar rather than stopping short of it.
+
+**AND THE BAR'S OWN HEIGHT IS `hooks/useTabInset.ts`, WHICH IS NOT `safe.bottom`.** The four
+rooms share one bar and the bar is two bars, and the two occupy a screen in opposite ways. On
+**iOS** the glass bar sits ON TOP of the scene's last 49 points — glass has something behind
+it — and the safe-area provider lives at the root of `app/_layout.tsx`, ABOVE the tab
+controller, so it reports the WINDOW's inset and knows nothing about a bar nested inside it.
+On **Android** the JS bar is a flex sibling of the scene and reserves the system navigation
+inset itself, so the screen owes it nothing and `safe.bottom` there is the double count that
+left a dead strip of canvas under the last row. One hook answers both; a room adds it plus
+its own breathing room and never `safe.bottom` on its own. The TEAM tab is where getting this
+wrong showed first — it paid a flat `m.s3` against a bar four times that, so + ADD PLAYER and
+the last row sat BEHIND the glass with nothing left to scroll.
 
 **No `KeyboardAvoidingView`, deliberately.** Padding the bottom by the keyboard's height cut
 the viewport to a few rows at the exact moment the scorer was working down all fifteen. The
 keyboard sits OVER the list and the list is what moves: `keyboardDismissMode="on-drag"`, so
-one gesture both reaches the next row and puts the keyboard away. Do not add one back here —
+one gesture both reaches the next row and puts the keyboard away.
+
+**BUT THE KEYBOARD'S HEIGHT IS PAID ON THE CONTENT, AS TAIL.** That is not the same thing and
+is the other half of being able to move: with nothing below the last row there is nothing to
+scroll INTO, so the rows the keyboard covers cannot be lifted clear of it. `tail` is
+`max(bar, keyboard) + m.s6` — the two never stack, because a keyboard covers the tab bar too
+— and it is spent on `contentContainerStyle`, so the viewport keeps its full height and all
+that changes is how far the list can be pulled up. Do not add one back here —
 `EditTeamPanel` and the new-game screen keep theirs because they are forms, not lists.
 
 **The jersey field carries a DONE bar on iOS.** `number-pad` is the one keyboard with no
@@ -377,6 +485,47 @@ score. Not the crest, not the roster count, not the jerseys, not the US pill —
 paints nine things with it, which teaches the eye to ignore all nine. The active tab and the
 LIVE banner are the other two places in the app it survives.
 
+**THE BLOOM IS NOT A THIRD.** The gradient behind the header is the accent at 34% falling to
+nothing before the fold, and it is a GROUND rather than a mark: it names nothing, it is behind
+everything, and no control is picked out by it. It exists because a `BlurView` samples what is
+behind it — over a flat slab the glass would be a slightly lighter flat slab, and the bloom is
+what the circle and the cards actually pick up. It is `pointerEvents="none"`, which is
+load-bearing: it covers every control in the header, and a decorative layer that eats taps is
+invisible when it goes wrong.
+
+**AND IT IS `components/ui/Bloom.tsx` NOW, BECAUSE ALL FOUR ROOMS DRAW IT.** Four copies of
+three colour stops and an axis is four chances for one room to sit at a different angle to the
+light than the room next door, which is exactly what the eye catches moving between two tabs.
+Two rules for every caller, and both have bitten: it is the FIRST child of the screen's root
+view, OUTSIDE the padded flow, so it runs edge to edge under the safe-area inset — a gradient
+that starts below the status bar draws a line across the top of the screen, which is the
+opposite of a bloom — and it eats no taps. The stops, the axis and the height live in
+`theme/tokens.ts` (`BLOOM_START` / `BLOOM_END` / `BLOOM_STOPS` / `BLOOM_HEIGHT`, `bloomWash`)
+beside the palette, because a gradient is a raw value like a hex.
+
+**NEW GAME IS THE BACKGROUND MADE INTO A BUTTON, and that is `Btn`'s `bloom` variant.** Not an
+orange slab with a gradient on it: the SAME CONSTRUCTION as the screen behind it — the room's
+near-black `bg` as the fill, with the accent washing across it at falling alpha on the bloom's
+own axis (`bloomFill`). The edge is the accent, because a near-black fill draws no edge against
+a near-black room.
+
+**IT IS DENSER THAN THE WASH AND SOFTER THAN THE RAW ACCENT**, and it is pinned between those
+two by what went wrong at each end. The wash runs 0.34 → 0.07 down half a window; a button is
+forty-eight points tall, and those alphas over a strip that short is a dark slab nobody reads as
+the primary verb — worse, one that reads like the `surface` weight this same button takes while
+a game is live. The other end is the flat `#F26414` slab the variant exists to stop being: at
+full strength the fill is louder than everything it sits among and the gradient in it cannot be
+seen at all. So the ramp is a SOFT orange throughout — **0.82 → 0.56 → 0.30**, the accent
+stepped back off full at the near corner and falling to a warm ember at the far one, which
+leaves the whole width of the button carrying visible movement in one hue. Every stop is that
+one orange over the room's own near-black through `withAlpha`, so there is no new hex.
+
+It is a SEVENTH variant rather than a change to `accent` on purpose: every other accent button
+in the app is on a panel over a light court, where there is no bloom to belong to and where a
+fill that falls to near-black would be a hole. Pressed, the whole ramp steps down to `accent2` —
+down is darker on anything orange — and only the edge is left for `pressedStyle` to move with
+it. While a game is on it still drops to `surface`, which is the whole of what that state says.
+
 ## Architecture
 
 **Six stores, one job each.**
@@ -497,9 +646,9 @@ at the stub the three-point line turns on (203.7). The boundary therefore *steps
 **`ZONE_PATHS` carries the same partition a second time, as eleven exact closed paths, and
 it lives in `lib/court.ts` beside `zoneFor` — with `COURT_LINES` and `RIM`, which are the
 line work.** They were in `CourtSvg.tsx` while that component was the only thing in the app
-that drew a court; the PDF export draws the same floor onto a print sheet, and **two
+that drew a court; the stats screen's own two charts draw the same floor, and **two
 component-local copies of eleven closed paths is exactly what this file exists to prevent**,
-so both renderers read the strings and neither owns them. The only two vertices not read
+so every renderer reads the strings and none of them owns them. The only two vertices not read
 straight off the drawing are where each lane
 extension crosses the arc — `(540.6904, 396.8874)` and `(249.6808, 396.1479)` — and they
 are solved, not eyeballed. **The two sides are not mirrors:** the extensions are symmetric
@@ -507,17 +656,19 @@ about the lane's centre 395, the arc about the basket at 396, so the two crossin
 by three quarters of a unit in `y`.
 
 **`zoneFor` and those path strings change together or not at all**, and `selfcheck`
-enforces it three ways: it rasterises the real `d` strings out of `lib/court.ts` and asserts
+enforces it two ways: it rasterises the real `d` strings out of `lib/court.ts` and asserts
 all 412,632 cells of the viewBox resolve to the zone `zoneFor` names — no gap, no overlap,
 no drift — and it asserts each of the nine bounding lines is still drawn, so a zone edge
 cannot quietly lose its line. It samples at `(px + 0.31, py + 0.27)` rather than at the
 pixel centre: every boundary is an integer, `203.7`, or a slope of `123/245`, and a centre
 lands exactly on one often enough that an inclusive `<=` and a scanline edge rule disagree
-— noise, not drift, and no sample at this offset can sit on a boundary. The third way is the
-sheet: every `<path>` the export emits must be a string `lib/court.ts` owns, so a floor drawn
-onto paper cannot drift off the one on the board.
+— noise, not drift, and no sample at this offset can sit on a boundary. **There was a third
+way and it is gone with the thing it guarded**: the PDF drew the same floor onto paper, so
+every `<path>` the sheet emitted had to be a string this file owns. The sheet draws no floor
+now — see "The export" — and `selfcheck` asserts the opposite instead, that nothing on it
+draws at all.
 
-**The strings are read out of the SOURCE rather than imported**, all three times. What is
+**The strings are read out of the SOURCE rather than imported**, both times. What is
 being checked is the text a human edits; an import would only prove the array agrees with
 itself.
 
@@ -627,7 +778,61 @@ seams. Tiles must be opaque and carry no border and no radius, or the seam disap
 ## Theme and sizing
 
 `theme/tokens.ts` is two layers: a palette (the only place a hex is written) and semantic
-names aliased onto it. **There is exactly one skin and it is light.** The switcher, `auto`,
+names aliased onto it. **THE SKIN IS LIGHT AND THERE IS STILL NO SWITCHER — but there are now
+TWO PALETTES, and `DARK` is the TAB GROUP'S.** It is not the second skin that was cut:
+nothing reads a preference, nothing persists, there is no `auto`, and no user-facing control
+chooses between them. A SUBTREE declares the palette it is drawn in, through a context in
+`theme/useTheme.ts` — which is exactly the seam this file always said `useTheme()` was being
+kept as. Exactly one subtree uses it, and it is `app/(tabs)/_layout.tsx`.
+
+**Doing it in `useTheme()` is what keeps the shared components shared.** `Card`, `Btn`, `Band`,
+`Seam`, `Crest`, `BoxTable` and `ClubCard` all call it internally, so they follow the surface
+they are standing on with no `dark` prop threaded through any of them and no second copy of any
+of them — `ClubCard` is the same card on the dark TEAM tab and on the light new-game picker. The
+provider sits at the GROUP rather than in a screen, because a component cannot provide to its
+own `useTheme()` call, and because four screens declaring it four times is four things to keep
+in step.
+
+**`DARK`'s SURFACES ARE TRANSLUCENT, and that is what makes the glass work.** A card there is a
+`BlurView`, and an opaque child inside one covers the blur completely — so `surface`, `surface2`,
+`rule`, `line` and `press` all carry alpha. The alpha lives in the PALETTE rather than in a
+`glass` prop on each component, for the same reason as above. It is safe because every consumer
+draws on the near-black `bg` with the bloom the only thing between — **do not reuse this palette
+on a screen with a light ground under it**, where a 5% white surface is a surface nobody can
+see. `Card`'s `glass` prop is the opt-in and is still the lobby's alone; everywhere else it
+stays the opaque surface it has always been.
+
+**AND FOUR VIEWS HAVE TO ASK WHETHER IT IS TRANSLUCENT, which is `isTranslucent(p)`.** One
+question, asked of the PALETTE rather than threaded down as a prop — and it reads the surface
+rather than carrying a flag beside it, because a flag is a second fact that can disagree with
+the first. Its readers are the views that paint a GROUND behind something they do not own:
+**`Card`'s shadow wrapper** and the competition card's, which painted `surface` there and again
+on the inner view, compositing the same 5% white twice AND putting an opaque slab in front of
+the bloom (what goes with the fill is Android's `elevation`, which on near-black is a shadow
+nobody can see); and **`PanelHost`'s frame**, which must be OPAQUE whatever the palette says —
+a dialog is a sheet in front of the room, and a 5% white over a scrim is not a sheet but a
+slightly paler hole. The TEAM tab's `InputAccessoryView` is the fourth and does not need to ask:
+it sits over the keyboard with nothing of its own behind it and takes `bg` outright, which is
+the same value `surface2` already was on the light skin.
+
+**THE PANELS ARE INLINE-STYLED NOW, ALL OF THEM.** `PHead`, `PTitleText`, `Pts`, `Note` and
+`Empty` in `components/panels/shell.tsx` carried `className="text-ink"` and friends, and a
+NativeWind class resolves through the CSS variables the ROOT pushes down — which are the LIGHT
+palette's, whatever subtree the panel is actually drawn in. The settings panel over the lobby
+was near-black ink on a near-black sheet. A class and a `useTheme()` read can only agree where
+one palette is in play, so the panels have none left.
+
+**Two of its tokens are deliberately not the light values.** `danger` and `live` both LIFT,
+because `#B3261E` and `#0E8FA3` on near-black are smears rather than colours. Same two hues,
+same two jobs, the versions that survive there.
+
+**AN INVERTED PAIR MUST NOW SURVIVE BOTH PALETTES.** `Crest`'s monogram is the one this caught:
+it was `ink` fill under `surface` ink, correct on light and INVISIBLE on dark, where `ink` is
+near-white and `surface` is a translucent white. It is `bg` now — the one token that is the
+opposite of `ink` in both. `selfcheck`'s fill-without-ink grep cannot see this class of bug: it
+checks that a pair EXISTS, not that it inverts.
+
+The switcher, `auto`,
 the dark palette and the two frosted ones were built and cut — a scorer picks a theme once
 and never again, and every branch that served the choice was paying for a decision nobody
 makes at courtside. The blur in `Surface`, the `bgWash` gradient in `_layout` and the
@@ -635,6 +840,50 @@ makes at courtside. The blur in `Surface`, the `bgWash` gradient in `_layout` an
 constant wearing a hook's name: it reads no state and never causes a render. The two-layer
 split survives because it is what keeps the hexes in one place, not because a second skin is
 coming — **do not add one back without being asked.**
+
+**THE SKIN IS ORANGE AND THE GREYS ARE WARM.** `accent` is `#F26414`; the ink ramp is anchored
+on a near-black `#050505` and every grey above it carries warmth, because a cool blue-grey ramp
+under a saturated orange reads as two palettes sharing a screen. **The court is the one surface
+left slightly cool** — it is the backdrop the orange marks are read against, and it is the only
+place the contrast is worth the seam.
+
+**THREE HUES DO THREE JOBS, AND THEY DO NOT TRADE.**
+
+| hue | means | where |
+|---|---|---|
+| `accent` orange | OURS — the primary action, our score, a made shot, the active tab | the four places accent has always been |
+| `live` teal | NOW — in progress, unresolved | the running clock, the lobby's LIVE dot, the court's tap mark |
+| `danger` red | this destroys something, or it has stopped | destructive verbs, the stopped clock, an unavailable player |
+
+**`live` IS THE RETIRED ACCENT, not a fourth hue.** When accent was teal it sat opposite red and
+the footer's clock could carry run/stop in ink alone. Orange does not, so rather than invent a
+colour the teal kept the one job that needed it. `mark` aliases the same raw for the same
+reason: a tap not yet resolved into a make or a miss is the same "in progress" a running clock
+is — and it must NOT be orange, because two dots away orange means MADE, which is exactly what
+the tap mark exists to be distinct from.
+
+**`accent2` is the pressed accent and it is DARKER, never fainter.** It had no caller for a long
+time and has exactly one now: a filled accent button. `opacity` fades a saturated orange toward
+a warm canvas of nearly the same hue, so the primary button read as going PALE under the thumb
+instead of going down. Every other `Btn` variant keeps the fade — none of them is orange.
+
+**CARDS AND PANELS FLOAT; THE BOARD DOES NOT.** `ELEV_CARD` / `ELEV_LIFT` / `ELEV_PANEL` are the
+whole ramp and they live in `tokens.ts` beside the palette, because a shadow is a raw value like
+a hex. **The court, the rail, the footer and every tile grid stay flat**, and that is not an
+omission: the 1px seam that divides a tile grid IS the grid, and a tile that lifts casts onto its
+neighbour and eats the seam it is defined by.
+
+**A SHADOW AND A CLIP CANNOT SHARE A VIEW.** `overflow:'hidden'` is `clipsToBounds` on iOS, so a
+card that clips its children to its corner radius clips its own shadow with them. `Card` is
+therefore TWO views — the outer carries the fill, the radius and the elevation, the inner carries
+the same radius plus the clip — and `season.tsx`'s competition card wraps its `Press` the same
+way. Android has the second half of the same trap: `elevation` draws nothing without an opaque
+`backgroundColor` on the same view. Every step writes both platforms out; a step that set only
+one would be flat on the other, which is how a depth pass half-lands.
+
+**`PanelHost` is the one deliberate exception** — its frame keeps the shadow and the clip on one
+view. Every mode except `dock` already sits on a scrim, which is doing the separating a shadow
+would, so if the clip eats it on iOS the panel loses a refinement and not its legibility.
 
 NativeWind resolves colours through CSS variables rather than literals: the root view
 writes the palette with `vars()`, so a `bg-surface` class and a `useTheme()` read can
@@ -663,6 +912,27 @@ crosses over the clock reads `07:2…` rather than throwing.
 Custom fonts have no numeric weight axis in RN, so a weight is a family name — `fNum()` /
 `fUi()` are the only place that mapping lives. **Tabular numerals everywhere a number can
 change**, so a tick never shifts the layout.
+
+**THE FACE IS HELVETICA NEUE, AND IT IS ONE FACE FOR THE NUMBERS AND THE WORDS ALIKE.** Chakra
+Petch had the numbers and is gone with its package: a squared display face made the board look
+like a scoreboard graphic, and the numbers on it are read, not admired. `fNum` and `fUi` still
+both exist — they differ in weight and tracking now, not in family.
+
+**AND IT IS SPLIT BY PLATFORM, exactly as the tab bar is.** Helvetica Neue is an Apple face:
+free and already installed on iOS, and simply absent on Android, where bundling it would need
+a licence this project does not have. **Android keeps Inter** — the closest neo-grotesque that
+was already a dependency — so the split costs no new package on either side. On iOS a weight
+is a POSTSCRIPT NAME (`HelveticaNeue-Medium`), because that is the convention every component
+here is already written to; note the family ships **no SemiBold**, so 600 resolves to Medium,
+which is a real face rather than a synthesised one. Both faces carry tabular figures, which is
+load-bearing and not a nicety — the footer's clock would shift the middle block once a second
+without them.
+
+**`theme/tokens.ts` MAY NOT IMPORT `react-native`**, which is why the platform is read off
+`process.env.EXPO_OS` rather than `Platform.OS`. `lib/pdf.ts` imports `PALETTE` from it and
+`npm run check` runs that under plain node, where a `react-native` import throws on the first
+line of Flow it meets. `babel-preset-expo` inlines the constant at build time; under node it
+is `undefined` and lands on the Inter branch, which the script never reads anyway.
 
 ## Layout
 
@@ -977,10 +1247,18 @@ on — and that component is the only part of the export that needs a phone.
 knows, and the one difference is the one this app has always had: the other side is a single
 integer, so where a FIBA sheet prints a second roster this one prints their score, their
 quarters and the two scoreboard numbers a single integer can honestly support. In order: the
-scoreline and the period line, the twenty-one-column box score, the four team blocks, the two
-courts and the zone table, then **every play, oldest first** — which is the one place the
-document deliberately disagrees with the screen, because the board's log is newest-first for a
-scorer checking what just happened and a sheet is read start to finish.
+scoreline and the period line, the twenty-one-column box score, the four team blocks, and the
+zone table.
+
+**IT DRAWS NO FLOOR AND CARRIES NO PLAY LOG, and it did both.** The two courts were on it and
+so was every play, oldest first — the one place the document deliberately disagreed with the
+screen, because the board's log is newest-first for a scorer checking what just happened.
+Both are cut. A chart is a thing you LOOK at and a play log is a hundred rows you SCROLL, and
+the screen is where both of those work: `app/history/[id].tsx` has the same floor, tappable,
+and the same log, in a list. The sheet is the scorebook — the numbers, in the shape a scorer
+already knows — and it is a page and a bit shorter for it. **What survives of the floor is the
+ZONE TABLE**, because a shooting split is a number and not a picture; `selfcheck` asserts the
+page holds no `<svg>`, no `<path>` and no play line at all, so neither creeps back.
 
 **The numbers are the screen's own.** It calls the same `report(g, null)` the tab above the
 button calls, so the sheet cannot drift from what the scorer was just looking at, and
@@ -1250,10 +1528,25 @@ which has the most slack of the three — is where it comes from.
 **The clock and the quarter are two cells with a rule between them.** They are two different
 controls and were once told apart only by sharing a tint. There is still no PLAY button and
 no CLOCK button — the time IS the clock control — but **its state is carried by the ink, not
-by a fill**: the red/green gradient behind the pair is gone, a running clock reads accent and
-a stopped one reads danger. Stopped is still the base state, so a board nobody has touched
+by a fill**: the red/green gradient behind the pair is gone, a running clock reads **`live`**
+and a stopped one reads danger. Stopped is still the base state, so a board nobody has touched
 still reads red — which is true. `clockRun` / `clockStop` / `clockInk` went with the
 gradient; the palette has no dead entries.
+
+**RUNNING IS `live` AND NOT `accent`, and that is the whole reason `live` exists.** It used to
+be `accent`, back when accent was teal and sat opposite red on the wheel. Accent is ORANGE now
+and lands about twenty degrees from `danger` — a difference a considered look can make and a
+GLANCE FROM THE BENCH cannot, on the one cell that means one thing running and the opposite
+stopped. So the teal did not leave the palette when it lost the accent slot; it moved to the
+job it was always doing best. See "Theme and sizing".
+
+**AND THAT INK STANDS DOWN WHILE A PANEL IS OPEN**, taking `ink2` for as long as anything is
+over the board. The scrim darkens a FILL and not a GLYPH — 45% black turns the footer's white
+to grey and leaves every label on it legible — so the clock is the one coloured thing left in
+the row, sitting directly beside the quarter cell, which is the one control the scrim actually
+cuts a hole for. Two cells reading as lit is one too many, and it was reported as exactly that.
+Nobody checks whether the clock is running through a modal; the quarter panel prints the time
+in its own header anyway.
 
 **POSS took END's cell, and END's arming went with it.** Ending a game is a once-a-night
 decision and now lives on the quarter panel next to the other thing that ends; the confirm

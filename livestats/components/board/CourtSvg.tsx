@@ -25,9 +25,9 @@ import type { Zone, ZoneSide } from '../../types';
  * boundary steps at x = 68 / 724, and `lib/court.ts` says exactly that.
  *
  * THIS FILE NO LONGER CARRIES THE PARTITION. It did while it was the only
- * thing in the app that drew a court; the PDF export draws the same floor onto
- * a print sheet, and two component-local copies of eleven closed paths is the
- * one thing `lib/court.ts` exists to prevent. So both renderers read
+ * thing in the app that drew a court; the stats screen draws the same floor
+ * twice over, and two component-local copies of eleven closed paths is the
+ * one thing `lib/court.ts` exists to prevent. So every renderer reads
  * `ZONE_PATHS` and `COURT_LINES`, and `lib/selfcheck.ts` rasterises those.
  *
  * The zones are never hit-tested — the wrapper owns the pointer — and only the

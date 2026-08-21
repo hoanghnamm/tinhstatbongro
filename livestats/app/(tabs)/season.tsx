@@ -5,9 +5,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SeasonTable } from '../../components/stats/SeasonTable';
 import { Band, Seam, Seg, Tile, type SegItem } from '../../components/stats/parts';
+import { Bloom } from '../../components/ui/Bloom';
 import { Press } from '../../components/ui/Press';
 import { Col, Row } from '../../components/ui/Row';
 import { useSavedGames } from '../../hooks/useSavedGames';
+import { useTabInset } from '../../hooks/useTabInset';
 import {
   competitions,
   officialIn,
@@ -20,7 +22,7 @@ import { competitionLabel } from '../../lib/team';
 import { useHistoryStore } from '../../store/historyStore';
 import { useRosterStore } from '../../store/rosterStore';
 import { useMetrics } from '../../theme/metrics';
-import { LS_BTN, LS_LABEL, fNum, fUi, ls } from '../../theme/tokens';
+import { ELEV_CARD, LS_BTN, LS_LABEL, fNum, fUi, isTranslucent, ls } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 
 const MODES: SegItem<SeasonMode>[] = [
@@ -73,40 +75,58 @@ function CompCard({ comp, onPress }: { comp: CompetitionSeason; onPress(): void 
   const name = competitionLabel(comp.name);
 
   return (
-    <Press
-      onPress={onPress}
-      accessibilityLabel={`${name}, ${gamesLabel(S.games).toLowerCase()}`}
+    // the shadow lives on the wrapper and the clip on the Press, for the same
+    // reason `Card` is two views: one view cannot both clip its children to a
+    // radius and cast outside its own bounds. Pressing dims the card AND its
+    // shadow together, which is what makes the opacity press read as the card
+    // settling rather than as its ink fading.
+    //
+    // …and the wrapper's fill goes on a translucent palette, exactly as
+    // `Card`'s does: a 5% white painted here and again on the `Press` is the
+    // same surface composited twice, and it would put an opaque slab in front
+    // of the bloom this card is meant to sit in.
+    <View
       style={{
-        borderWidth: 1,
-        borderColor: t.rule,
         borderRadius: m.r,
-        overflow: 'hidden',
-        backgroundColor: t.surface,
+        backgroundColor: isTranslucent(t) ? 'transparent' : t.surface,
+        ...ELEV_CARD,
       }}
-      pressedStyle={{ opacity: 0.6 }}
     >
-      <Band
-        label={`${gamesLabel(S.games)} · ${record(S)}`}
-        note={
-          <Text
-            numberOfLines={1}
-            style={{
-              fontFamily: fNum(700),
-              fontSize: m.fsXs,
-              letterSpacing: ls(m.fsXs, LS_LABEL),
-              color: t.ink,
-            }}
-          >
-            {name}
-          </Text>
-        }
-      />
-      <Seam>
-        <Tile value={avg(S.team.pts, S.games)} label="POINTS" />
-        <Tile value={avg(S.team.reb, S.games)} label="REBOUNDS" />
-        <Tile value={avg(S.team.ast, S.games)} label="ASSISTS" />
-      </Seam>
-    </Press>
+      <Press
+        onPress={onPress}
+        accessibilityLabel={`${name}, ${gamesLabel(S.games).toLowerCase()}`}
+        style={{
+          borderWidth: 1,
+          borderColor: t.rule,
+          borderRadius: m.r,
+          overflow: 'hidden',
+          backgroundColor: t.surface,
+        }}
+        pressedStyle={{ opacity: 0.6 }}
+      >
+        <Band
+          label={`${gamesLabel(S.games)} · ${record(S)}`}
+          note={
+            <Text
+              numberOfLines={1}
+              style={{
+                fontFamily: fNum(700),
+                fontSize: m.fsXs,
+                letterSpacing: ls(m.fsXs, LS_LABEL),
+                color: t.ink,
+              }}
+            >
+              {name}
+            </Text>
+          }
+        />
+        <Seam>
+          <Tile value={avg(S.team.pts, S.games)} label="POINTS" />
+          <Tile value={avg(S.team.reb, S.games)} label="REBOUNDS" />
+          <Tile value={avg(S.team.ast, S.games)} label="ASSISTS" />
+        </Seam>
+      </Press>
+    </View>
   );
 }
 
@@ -147,11 +167,19 @@ function CompCard({ comp, onPress }: { comp: CompetitionSeason; onPress(): void 
  * same numbers cut the way a scorer keeps them — a league run is a thing you
  * are having a good or a bad one of, and the whole-season line answers a
  * different question. Each card is a way in to its own page.
+ *
+ * IT IS DRAWN ON BLACK with the other three rooms, and the only line on this
+ * screen that knows it is the `<Bloom />` below — the palette is declared once
+ * for the whole group in `app/(tabs)/_layout.tsx`, and `CompCard`, `Seg` and
+ * `BoxTable` all follow it without being told. `app/competition.tsx`, which is
+ * this screen over one slice, sits OUTSIDE the group and stays light: it is a
+ * page you go into and come back out of, like a saved game's own.
  */
 export default function SeasonScreen() {
   const m = useMetrics();
   const t = useTheme();
   const safe = useSafeAreaInsets();
+  const bar = useTabInset();
 
   const index = useHistoryStore((s) => s.index);
   const roster = useRosterStore((s) => s.players);
@@ -180,6 +208,8 @@ export default function SeasonScreen() {
         paddingRight: safe.right + m.s4,
       }}
     >
+      <Bloom />
+
       <Row gap={m.s2} style={{ minHeight: m.tap, flexGrow: 0, flexShrink: 0 }}>
         <Text
           numberOfLines={1}
@@ -225,7 +255,7 @@ export default function SeasonScreen() {
         <ScrollView
           style={{ flex: 1, marginTop: m.s3 }}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: safe.bottom + m.s5 }}
+          contentContainerStyle={{ paddingBottom: bar + m.s5 }}
         >
           {S ? (
             <Col gap={m.s3}>

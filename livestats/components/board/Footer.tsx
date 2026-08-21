@@ -51,6 +51,12 @@ function Divider() {
  * quarter of the paint. Stopped is the base state, so a board nobody has
  * touched still reads red.
  *
+ * **And that ink stands down while a panel is open.** The scrim darkens the
+ * FILL and not the glyph, so a coloured clock survives it intact and goes on
+ * reading "on" — directly beside the quarter cell, which is the one control the
+ * scrim genuinely cuts a hole for. Two things reading as lit is one too many, so
+ * the clock takes `ink2` for as long as anything is over the board.
+ *
  * POSS is where END used to be. Ending a game is a once-a-night decision and it
  * now lives on the quarter panel behind the period label, next to the other
  * thing that ends; a possession is tapped dozens of times and belongs on the
@@ -166,8 +172,21 @@ export function Footer() {
               style={{
                 fontFamily: fNum(700),
                 fontSize: m.fsFtr,
-                // the clock's state, in ink rather than in a fill
-                color: running ? t.accent : t.danger,
+                // the clock's state, in ink rather than in a fill — and the ink
+                // STANDS DOWN while a panel is up. The scrim darkens fills, not
+                // glyphs, so under it this is the only coloured thing left in
+                // the row and it goes on reading "on" right beside the one cell
+                // that is genuinely lit. Nobody glances at a run/stop state
+                // through a modal; the quarter panel prints the time in its own
+                // header anyway.
+                //
+                // RUNNING IS `live`, NOT `accent`. This one cell means one
+                // thing running and the opposite stopped, and it is read at a
+                // glance from the bench — `accent` is orange now and lands
+                // twenty degrees from `danger`, which is not a difference a
+                // glance can make. `live` is the teal that used to be the
+                // accent, kept for exactly this.
+                color: panel ? t.ink2 : running ? t.live : t.danger,
                 textAlign: 'center',
                 fontVariant: ['tabular-nums'],
               }}

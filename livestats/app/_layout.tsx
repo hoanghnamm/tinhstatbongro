@@ -7,9 +7,6 @@ import { Stack } from 'expo-router';
 import { useFonts } from 'expo-font';
 // deep imports on purpose: the package roots re-export every weight and italic,
 // which drags ~10MB of unused TTF into the bundle
-import { ChakraPetch_500Medium } from '@expo-google-fonts/chakra-petch/500Medium';
-import { ChakraPetch_600SemiBold } from '@expo-google-fonts/chakra-petch/600SemiBold';
-import { ChakraPetch_700Bold } from '@expo-google-fonts/chakra-petch/700Bold';
 import { Inter_400Regular } from '@expo-google-fonts/inter/400Regular';
 import { Inter_500Medium } from '@expo-google-fonts/inter/500Medium';
 import { Inter_600SemiBold } from '@expo-google-fonts/inter/600SemiBold';
@@ -48,10 +45,15 @@ function Root() {
 }
 
 export default function RootLayout() {
+  /**
+   * INTER ONLY, AND ON iOS IT IS NOT EVEN USED. The type is Helvetica Neue,
+   * which is an Apple system face: it needs no loading and cannot be bundled.
+   * Inter is what Android draws instead — see `fUi`/`fNum` — so these four are
+   * loaded on both platforms rather than behind a branch, because a
+   * conditional hook is worse than four unused faces on a phone that has them
+   * cached anyway.
+   */
   const [ready] = useFonts({
-    ChakraPetch_500Medium,
-    ChakraPetch_600SemiBold,
-    ChakraPetch_700Bold,
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,

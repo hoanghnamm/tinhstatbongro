@@ -9,10 +9,9 @@
  *
  * WHAT IS IN IT IS THE WHOLE GAME AND ONLY THE WHOLE GAME. The button sits at
  * the foot of TEAM / ALL, which is the one place on the stats screen looking at
- * the entire game, and the sheet says the same: the box score, the team line,
- * the floor, every zone and every play in the order it happened. A quarter is
- * a thing you read on screen with a toggle; a document with four box scores in
- * it is four documents.
+ * the entire game, and the sheet says the same: the box score, the team line
+ * and every zone. A quarter is a thing you read on screen with a toggle; a
+ * document with four box scores in it is four documents.
  *
  * The layout is the one every scorer already knows — a FIBA box score — with
  * the one difference this app has always had: THERE IS ONE TEAM. The other
@@ -20,30 +19,22 @@
  * one prints their score, their quarters, and the two scoreboard numbers a
  * single integer can honestly support.
  *
- * The floor is drawn from `lib/court.ts`'s own strings, the same ones
- * `CourtSvg` draws, because a second copy of the partition is the one thing
- * that file exists to prevent.
+ * IT DRAWS NO FLOOR AND CARRIES NO PLAY LOG, and both were on it. The two
+ * courts and the play-by-play are things you READ — a chart to look at and a
+ * hundred rows to scroll — and the screen is where you look at them, on a
+ * page that can scroll and a floor that can be tapped. The sheet is the
+ * scorebook: the numbers, in the shape a scorer already knows. What survives
+ * of the floor is the ZONE TABLE, because a shooting split is a number.
  */
 import { FOUL_KINDS, ZONE_LABEL } from '../constants/game';
-import { PALETTE, withAlpha } from '../theme/tokens';
-import {
-  BREAK_WINDOW,
-  freeThrowsIn,
-  periodsOf,
-  report,
-  shotsIn,
-  zoneRows,
-  type Report,
-  type ShotMark,
-} from './box';
-import { COURT_H, COURT_LINES, COURT_W, FT_SPOT, RIM, ZONE_PATHS } from './court';
-import { describe } from './describe';
+import { PALETTE } from '../theme/tokens';
+import { BREAK_WINDOW, periodsOf, report, zoneRows, type Report } from './box';
 import { mmss, pct } from './format';
 import { numDateLabel } from './history';
 import { appeared } from './season';
 import { efficiency, efg, plusMinus, ts } from './stats';
 import { competitionLabel, opponentLabel } from './team';
-import type { GameEvent, GameState, Player } from '../types';
+import type { GameState, Player } from '../types';
 
 /* ------------------------------------------------------------------ *
  * The small print
@@ -126,57 +117,6 @@ export function periodScores(g: GameState): PeriodScore[] {
     else if ((e.type === 'shot' || e.type === 'freeThrow') && e.result === 'made') r.us += e.value;
   }
   return rows;
-}
-
-/* ------------------------------------------------------------------ *
- * The floor, as print
- * ------------------------------------------------------------------ */
-
-const courtBase = (): string =>
-  `<rect x="0" y="0" width="${COURT_W}" height="${COURT_H}" fill="${PALETTE.court}"/>`;
-
-const courtLines = (): string =>
-  COURT_LINES.map(
-    (d) => `<path d="${d}" fill="none" stroke="${PALETTE.courtLine}" stroke-width="2"/>`,
-  ).join('') +
-  `<circle cx="${RIM.cx}" cy="${RIM.cy}" r="${RIM.r}" fill="${PALETTE.courtLine}"/>`;
-
-/**
- * THE FLOOR: every shot where it was taken, and ONE red dot for the free
- * throws however many were taken, because every one of them is logged at the
- * same coordinate. The same grammar the board's own chart uses.
- */
-function shotChart(shots: ShotMark[], ft: { m: number; a: number }): string {
-  const r = 9;
-  const dots = shots
-    .map(
-      (s) =>
-        `<circle cx="${(s.x * COURT_W).toFixed(1)}" cy="${(s.y * COURT_H).toFixed(1)}" r="${r}" fill="${
-          s.made ? PALETTE.accent : PALETTE.markMiss
-        }" stroke="${s.made ? PALETTE.accent : PALETTE.ink3}" stroke-width="1.5"/>`,
-    )
-    .join('');
-  const line =
-    ft.a > 0
-      ? `<circle cx="${FT_SPOT.x * COURT_W}" cy="${FT_SPOT.y * COURT_H}" r="${r}" fill="${PALETTE.danger}"/>`
-      : '';
-  return `<svg viewBox="0 0 ${COURT_W} ${COURT_H}" class="court">${courtBase()}${courtLines()}${dots}${line}</svg>`;
-}
-
-/**
- * BY ZONE: the same marks, bucketed. Opacity carries the percentage and starts
- * at 0.18 rather than 0 — a zone shot five times and missed five times is not
- * the same thing as a zone never shot from.
- */
-function zoneChart(rep: Report): string {
-  const heat = zoneRows(rep.zones).reduce<Record<string, string>>((acc, r) => {
-    if (r.a > 0) acc[r.zone] = withAlpha(PALETTE.accent, 0.18 + 0.52 * (r.m / r.a));
-    return acc;
-  }, {});
-  const fills = ZONE_PATHS.map((z) =>
-    heat[z.zone] ? `<path d="${z.d}" fill="${heat[z.zone]}"/>` : '',
-  ).join('');
-  return `<svg viewBox="0 0 ${COURT_W} ${COURT_H}" class="court">${courtBase()}${fills}${courtLines()}</svg>`;
 }
 
 /* ------------------------------------------------------------------ *
@@ -278,43 +218,6 @@ const block = (title: string, rows: string): string =>
   `<table class="kv"><thead><tr><th colspan="3" class="l">${title}</th></tr></thead><tbody>${rows}</tbody></table>`;
 
 /* ------------------------------------------------------------------ *
- * The play log
- *
- * OLDEST FIRST, which is the one place this document deliberately disagrees
- * with the screen. The board's list is newest first because a scorer is
- * checking what just happened; a sheet is read start to finish. It is cut into
- * periods for the same reason — a quarter is where a reader looks something up.
- * ------------------------------------------------------------------ */
-
-function plays(g: GameState): string {
-  const byId = (id: string): Player | undefined => g.players.find((p) => p.id === id);
-  const row = (e: GameEvent): string => {
-    const p = e.playerId ? byId(e.playerId) : undefined;
-    // an oppPoint's `value` is THEIR points, so the type is checked first
-    const value = e.type !== 'oppPoint' && 'value' in e ? e.value : 0;
-    return `<tr><td class="n">${e.gameClock}</td><td class="n">${p ? p.number : '—'}</td><td class="l">${esc(
-      p ? nameOf(p) : opponentLabel(g.opponent),
-    )}</td><td class="l">${esc(describe(e, byId))}</td><td class="n">${
-      value ? `+${value}` : ''
-    }</td></tr>`;
-  };
-
-  const tables = periodsOf(g)
-    .map((period) => {
-      const rows = g.events.filter((e) => e.period === period);
-      if (!rows.length) return '';
-      return `<table class="log"><thead><tr><th colspan="5" class="l">${periodLabel(
-        period,
-      )}</th></tr><tr><th class="n">Clock</th><th class="n">No</th><th class="l">Player</th><th class="l">Play</th><th class="n">Pts</th></tr></thead><tbody>${rows
-        .map(row)
-        .join('')}</tbody></table>`;
-    })
-    .join('');
-
-  return tables || '<div class="legend">No plays were recorded.</div>';
-}
-
-/* ------------------------------------------------------------------ *
  * The sheet
  * ------------------------------------------------------------------ */
 
@@ -354,6 +257,7 @@ const CSS = `
   .box td.l { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px; }
   .box .tot td { background: ${PALETTE.surface2}; font-weight: 700; }
   .box .dnp { color: ${PALETTE.ink3}; letter-spacing: 0.12em; }
+  .zones { width: 46%; min-width: 210px; }
 
   .cols { display: flex; gap: 8px; align-items: flex-start; }
   .cols > * { flex: 1; min-width: 0; }
@@ -362,18 +266,8 @@ const CSS = `
   .kv td.s { width: 42px; color: ${PALETTE.ink2}; }
   .kv th { letter-spacing: 0.09em; text-transform: uppercase; }
 
-  .court { width: 100%; height: auto; display: block; }
-  .chart { border: 1px solid ${PALETTE.rule}; padding: 3px; }
-  .cap { text-align: center; font-size: 7.5px; letter-spacing: 0.07em; color: ${PALETTE.ink2}; padding-top: 3px; }
-  .key { display: flex; gap: 9px; justify-content: center; padding-top: 4px; font-size: 7.5px; color: ${PALETTE.ink2}; }
-  .key i { display: inline-block; width: 7px; height: 7px; border-radius: 7px; margin-right: 3px; }
-
-  .log { margin-bottom: 7px; page-break-inside: auto; }
-  .log tr { page-break-inside: avoid; }
-  .log thead { display: table-header-group; }
   .legend { margin-top: 8px; font-size: 7.5px; color: ${PALETTE.ink2}; line-height: 1.7; }
   .legend b { color: ${PALETTE.ink}; }
-  .break { page-break-before: always; }
 `;
 
 /**
@@ -389,8 +283,6 @@ export function gameReportHtml(g: GameState, at: number = Date.now()): string {
   const a = rep.advanced;
   const margin = rep.us - rep.them;
   const qs = periodScores(g);
-  const shots = shotsIn(g.events, null);
-  const ft = freeThrowsIn(g.events, null);
 
   const quarterLine = qs.map((q) => `${q.us}-${q.them}`).join(', ');
   const foulSplit = T.tf + T.fl ? `${T.tf}T ${T.fl}F` : '';
@@ -505,35 +397,11 @@ export function gameReportHtml(g: GameState, at: number = Date.now()): string {
   </div>
 </div>
 
-<h2>The floor</h2>
-<div class="cols">
-  <div class="chart">
-    ${shotChart(shots, ft)}
-    <div class="key">
-      <span><i style="background:${PALETTE.accent}"></i>MADE</span>
-      <span><i style="background:${PALETTE.markMiss};border:1px solid ${PALETTE.ink3}"></i>MISS</span>
-      <span><i style="background:${PALETTE.danger}"></i>FREE THROWS ${ft.m}/${ft.a}</span>
-    </div>
-    <div class="cap">EVERY SHOT, WHERE IT WAS TAKEN</div>
-  </div>
-  <div class="chart">
-    ${zoneChart(rep)}
-    <div class="cap">BY ZONE &mdash; THE DARKER THE FILL, THE HIGHER THE PERCENTAGE</div>
-  </div>
-  <div>
-    <table>
-      <thead><tr><th class="l">Zone</th><th>M/A</th><th>%</th></tr></thead>
-      <tbody>${zoneTable}</tbody>
-    </table>
-    <div class="legend">
-      A free throw is logged at the centre of the line and carries <b>no zone</b>: it is not a
-      field-goal attempt, so no zone counts it.
-    </div>
-  </div>
-</div>
-
-<h2 class="break">Play by play</h2>
-${plays(g)}
+<h2>By zone</h2>
+<table class="zones">
+  <thead><tr><th class="l">Zone</th><th>M/A</th><th>%</th></tr></thead>
+  <tbody>${zoneTable}</tbody>
+</table>
 
 <div class="legend">
   <b>*</b> Game starter &nbsp; <b>DNP</b> Did not play &nbsp; <b>M/A</b> Made / attempted &nbsp;
@@ -548,7 +416,8 @@ ${plays(g)}
   our offensive rebounds, before the possession ends. <b>Fast break points</b> is points within
   ${BREAK_WINDOW} seconds of a steal or a defensive rebound, measured on the GAME CLOCK, so a clock
   left stopped makes it read high. <b>Minutes</b> are clock-driven, so a period ended early hands its
-  unplayed tail to whoever was on the floor.
+  unplayed tail to whoever was on the floor. A <b>free throw</b> is logged at the centre of the line
+  and carries no zone: it is not a field-goal attempt, so no zone counts it.
 </div>
 
 </body></html>`;

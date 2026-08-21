@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react';
 import { Text, View } from 'react-native';
+import { BlurView } from 'expo-blur';
 
 import { Press } from '../ui/Press';
 import { Col, Row } from '../ui/Row';
 import { useMetrics } from '../../theme/metrics';
-import { LS_BTN, LS_LABEL, fNum, fUi, ls } from '../../theme/tokens';
+import { ELEV_CARD, LS_BTN, LS_LABEL, fNum, fUi, isTranslucent, ls } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 
 /**
@@ -186,20 +187,62 @@ export function Band({
   );
 }
 
-export function Card({ children }: { children: ReactNode }) {
+/**
+ * A card, and it FLOATS — two views, not one, and the split is the point.
+ *
+ * The shadow and the clip cannot sit on the same view: `overflow:'hidden'` is
+ * `clipsToBounds` on iOS, and a card that clips its own children to the corner
+ * radius will clip its own shadow with them. So the OUTER view carries the fill,
+ * the radius and the elevation, and the INNER one carries the same radius plus
+ * the clip that keeps a `Band` or a `Seam` from squaring off the corners.
+ *
+ * The hairline stays under the shadow rather than being replaced by it. The
+ * canvas is a warm off-white and the card is pure white — a hair apart — so the
+ * shadow reads as lift and the rule is still what draws the actual edge.
+ */
+export function Card({ children, glass = false }: { children: ReactNode; glass?: boolean }) {
   const m = useMetrics();
   const t = useTheme();
+
+  // GLASS IS OPT-IN, and its callers are the cards that sit UNDER THE BLOOM —
+  // the lobby's, which is where the gradient is strongest and where a blur
+  // therefore has something worth sampling. Everywhere else this stays the
+  // opaque surface it has always been: a frosted card over a flat canvas is a
+  // flat card that costs a render pass, and on the board it would be contrast
+  // spent on decoration. Do not pass it from a light screen.
+  const inner = {
+    borderWidth: 1,
+    borderColor: glass ? 'rgba(255,255,255,0.12)' : t.rule,
+    borderRadius: m.r,
+    overflow: 'hidden' as const,
+  };
+
   return (
     <View
       style={{
-        borderWidth: 1,
-        borderColor: t.rule,
         borderRadius: m.r,
-        overflow: 'hidden',
-        backgroundColor: t.surface,
+        // the shadow needs an opaque ground on Android, and a glass card has
+        // none — so the wrapper carries the fill even when the blur is what is
+        // actually seen. Under the blur it reads as the tint it is sampling.
+        //
+        // ON A TRANSLUCENT PALETTE IT CARRIES NOTHING, and that is the third
+        // case rather than an omission: painting `surface` here and again on
+        // the inner view composites a 5% white over a 5% white, so the card
+        // comes out a step lighter than the token says AND blocks the bloom it
+        // is meant to sit in. What is lost with the fill is Android's
+        // `elevation`, which on near-black is a shadow nobody can see anyway.
+        backgroundColor:
+          glass ? 'rgba(10,7,5,0.35)' : isTranslucent(t) ? 'transparent' : t.surface,
+        ...ELEV_CARD,
       }}
     >
-      {children}
+      {glass ? (
+        <BlurView intensity={28} tint="dark" style={inner}>
+          {children}
+        </BlurView>
+      ) : (
+        <View style={{ ...inner, backgroundColor: t.surface }}>{children}</View>
+      )}
     </View>
   );
 }

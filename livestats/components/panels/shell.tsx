@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { ScrollView, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
 
 import { chunk, gridFor } from '../../lib/grid';
@@ -7,7 +8,17 @@ import { tileWords } from '../../lib/labels';
 import { useGameStore } from '../../store/gameStore';
 import { useUiStore } from '../../store/uiStore';
 import { useMetrics } from '../../theme/metrics';
-import { LS_BTN, LS_LABEL, fNum, fUi, ls } from '../../theme/tokens';
+import {
+  BLOOM_END,
+  BLOOM_START,
+  BLOOM_STOPS,
+  LS_BTN,
+  LS_LABEL,
+  bloomFill,
+  fNum,
+  fUi,
+  ls,
+} from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 import { Badge } from '../ui/Badge';
 import { Press } from '../ui/Press';
@@ -26,12 +37,15 @@ export { Badge, Tile };
 
 export function PHead({ children }: { children: ReactNode }) {
   const m = useMetrics();
+  const t = useTheme();
   return (
     <UIRow
       gap={m.s2}
       align="center"
-      className="border-b border-rule"
-      style={{ flexGrow: 0, flexShrink: 0, minHeight: m.tap, paddingLeft: m.s3 }}
+      style={{
+        flexGrow: 0, flexShrink: 0, minHeight: m.tap, paddingLeft: m.s3,
+        borderBottomWidth: 1, borderBottomColor: t.rule,
+      }}
     >
       {children}
     </UIRow>
@@ -40,12 +54,15 @@ export function PHead({ children }: { children: ReactNode }) {
 
 export function PTitleText({ children }: { children: ReactNode }) {
   const m = useMetrics();
+  const t = useTheme();
   return (
     <Text
       numberOfLines={1}
       ellipsizeMode="tail"
-      className="text-ink"
-      style={{ flexShrink: 1, minWidth: 0, fontFamily: fNum(700), fontSize: m.fsLg }}
+      style={{
+        flexShrink: 1, minWidth: 0,
+        fontFamily: fNum(700), fontSize: m.fsLg, color: t.ink,
+      }}
     >
       {children}
     </Text>
@@ -58,13 +75,13 @@ export function PTitleText({ children }: { children: ReactNode }) {
  */
 export function Pts({ children }: { children: ReactNode }) {
   const m = useMetrics();
+  const t = useTheme();
   return (
     <Text
       numberOfLines={1}
-      className="text-ink-2"
       style={{
         flexGrow: 0, flexShrink: 0,
-        fontFamily: fNum(500), fontSize: m.fsMd,
+        fontFamily: fNum(500), fontSize: m.fsMd, color: t.ink2,
         fontVariant: ['tabular-nums'],
       }}
     >
@@ -389,24 +406,40 @@ export function Btn({
    * around it, one step quieter than `solid` and one louder than `plain`. It
    * exists because a screen with three stacked buttons needs three weights —
    * on a panel, where every button sits in a row of two, `plain` was enough.
+   *
+   * `bloom` IS THE BACKGROUND, MADE INTO A BUTTON: the near-black ground of the
+   * four rooms with the accent washing across it on the bloom's own axis — the
+   * same construction as the screen behind it, at a weight a control can carry.
+   * It is a SEVENTH variant rather than a change to `accent` on purpose: every
+   * accent button on the board sits on a panel over a light court, where there
+   * is no bloom to belong to and where a fill that falls to near-black would be
+   * a hole. Its one caller is NEW GAME, and it is drawn on `DARK` only.
    */
-  variant?: 'plain' | 'solid' | 'accent' | 'danger' | 'made' | 'surface';
+  variant?: 'plain' | 'solid' | 'accent' | 'danger' | 'made' | 'surface' | 'bloom';
   disabled?: boolean;
 }) {
   const m = useMetrics();
   const t = useTheme();
 
+  const lit = variant === 'bloom';
+
   // background and foreground are chosen together, always — this pair is where
-  // an inverted control loses one half and turns into an invisible slab
+  // an inverted control loses one half and turns into an invisible slab.
+  //
+  // THE LIT BUTTON'S OWN FILL IS THE CANVAS, because the gradient over it is
+  // the accent at FALLING ALPHA — the same way the wash is painted onto the
+  // screen. Painting `accent` under it instead would flatten the far end back
+  // into orange and there would be no gradient left to see.
   const fill =
     variant === 'solid' ? t.ink
     : variant === 'accent' || variant === 'made' ? t.accent
     : variant === 'danger' ? t.danger
     : variant === 'surface' ? t.surface
+    : lit ? t.bg
     : 'transparent';
   const fg =
     variant === 'solid' ? t.surface
-    : variant === 'accent' || variant === 'made' ? t.accentInk
+    : variant === 'accent' || variant === 'made' || lit ? t.accentInk
     : variant === 'danger' ? t.dangerInk
     : t.ink;
 
@@ -424,22 +457,61 @@ export function Btn({
         padding: m.sp,
         borderRadius: m.r,
         borderWidth: variant === 'surface' ? 1 : 2,
+        // the lit button's edge is the ACCENT, not its own fill: the fill is a
+        // near-black that would draw no edge at all against the room
         borderColor:
-          variant === 'plain' ? t.line : variant === 'surface' ? t.rule : fill,
+          variant === 'plain' ? t.line
+          : variant === 'surface' ? t.rule
+          : lit ? t.accent
+          : fill,
         backgroundColor: fill,
         opacity: disabled ? 0.4 : 1,
+        // the gradient is absolutely positioned, so the corners have to be cut
+        // somewhere — and only this variant has anything to cut
+        overflow: lit ? 'hidden' : 'visible',
       }}
-      pressedStyle={{ opacity: 0.85 }}
+      // DOWN IS DARKER on anything orange, not fainter. `opacity` fades a
+      // saturated orange toward a warm canvas that is nearly the same hue, so
+      // the primary button read as going PALE under the thumb rather than as
+      // going down. `accent2` is that step; the ink stays `accentInk`, which is
+      // still white and still passes on the darker fill. Every other variant
+      // keeps the fade — none of them is orange. On the LIT one the ramp itself
+      // takes the step, so only the edge is left here to move with it.
+      pressedStyle={
+        lit ? { borderColor: t.accent2 }
+        : variant === 'accent' || variant === 'made'
+          ? { backgroundColor: t.accent2, borderColor: t.accent2 }
+          : { opacity: 0.85 }
+      }
     >
-      <Text
-        numberOfLines={1}
-        style={{
-          fontFamily: fNum(700), fontSize: m.fsLg,
-          letterSpacing: ls(m.fsLg, LS_BTN), color: fg, textAlign: 'center',
-        }}
-      >
-        {label}
-      </Text>
+      {(pressed) => (
+        <>
+          {/* THE SAME WASH AS THE ROOM, over the same near-black and on the
+              same axis — the ramp comes out of `tokens.ts` beside the wash's
+              own, so the button cannot end up lit from a different corner than
+              the screen it is on. Pressed, the whole ramp steps down to
+              `accent2`. */}
+          {lit && (
+            <LinearGradient
+              colors={bloomFill(pressed ? t.accent2 : t.accent)}
+              locations={BLOOM_STOPS}
+              start={BLOOM_START}
+              end={BLOOM_END}
+              pointerEvents="none"
+              style={{ position: 'absolute', inset: 0 }}
+            />
+          )}
+          <Text
+            numberOfLines={1}
+            style={{
+              fontFamily: fNum(700), fontSize: m.fsLg,
+              letterSpacing: ls(m.fsLg, LS_BTN), color: fg, textAlign: 'center',
+            }}
+          >
+            {label}
+          </Text>
+        </>
+      )}
     </Press>
   );
 }
@@ -516,10 +588,13 @@ export function Stack({ children, gap }: { children: ReactNode; gap?: number }) 
 
 export function Note({ children }: { children: ReactNode }) {
   const m = useMetrics();
+  const t = useTheme();
   return (
     <Text
-      className="text-ink-2"
-      style={{ fontFamily: fUi(400), fontSize: m.fsSm, marginTop: m.sp, lineHeight: m.fsSm * 1.5 }}
+      style={{
+        fontFamily: fUi(400), fontSize: m.fsSm, color: t.ink2,
+        marginTop: m.sp, lineHeight: m.fsSm * 1.5,
+      }}
     >
       {children}
     </Text>
@@ -528,10 +603,13 @@ export function Note({ children }: { children: ReactNode }) {
 
 export function Empty({ children }: { children: ReactNode }) {
   const m = useMetrics();
+  const t = useTheme();
   return (
     <Text
-      className="text-center text-ink-2"
-      style={{ paddingVertical: m.spLg, fontFamily: fUi(400), fontSize: m.fsMd }}
+      style={{
+        paddingVertical: m.spLg, textAlign: 'center',
+        fontFamily: fUi(400), fontSize: m.fsMd, color: t.ink2,
+      }}
     >
       {children}
     </Text>

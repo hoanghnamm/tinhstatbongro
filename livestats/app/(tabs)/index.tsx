@@ -1,16 +1,19 @@
 import { useMemo, type ReactNode } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { router } from 'expo-router';
+import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import { PanelHost } from '../../components/panels/PanelHost';
 import { Btn } from '../../components/panels/shell';
 import { Band, Card, Seam } from '../../components/stats/parts';
+import { Bloom } from '../../components/ui/Bloom';
 import { Crest } from '../../components/ui/Crest';
 import { Press } from '../../components/ui/Press';
 import { Col, Row } from '../../components/ui/Row';
 import { useLastGame } from '../../hooks/useLastGame';
+import { useTabInset } from '../../hooks/useTabInset';
 import { useSavedGames } from '../../hooks/useSavedGames';
 import { mmss, ord, pct } from '../../lib/format';
 import { ROSTER_CAP, STARTERS } from '../../lib/roster';
@@ -93,6 +96,109 @@ import { useTheme } from '../../theme/useTheme';
 const TWO_UP = 700;
 
 /* ---- the pieces ---------------------------------------------------- */
+
+/**
+ * A CIRCULAR CONTROL, and it is the one piece of GLASS on the screen.
+ *
+ * Both references put their top-right actions in a translucent circle rather
+ * than leaving a bare glyph floating in the corner: the circle is what says the
+ * icon is a BUTTON, and on a dark surface a stroked glyph with no ground under
+ * it reads as decoration. It is also the only shape on this screen that is a
+ * full circle, which is what keeps it from being confused with a card.
+ *
+ * The blur is real and not a flat translucent fill, and that is only worth
+ * anything because of what is behind it: the gradient bloom runs under the
+ * header, so the circle picks up the orange where it crosses it and stays
+ * near-black where it does not. Over a flat slab this would be a slightly
+ * lighter flat slab and would not be worth the dependency.
+ *
+ * `overflow:'hidden'` is what clips the blur to the circle — a `BlurView` fills
+ * its own bounds square otherwise — and the 1px inner rule is the highlight
+ * both references carry along the top edge of the glass.
+ */
+function IconBtn({
+  label,
+  onPress,
+  children,
+}: {
+  label: string;
+  onPress(): void;
+  children: ReactNode;
+}) {
+  const m = useMetrics();
+  return (
+    <Press
+      onPress={onPress}
+      accessibilityLabel={label}
+      style={{
+        marginLeft: 'auto',
+        flexGrow: 0,
+        flexShrink: 0,
+        width: m.tap,
+        height: m.tap,
+        borderRadius: 999,
+        overflow: 'hidden',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+      pressedStyle={{ opacity: 0.6 }}
+    >
+      <BlurView
+        intensity={40}
+        tint="dark"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          borderRadius: 999,
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.14)',
+        }}
+      />
+      {children}
+    </Press>
+  );
+}
+
+/**
+ * The club name at headline size, in TWO TONES.
+ *
+ * The reference sets "Professional **Match** Insights" with the weight of the
+ * sentence on one word and the rest stepped back a tone, which is what stops a
+ * three-word headline from reading as three equal shouts. The rule here is the
+ * generic form of that: every word but the LAST is `ink2`, the last is `ink`.
+ * `KHANH HOA Warriors` lands the emphasis on the noun, which is the half of a
+ * club's name that is actually its name — and a single-word club simply gets a
+ * white headline, with no special case needed.
+ *
+ * It is `numberOfLines={2}` and not one: club names are long, this is the
+ * biggest type on the screen, and a name that will not fit on one line should
+ * wrap rather than turn into an ellipsis. Two is the budget the one-window rule
+ * can afford.
+ */
+function Headline({ text }: { text: string }) {
+  const m = useMetrics();
+  const t = useTheme();
+  const words = text.trim().split(/\s+/);
+  const head = words.slice(0, -1).join(' ');
+  const tail = words[words.length - 1] ?? '';
+
+  return (
+    <Text
+      numberOfLines={2}
+      style={{
+        marginTop: m.s3,
+        fontFamily: fUi(700),
+        fontSize: m.fs2xl,
+        lineHeight: m.fs2xl * 1.12,
+        letterSpacing: -m.fs2xl * 0.015,
+        color: t.ink,
+      }}
+    >
+      {!!head && <Text style={{ color: t.ink2 }}>{head} </Text>}
+      {tail}
+    </Text>
+  );
+}
 
 function Label({ children, tone }: { children: ReactNode; tone?: string }) {
   const m = useMetrics();
@@ -275,10 +381,11 @@ function SeasonCard({
 
 /* ---- the screen ----------------------------------------------------- */
 
-export default function LobbyScreen() {
+function LobbyScreen() {
   const m = useMetrics();
   const t = useTheme();
   const safe = useSafeAreaInsets();
+  const bar = useTabInset();
 
   const roster = useRosterStore((s) => s.players);
   // THE HEADER IS THE CLUB AS IT IS TODAY; the hero's scoreline is the game as
@@ -329,7 +436,6 @@ export default function LobbyScreen() {
     else router.push('/start');
   };
 
-  const crestSize = Math.round(m.fsXl * 1.9);
 
   /* -- THE HERO IS THE LIVE GAME, and now it is only that.
 
@@ -345,14 +451,15 @@ export default function LobbyScreen() {
         hero, because there is nothing live to be about. -- */
   const live = inProgress && (
     <Col gap={m.s2}>
-      <Card>
+      <Card glass>
         <Band
           label="LIVE"
           tone={t.accent}
           note={
             <Row gap={m.s2}>
-              {/* the live dot borrows the court's mark colour — the one hue the
-                  palette spends nowhere else, and it already means "now" */}
+              {/* the live dot takes `live`, the same teal the running clock and
+                  the court's tap mark take. All three mean "now"; `accent` is
+                  the brand and means "ours". */}
               {running && (
                 <View
                   style={{
@@ -361,7 +468,7 @@ export default function LobbyScreen() {
                     borderRadius: 99,
                     flexGrow: 0,
                     flexShrink: 0,
-                    backgroundColor: t.mark,
+                    backgroundColor: t.live,
                   }}
                 />
               )}
@@ -388,7 +495,7 @@ export default function LobbyScreen() {
   );
 
   const onboard = nothingYet && (
-    <Card>
+    <Card glass>
       <Band label="NO GAME YET" />
       <Col align="center" gap={m.s2} style={{ paddingVertical: m.s6, paddingHorizontal: m.s4 }}>
         <Text
@@ -419,7 +526,7 @@ export default function LobbyScreen() {
         Its SCORELINE is not here, and that is what was cut: the hero's FINAL
         state carried it and the hero is the live game only now. -- */
   const strip = T && (
-    <Card>
+    <Card glass>
       <Band label="LAST GAME" />
       {wide ? (
         <Seam>
@@ -474,9 +581,15 @@ export default function LobbyScreen() {
   const actions = (
     <Col gap={m.s2}>
       <Row align="stretch">
+        {/* THE VERB IS LIT THE WAY THE ROOM IS. `bloom` is the accent filled
+            with the bloom's own gradient, on the bloom's own axis, so the one
+            button that starts something belongs to the screen behind it rather
+            than sitting on it as a slab. While a game is ON it drops to
+            `surface` and stops catching any light at all — which is the whole
+            of what that state is saying. */}
         <Btn
           label="NEW GAME"
-          variant={inProgress ? 'surface' : 'accent'}
+          variant={inProgress ? 'surface' : 'bloom'}
           disabled={!enough}
           onPress={newGame}
         />
@@ -511,89 +624,86 @@ export default function LobbyScreen() {
         paddingRight: safe.right + m.s4,
       }}
     >
-      {/* ---- identity ------------------------------------------------ */}
-      <Row gap={m.s2} style={{ flexGrow: 0, flexShrink: 0, minHeight: m.tap }}>
-        {/* the whole block is the way into the club, because the crest is the
-            thing a scorer reaches for when they want to change the crest — and
-            it goes to the TAB that edits it rather than opening a second editor
-            over the top of this screen. `EditTeamPanel` was that second editor
-            and is gone: two forms over three fields is one field added twice. */}
-        <Press
-          onPress={() => router.push('/team')}
-          accessibilityLabel="open the team tab to edit the club"
-          style={{
-            flexShrink: 1,
-            minWidth: 0,
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: m.s3,
-            paddingRight: m.s2,
-            borderRadius: m.rSm,
-          }}
-          pressedStyle={{ backgroundColor: t.surface2 }}
-        >
-          <Crest name={club.name} uri={club.logoUri} size={crestSize} />
+      {/* THE BLOOM. It is a component now, because the other three rooms
+          draw the same one — see `components/ui/Bloom.tsx` for why it must be
+          the first child, outside the padding, and why it eats no taps. */}
+      <Bloom />
+      {/* ---- identity ------------------------------------------------ *
+          THE BRAND LOCKUP AND THE HEADLINE, in that order and on two rows.
 
-          <Col style={{ flexShrink: 1, minWidth: 0 }}>
+          One row: the mark and the wordmark at the left, the circular control
+          at the right. Then the club NAME at headline size underneath. It used
+          to be crest + HOOPLOG with the club as a `fsXs` subtitle beside the
+          coach — which put the one thing this screen is ABOUT in the smallest
+          type on it. The club is the headline now and HOOPLOG is the small
+          mark above it, which is the right way round: nobody opens this app
+          wondering what it is called.
+
+          THE COACH IS NO LONGER HERE. It was the `· NAME` half of that
+          subtitle, and the subtitle is gone. It is a fact about the club, it
+          is edited on the TEAM tab, and this screen has a hard one-window
+          budget that the headline has just spent.                            */}
+      <View style={{ flexGrow: 0, flexShrink: 0 }}>
+        <Row gap={m.s2} style={{ minHeight: m.tap }}>
+          {/* the whole block is the way into the club, because the crest is the
+              thing a scorer reaches for when they want to change the crest — and
+              it goes to the TAB that edits it rather than opening a second editor
+              over the top of this screen. `EditTeamPanel` was that second editor
+              and is gone: two forms over three fields is one field added twice. */}
+          <Press
+            onPress={() => router.push('/team')}
+            accessibilityLabel="open the team tab to edit the club"
+            style={{
+              flexShrink: 1,
+              minWidth: 0,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: m.s2,
+              paddingRight: m.s2,
+              borderRadius: 999,
+            }}
+            pressedStyle={{ opacity: 0.6 }}
+          >
+            <Crest name={club.name} uri={club.logoUri} size={m.fsXl} />
             <Text
               numberOfLines={1}
               style={{
-                fontFamily: fNum(700),
-                fontSize: m.fsXl,
-                lineHeight: m.fsXl * 1.15,
-                letterSpacing: ls(m.fsXl, LS_BTN),
+                fontFamily: fUi(700),
+                fontSize: m.fsMd,
+                letterSpacing: ls(m.fsMd, LS_BTN),
                 color: t.ink,
               }}
             >
               HOOPLOG
             </Text>
-            <Text
-              numberOfLines={1}
-              style={{ fontFamily: fUi(500), fontSize: m.fsXs, color: t.ink2 }}
-            >
-              {club.name.toUpperCase()}
-              {club.coach ? ` · ${club.coach}` : ''}
-            </Text>
-          </Col>
-        </Press>
+          </Press>
 
-        <Press
-          onPress={() => open({ kind: 'settings' })}
-          accessibilityLabel="settings"
-          style={{
-            marginLeft: 'auto',
-            flexGrow: 0,
-            flexShrink: 0,
-            width: m.tap,
-            minHeight: m.tap,
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: m.rSm,
-          }}
-          pressedStyle={{ backgroundColor: t.surface2 }}
-        >
-          <Svg width={m.fsLg} height={m.fsLg} viewBox="0 0 24 24">
-            <Path
-              d="M12 15.5a3.5 3.5 0 100-7 3.5 3.5 0 000 7z"
-              stroke={t.ink2}
-              strokeWidth={1.8}
-              fill="none"
-            />
-            <Path
-              d="M19.4 13a7.6 7.6 0 000-2l2-1.5-2-3.4-2.4 1a7.6 7.6 0 00-1.7-1L15 3.5H9.9l-.3 2.6a7.6 7.6 0 00-1.7 1l-2.4-1-2 3.4L5.5 11a7.6 7.6 0 000 2l-2 1.5 2 3.4 2.4-1a7.6 7.6 0 001.7 1l.3 2.6H15l.3-2.6a7.6 7.6 0 001.7-1l2.4 1 2-3.4-2-1.5z"
-              stroke={t.ink2}
-              strokeWidth={1.8}
-              strokeLinejoin="round"
-              fill="none"
-            />
-          </Svg>
-        </Press>
-      </Row>
+          <IconBtn label="settings" onPress={() => open({ kind: 'settings' })}>
+            <Svg width={m.fsMd} height={m.fsMd} viewBox="0 0 24 24">
+              <Path
+                d="M12 15.5a3.5 3.5 0 100-7 3.5 3.5 0 000 7z"
+                stroke={t.ink}
+                strokeWidth={1.8}
+                fill="none"
+              />
+              <Path
+                d="M19.4 13a7.6 7.6 0 000-2l2-1.5-2-3.4-2.4 1a7.6 7.6 0 00-1.7-1L15 3.5H9.9l-.3 2.6a7.6 7.6 0 00-1.7 1l-2.4-1-2 3.4L5.5 11a7.6 7.6 0 000 2l-2 1.5 2 3.4 2.4-1a7.6 7.6 0 001.7 1l.3 2.6H15l.3-2.6a7.6 7.6 0 001.7-1l2.4 1 2-3.4-2-1.5z"
+                stroke={t.ink}
+                strokeWidth={1.8}
+                strokeLinejoin="round"
+                fill="none"
+              />
+            </Svg>
+          </IconBtn>
+        </Row>
+
+        <Headline text={club.name} />
+      </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         style={{ flex: 1, marginTop: m.s3 }}
-        contentContainerStyle={{ paddingBottom: safe.bottom + m.s5, alignItems: 'center' }}
+        contentContainerStyle={{ paddingBottom: bar + m.s5, alignItems: 'center' }}
       >
         {/* ONE COLUMN, and it fits. The roster list is gone from here — it is
             a tab of its own, and it was the only block that made this screen
@@ -615,4 +725,18 @@ export default function LobbyScreen() {
       <PanelHost />
     </View>
   );
+}
+
+/**
+ * THE PALETTE AND THE STATUS BAR ARE THE GROUP'S NOW, not this screen's.
+ *
+ * This file used to wrap itself in `ThemeProvider value={DARK}` and mount its
+ * own `<StatusBar style="light" />`, because it was the one screen in the app
+ * drawn on black. All four rooms are, so both moved up one level to
+ * `app/(tabs)/_layout.tsx` — one declaration for the group, which is also what
+ * stops the four from drifting apart. See the note there, including why the
+ * status bar is flipped on FOCUS rather than by a mounted component.
+ */
+export default function Lobby() {
+  return <LobbyScreen />;
 }

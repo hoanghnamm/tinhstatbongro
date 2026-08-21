@@ -7,6 +7,7 @@ import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { useRects, type Rect } from '../../store/layoutStore';
 import { useUiStore, type Panel } from '../../store/uiStore';
 import { useMetrics } from '../../theme/metrics';
+import { ELEV_PANEL, isTranslucent } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 import { AssistPanel } from './AssistPanel';
 import { EndGamePanel } from './EndGamePanel';
@@ -141,12 +142,27 @@ export function PanelHost() {
   if (!panel) return null;
   const mode = MODE[panel.kind];
 
+  // A panel is the one thing that leaves the page, so it is the top of the
+  // elevation ramp. Note the shadow and `overflow:'hidden'` share this view,
+  // which `Card` deliberately splits in two to avoid — here it is left alone
+  // on purpose: `dock` is the only mode with nothing behind it, and every
+  // other mode already sits on a scrim, which is doing the separating a
+  // shadow would. If the clip turns out to eat it on iOS the panel loses a
+  // refinement, not its legibility.
   const frame = {
-    backgroundColor: t.surface,
+    // THE PANEL IS THE ONE SURFACE THAT MUST BE OPAQUE, whatever the palette
+    // says. A dialog is a sheet in front of the room, and on the tab group's
+    // translucent palette `surface` is a 5% white — which over a scrim is not a
+    // sheet but a slightly paler hole, with every cell inside it compositing
+    // its own surface a second time on top. `bg` is the same value as `surface2`
+    // on the light skin's canvas and is opaque on both, so this is a change to
+    // the dark rooms only.
+    backgroundColor: isTranslucent(t) ? t.bg : t.surface,
     borderWidth: 1,
     borderColor: t.line,
     borderRadius: m.r,
     overflow: 'hidden' as const,
+    ...ELEV_PANEL,
   };
 
   const placed =

@@ -8,6 +8,8 @@ import { PanelHost } from '../components/panels/PanelHost';
 import { Btn, Row as BtnRow } from '../components/panels/shell';
 import { Band, Card, Seg, type SegItem } from '../components/stats/parts';
 import { ClubCard } from '../components/team/ClubCard';
+import { Bloom } from '../components/ui/Bloom';
+import { DarkRoom } from '../components/ui/DarkRoom';
 import { Dot } from '../components/ui/Dot';
 import { Jersey } from '../components/ui/Jersey';
 import { Press } from '../components/ui/Press';
@@ -342,7 +344,26 @@ function Field({
 
 /* ---- the screen ----------------------------------------------------- */
 
-export default function StartScreen() {
+/**
+ * IT IS DARK, WITH THE FOUR ROOMS, and it is not one of them.
+ *
+ * The door into a game is reached from the lobby and read standing in the same
+ * place, a minute earlier — a light picker between a dark lobby and a dark
+ * TEAM tab was the app blinking once on the way through. So it wears `DarkRoom`
+ * and draws the same `<Bloom />`, while staying OUTSIDE the tab group: it is a
+ * page you go into and come back out of, and it has a back arrow rather than a
+ * fifth tab.
+ *
+ * Nothing else on it changed. Every colour here was already a token, so the
+ * fields, the chips, the seams, `ClubCard` and `Seg` all followed on their own
+ * — and `ClubCard` is the proof that the `readOnly` card and the TEAM tab's
+ * editable one are still one component.
+ *
+ * START GAME takes the `bloom` variant, the same as NEW GAME on the lobby: it
+ * is the same verb one screen later, and the two are the only buttons in the
+ * app that start something.
+ */
+function StartScreen() {
   const m = useMetrics();
   const t = useTheme();
   const safe = useSafeAreaInsets();
@@ -418,6 +439,9 @@ export default function StartScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={{ flex: 1, backgroundColor: t.bg }}
     >
+      {/* outside the padded view below, so it runs under the safe-area inset */}
+      <Bloom />
+
       <View
         style={{
           flex: 1,
@@ -628,12 +652,23 @@ export default function StartScreen() {
         )}
 
         <BtnRow mt>
-          <Btn label="START GAME" variant="accent" disabled={!ready} onPress={start} />
+          {/* the same lit fill the lobby's NEW GAME wears — one verb, two
+              screens, and this is the second half of it */}
+          <Btn label="START GAME" variant="bloom" disabled={!ready} onPress={start} />
         </BtnRow>
       </View>
 
       {/* the number keypad opens from here, so this screen needs the router */}
       <PanelHost />
     </KeyboardAvoidingView>
+  );
+}
+
+/** The palette and the status bar, from the same wrapper the tab group uses. */
+export default function Start() {
+  return (
+    <DarkRoom>
+      <StartScreen />
+    </DarkRoom>
   );
 }

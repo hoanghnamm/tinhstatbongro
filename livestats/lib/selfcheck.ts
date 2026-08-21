@@ -1021,22 +1021,17 @@ assert.equal(ord(11), '11th');
   assert.ok(html.includes(`>${rep.us}</span>`), 'the headline score is the report’s own');
   assert.ok(html.includes('PAINT'), 'every zone is named in the table');
   assert.ok(html.includes('TOP 3'), 'the empty ones included — 0/0 is a fact');
-  assert.ok(html.includes('Play by play'), 'the log is on the sheet');
-  assert.ok(html.includes('3PT MISSED'), 'and it prints the same line the app does');
   assert.ok(html.includes('DNP'), 'a player who never took the floor says so');
-  // THE SHEET'S FLOOR IS THE BOARD'S FLOOR. Every path on it must be one of
-  // `lib/court.ts`'s own strings — a shape drawn from a local copy is exactly
-  // the drift the two courts exist to prevent. Only the zones actually shot
-  // from are filled, which is why this checks the strings and not the count.
-  const known = new Set([...ZONE_PATHS.map((z) => z.d), ...COURT_LINES]);
-  const drawn = [...html.matchAll(/<path d="([^"]+)"/g)].map((mt) => mt[1]);
-  assert.ok(drawn.length > COURT_LINES.length, 'the sheet draws a floor at all');
-  for (const d of drawn) assert.ok(known.has(d), `the sheet drew a path lib/court.ts does not own: ${d}`);
-  for (const d of COURT_LINES) assert.ok(drawn.includes(d), 'and every line work stroke is on it');
-  const paint = ZONE_PATHS.find((z) => z.zone === 'paint');
-  assert.ok(paint && drawn.includes(paint.d), 'a zone that was shot from is filled');
-  const corner = ZONE_PATHS.find((z) => z.zone === 'corner2');
-  assert.ok(corner && !drawn.includes(corner.d), 'and one that was not is left alone');
+  // THE SHEET DRAWS NO FLOOR AND CARRIES NO PLAY LOG. Both were on it: two
+  // courts and every play in the order it happened. They are things you READ,
+  // and the screen is where you read them; the sheet is the scorebook. So the
+  // page is asserted EMPTY of both — a chart that creeps back onto paper is a
+  // second floor to keep in step with `lib/court.ts`, which is the whole
+  // reason that file owns the strings.
+  assert.ok(!html.includes('<svg'), 'the sheet draws no floor');
+  assert.ok(!html.includes('<path'), 'and no line work with it');
+  assert.ok(!html.includes('Play by play'), 'the play log is off the sheet');
+  assert.ok(!html.includes('3PT MISSED'), 'so no play line survives on it');
 
   assert.equal(
     reportFileName({ ...g, team: { name: 'KHÁNH HÒA' } }, Date.UTC(2026, 7, 19, 12, 0)),

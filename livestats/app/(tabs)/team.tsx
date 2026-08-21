@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   FlatList,
   InputAccessoryView,
@@ -13,8 +13,10 @@ import Svg, { Path } from 'react-native-svg';
 
 import { PanelHost } from '../../components/panels/PanelHost';
 import { ClubCard } from '../../components/team/ClubCard';
+import { Bloom } from '../../components/ui/Bloom';
 import { Press } from '../../components/ui/Press';
 import { Row } from '../../components/ui/Row';
+import { useTabInset } from '../../hooks/useTabInset';
 import { NAME_MAX, ROSTER_CAP, nextFreeNumber, numberHolder, validNumber } from '../../lib/roster';
 import { useRosterStore } from '../../store/rosterStore';
 import { useMetrics } from '../../theme/metrics';
@@ -79,6 +81,15 @@ import type { RosterPlayer } from '../../types';
  * so a store round trip on every keystroke would eat a space the moment it was
  * typed. The local copy is what is displayed; blur re-seeds it from the store,
  * which is also what reverts a bad number and normalises `07` to `7`.
+ *
+ * IT IS DRAWN ON BLACK with the other three rooms, and nothing below says so
+ * except the `<Bloom />`: the palette belongs to the group and is declared in
+ * `app/(tabs)/_layout.tsx`. The fields are the case that makes that worth
+ * having — a `TextInput` here asks for `surface` under `ink` and gets a
+ * translucent white under a near-white, with the same `rule` around it and the
+ * same `danger` on a collision, and not one line of this screen had to know.
+ * `ClubCard` is the same card the new-game picker draws, on the light skin,
+ * from the same source.
  */
 
 /** One DONE bar for every jersey field on the screen; see the note above. */
@@ -248,11 +259,39 @@ export default function TeamScreen() {
   const m = useMetrics();
   const t = useTheme();
   const safe = useSafeAreaInsets();
+  const bar = useTabInset();
+
+  // HOW FAR UP THE LIST CAN BE PULLED, and the keyboard is half of it. The
+  // keyboard sits OVER this list rather than shortening it — see the header
+  // note — so without a tail the last rows have nothing to scroll into and
+  // cannot be lifted clear of it. Paying it on the CONTENT is not the
+  // `KeyboardAvoidingView` that was refused: the viewport keeps its full
+  // height, and all that changes is how much there is to scroll.
+  const [kb, setKb] = useState(0);
+  useEffect(() => {
+    const up = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillChangeFrame' : 'keyboardDidShow',
+      (e) => setKb(e.endCoordinates.height),
+    );
+    const down = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKb(0),
+    );
+    return () => {
+      up.remove();
+      down.remove();
+    };
+  }, []);
 
   const players = useRosterStore((s) => s.players);
   const add = useRosterStore((s) => s.add);
 
   const full = players.length >= ROSTER_CAP;
+
+  // the keyboard covers the bar as well, so the two do not stack — whichever
+  // is standing on the list at the time is what the tail owes, plus the room
+  // to pull the last row clear of it
+  const tail = Math.max(bar, kb) + m.s6;
 
   const usable = m.win.w - safe.left - safe.right - 2 * m.s4;
   const columns = usable >= TWO_UP ? Math.max(2, Math.floor(usable / COL_W)) : 1;
@@ -263,15 +302,19 @@ export default function TeamScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: t.bg }}>
+      {/* outside the padded view below, so it runs under the safe-area inset */}
+      <Bloom />
+
       <View
         style={{
           flex: 1,
           paddingTop: safe.top + m.s2,
-          // NO BOTTOM PAD, and that is what makes this one sheet. The tab bar
-          // already sits above the home indicator and already reserves its own
-          // inset, so `safe.bottom` here was counted a second time — a dead
-          // strip of canvas between the last row and the bar. The list runs to
-          // the bar instead, and the scroll content carries the breathing room.
+          // NO BOTTOM PAD ON THE FRAME, and that is what makes this one sheet:
+          // padding here would clip the list short of the bar and leave a dead
+          // strip of canvas under the last row. The list runs all the way to the
+          // bar instead, and its CONTENT carries the inset — see the
+          // `contentContainerStyle` below, which is the half that has to know
+          // how tall the bar is.
           paddingBottom: 0,
           paddingLeft: safe.left + m.s4,
           paddingRight: safe.right + m.s4,
@@ -330,8 +373,14 @@ export default function TeamScreen() {
             item ? <PlayerRow player={item} index={index} /> : <View style={{ flex: 1 }} />
           }
           style={{ flex: 1 }}
+          // AND THIS IS THE ONE PLACE THE BAR AND THE KEYBOARD ARE PAID FOR.
+          // It was `m.s3` flat — twelve points against a glass bar four times
+          // that — so + ADD PLAYER and the last row sat BEHIND the bar with
+          // nothing left to scroll: on the screen, and out of reach. `tail` is
+          // whichever of the two is standing on the list, plus the room to pull
+          // the row above it.
           contentContainerStyle={
-            players.length ? { paddingBottom: m.s3 } : { flexGrow: 1, paddingBottom: m.s3 }
+            players.length ? { paddingBottom: tail } : { flexGrow: 1, paddingBottom: tail }
           }
           showsVerticalScrollIndicator={false}
           // a field is nearly always focused on this screen, so the first tap on
@@ -397,7 +446,12 @@ export default function TeamScreen() {
               justifyContent: 'flex-end',
               alignItems: 'center',
               paddingHorizontal: m.s3,
-              backgroundColor: t.surface2,
+              // `bg` and not `surface2`: the two are the same value on the
+              // light skin, and this one is OPAQUE on the dark one. An
+              // accessory bar sits over the keyboard with nothing of its own
+              // behind it, so a translucent fill here is a bar you can see the
+              // list through.
+              backgroundColor: t.bg,
               borderTopWidth: 1,
               borderTopColor: t.rule,
             }}

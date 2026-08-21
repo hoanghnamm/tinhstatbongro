@@ -13,6 +13,8 @@ import { COURT_ASPECT, useMetrics } from '../../theme/metrics';
 import { LS_BTN, LS_LABEL, fNum, fUi, ls } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 import { CourtSvg } from '../../components/board/CourtSvg';
+import { Bloom } from '../../components/ui/Bloom';
+import { DarkRoom } from '../../components/ui/DarkRoom';
 import { Press } from '../../components/ui/Press';
 import { Col, Row } from '../../components/ui/Row';
 import { Card, Key, Line, Note, Section, Seam, Tile } from '../../components/stats/parts';
@@ -74,7 +76,22 @@ const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
  *   - Game log: full horizontally scrollable table (no DATE / RESULT)
  *   - Season stats card: SHOOTING + REBOUNDS & BALL sections
  */
-export default function PlayerProfileScreen() {
+/**
+ * IT IS DARK, WITH THE FOUR ROOMS, and it is not one of them.
+ *
+ * A player's own season is reached from the STATS tab's table and is the same
+ * kind of reading: a line you sit down with, never a thing anybody looks at
+ * mid-possession. So it wears `DarkRoom` and the same `<Bloom />` as the room
+ * it was opened from, and it stays outside the tab group because it is a page
+ * with a back arrow rather than a fifth room.
+ *
+ * THE SHOT CHART FOLLOWED ON ITS OWN, which is the part worth noting: the court
+ * is `t.court` over `t.courtLine` and both are palette entries, so `CourtSvg`
+ * draws a dark floor here with no branch of its own — and the marks keep their
+ * grammar, `accent` for a make and `markMiss` for a miss, with the one `danger`
+ * dot on the free-throw spot.
+ */
+function PlayerProfileScreen() {
   const m = useMetrics();
   const t = useTheme();
   const safe = useSafeAreaInsets();
@@ -211,6 +228,10 @@ export default function PlayerProfileScreen() {
         paddingRight: safe.right + m.s4,
       }}
     >
+      {/* the first child, outside the padding: it runs edge to edge under the
+          safe-area inset, which is what makes it a bloom and not a band */}
+      <Bloom />
+
       {/* ── Header ── */}
       <Row gap={m.s2} style={{ minHeight: m.tap, flexGrow: 0, flexShrink: 0 }}>
         <Press
@@ -599,5 +620,14 @@ export default function PlayerProfileScreen() {
         )}
       </ScrollView>
     </View>
+  );
+}
+
+/** The palette and the status bar, from the same wrapper the tab group uses. */
+export default function PlayerProfile() {
+  return (
+    <DarkRoom>
+      <PlayerProfileScreen />
+    </DarkRoom>
   );
 }

@@ -57,6 +57,12 @@ export function Crest({
   }
 
   const fs = size * 0.4;
+  // THE MONOGRAM'S INK IS `bg`, NOT `surface`, and that is what makes this pair
+  // survive both palettes. The fill is `ink`, so the ink has to be whatever is
+  // furthest from it — on the light skin that is the near-white canvas, and on
+  // the lobby's dark one `ink` is near-WHITE and `surface` is a translucent
+  // white, which would have drawn the initials invisibly on their own circle.
+  // `bg` is the one token that is the opposite of `ink` in both.
   return (
     <View style={[box, { backgroundColor: t.ink }]}>
       <Text
@@ -66,7 +72,7 @@ export function Crest({
           fontSize: fs,
           lineHeight: fs * 1.2,
           letterSpacing: ls(fs, LS_BTN),
-          color: t.surface,
+          color: t.bg,
         }}
       >
         {initials(name)}
