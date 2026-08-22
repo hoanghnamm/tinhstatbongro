@@ -5,7 +5,17 @@ import { BlurView } from 'expo-blur';
 import { Press } from '../ui/Press';
 import { Col, Row } from '../ui/Row';
 import { useMetrics } from '../../theme/metrics';
-import { ELEV_CARD, LS_BTN, LS_LABEL, fNum, fUi, isTranslucent, ls } from '../../theme/tokens';
+import {
+  ELEV_CARD,
+  LS_BTN,
+  LS_LABEL,
+  LS_MICRO,
+  LS_TIGHT,
+  fNum,
+  fUi,
+  isTranslucent,
+  ls,
+} from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 
 /**
@@ -21,7 +31,14 @@ import { useTheme } from '../../theme/useTheme';
  * re-renders whenever the quarter filter moves.
  */
 
-export interface SegItem<T extends string> {
+/**
+ * `key` is widened to a NUMBER as well as a string because two of the settings
+ * are numbers — how many periods a game is and how long one of them is — and a
+ * `String(4)` round trip at every call site is a second representation of the
+ * same answer, which is the thing that goes wrong. React takes a number as a
+ * key, and `===` on two numbers is the same comparison it always was.
+ */
+export interface SegItem<T extends string | number> {
   key: T;
   label: string;
 }
@@ -35,7 +52,7 @@ export interface SegItem<T extends string> {
  * pair: `accent` under `accentInk`. Keeping the ink and losing the fill is how
  * a selected tab turns into an invisible slab.
  */
-export function Seg<T extends string>({
+export function Seg<T extends string | number>({
   items,
   value,
   onChange,
@@ -176,7 +193,7 @@ export function Band({
         style={{
           fontFamily: fNum(tone ? 700 : 500),
           fontSize: m.fsXs,
-          letterSpacing: ls(m.fsXs, LS_LABEL),
+          letterSpacing: ls(m.fsXs, LS_MICRO),
           color: tone ?? t.ink2,
         }}
       >
@@ -296,7 +313,7 @@ export function Line({
           minWidth: 0,
           fontFamily: head ? fNum(500) : fUi(strong ? 700 : 500),
           fontSize: head ? m.fsXs : m.fsSm,
-          letterSpacing: head ? ls(m.fsXs, LS_LABEL) : 0,
+          letterSpacing: head ? ls(m.fsXs, LS_MICRO) : 0,
           color: head ? t.ink2 : t.ink,
         }}
       >
@@ -311,7 +328,7 @@ export function Line({
           textAlign: 'right',
           fontFamily: head ? fNum(500) : fNum(700),
           fontSize: head ? m.fsXs : m.fsMd,
-          letterSpacing: head ? ls(m.fsXs, LS_LABEL) : 0,
+          letterSpacing: head ? ls(m.fsXs, LS_MICRO) : 0,
           color: head ? t.ink2 : (tone ?? t.ink),
           fontVariant: ['tabular-nums'],
         }}
@@ -327,7 +344,7 @@ export function Line({
           textAlign: 'right',
           fontFamily: fNum(500),
           fontSize: head ? m.fsXs : m.fsSm,
-          letterSpacing: head ? ls(m.fsXs, LS_LABEL) : 0,
+          letterSpacing: head ? ls(m.fsXs, LS_MICRO) : 0,
           color: t.ink2,
           fontVariant: ['tabular-nums'],
         }}
@@ -378,6 +395,7 @@ export function Tile({
         style={{
           fontFamily: fNum(700),
           fontSize: m.fsXl,
+          letterSpacing: ls(m.fsXl, LS_TIGHT),
           lineHeight: m.fsXl * 1.1,
           color: tone ?? t.ink,
           fontVariant: ['tabular-nums'],
@@ -388,9 +406,10 @@ export function Tile({
       <Text
         numberOfLines={1}
         style={{
-          fontFamily: fUi(600),
+          // the light half of the pair — see the lobby's own `Stat` cell
+          fontFamily: fUi(400),
           fontSize: m.fsXs,
-          letterSpacing: ls(m.fsXs, LS_LABEL),
+          letterSpacing: ls(m.fsXs, LS_MICRO),
           color: t.ink2,
         }}
       >
@@ -448,7 +467,7 @@ export function Key({ color, label, ring = false }: { color: string; label: stri
         style={{
           fontFamily: fUi(500),
           fontSize: m.fsXs,
-          letterSpacing: ls(m.fsXs, LS_LABEL),
+          letterSpacing: ls(m.fsXs, LS_MICRO),
           color: t.ink2,
         }}
       >

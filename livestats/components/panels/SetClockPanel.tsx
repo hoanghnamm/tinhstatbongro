@@ -2,7 +2,15 @@ import { useState } from 'react';
 import { Text } from 'react-native';
 
 import { useAnnounce } from '../../hooks/useAnnounce';
-import { clockEntry, clockReady, mmss, ord, pushClockDigit, secondsFromClock } from '../../lib/format';
+import {
+  clockEntry,
+  clockReady,
+  mmss,
+  periodLabel,
+  periodName,
+  pushClockDigit,
+  secondsFromClock,
+} from '../../lib/format';
 import { useGameStore } from '../../store/gameStore';
 import { useUiStore } from '../../store/uiStore';
 import { useMetrics } from '../../theme/metrics';
@@ -49,6 +57,7 @@ export function SetClockPanel() {
   const m = useMetrics();
   const t = useTheme();
   const period = useGameStore((s) => s.period);
+  const periods = useGameStore((s) => s.periods);
   const remaining = useGameStore((s) => s.remaining);
   const setClock = useGameStore((s) => s.setClock);
   const reset = useUiStore((s) => s.reset);
@@ -56,7 +65,7 @@ export function SetClockPanel() {
 
   const [digits, setDigits] = useState('');
 
-  useAnnounce(`${ord(period)} quarter, set the clock`);
+  useAnnounce(`${periodName(period, periods)}, set the clock`);
 
   const typed = digits.length > 0;
 
@@ -74,7 +83,9 @@ export function SetClockPanel() {
   return (
     <>
       <PHead>
-        <PTitleText>{`${ord(period).toUpperCase()} QT`}</PTitleText>
+        {/* the two-character form, because this header carries the live entry
+            beside it and has no room for a word — see `periodLabel` */}
+        <PTitleText>{periodLabel(period, periods)}</PTitleText>
         {/* the entry, and the panel's only output. Dimmed it is the LIVE clock
             — the number about to be replaced — and it goes solid on the first
             digit, which is the whole signal that typing has started. */}

@@ -41,6 +41,42 @@ export const secondsFromClock = (digits: string): number =>
 
 export const clockReady = (digits: string): boolean => digits.length === CLOCK_DIGITS;
 
+/**
+ * `Q3`, `H1`, `OT`, `OT2` — what one slice of a game is called.
+ *
+ * THE REGULATION COUNT IS AN ARGUMENT because it is settable, and it is the
+ * GAME's, never the live setting's: a night played in halves is read back in
+ * halves whatever the scorer has switched to since. It had three identical
+ * copies with a hardcoded four in them — the stats screen, the saved game's
+ * page and the PDF — which is exactly three chances to disagree about what
+ * period 5 is called.
+ *
+ * A two-period game is HALVES and says so. Four is quarters, which is the only
+ * other answer, so `Q` is the fallback rather than a third branch.
+ */
+export const periodLabel = (p: number, regulation: number): string => {
+  if (p > regulation) return regulation + 1 === p ? 'OT' : `OT${p - regulation}`;
+  return (regulation === 2 ? 'H' : 'Q') + p;
+};
+
+/**
+ * THE SAME ANSWER IN WORDS — `1ST QUARTER`, `1ST HALF`, `OVERTIME`, `OVERTIME 2`.
+ *
+ * `periodLabel` is what a two-character cell prints; this is what a panel's
+ * header says and what the screen reader hears. It exists because the board
+ * used to print the word QUARTER outright, which is a lie the moment a scorer
+ * sets the game to halves — and because `5TH QUARTER` was never what anybody
+ * called an overtime, at any setting.
+ */
+export const periodName = (p: number, regulation: number): string => {
+  if (p > regulation) return p === regulation + 1 ? 'OVERTIME' : `OVERTIME ${p - regulation}`;
+  return `${ord(p).toUpperCase()} ${periodWord(p, regulation)}`;
+};
+
+/** Just the noun, for a tile caption that has ten characters to spend. */
+export const periodWord = (p: number, regulation: number): string =>
+  p > regulation ? 'OVERTIME' : regulation === 2 ? 'HALF' : 'QUARTER';
+
 export const ord = (n: number): string =>
   n + ['th', 'st', 'nd', 'rd'][(n % 100 > 10 && n % 100 < 14) || n % 10 > 3 ? 0 : n % 10];
 

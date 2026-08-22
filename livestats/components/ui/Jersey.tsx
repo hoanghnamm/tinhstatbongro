@@ -1,7 +1,7 @@
 import { Text, View } from 'react-native';
 
 import { useMetrics } from '../../theme/metrics';
-import { fNum } from '../../theme/tokens';
+import { LS_TIGHT, fNum, ls } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 
 /**
@@ -61,6 +61,9 @@ export function Jersey({
           fontFamily: fNum(700),
           fontSize: fs,
           lineHeight: fs * 1.1,
+          // a plate is a jersey: two digits set tight read as ONE number the
+          // width of the plate, where the default tracking makes them two
+          letterSpacing: ls(fs, LS_TIGHT),
           textAlign: 'center',
           color: ink,
           fontVariant: ['tabular-nums'],

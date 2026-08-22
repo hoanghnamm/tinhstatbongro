@@ -6,7 +6,7 @@ import { useGameStore } from '../../store/gameStore';
 import { dockFooterOverlap, useLitRect, useMeasure, useRects } from '../../store/layoutStore';
 import { useUiStore } from '../../store/uiStore';
 import { useMetrics } from '../../theme/metrics';
-import { LS_BTN, LS_LABEL, fNum, ls } from '../../theme/tokens';
+import { LS_BTN, LS_TIGHT, LS_TITLE, fNum, ls } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 import { isDocked } from '../panels/placement';
 import { Press } from '../ui/Press';
@@ -172,6 +172,7 @@ export function Footer() {
               style={{
                 fontFamily: fNum(700),
                 fontSize: m.fsFtr,
+                letterSpacing: ls(m.fsFtr, LS_TIGHT),
                 // the clock's state, in ink rather than in a fill — and the ink
                 // STANDS DOWN while a panel is up. The scrim darkens fills, not
                 // glyphs, so under it this is the only coloured thing left in
@@ -219,7 +220,7 @@ export function Footer() {
                 // looks like a caption for the two beside it. The weight is
                 // still 600 — it is a label made of letters, not a count.
                 fontSize: m.fsFtr,
-                letterSpacing: ls(m.fsFtr, LS_LABEL),
+                letterSpacing: ls(m.fsFtr, LS_TITLE),
                 color: t.ink2,
                 textAlign: 'center',
                 fontVariant: ['tabular-nums'],

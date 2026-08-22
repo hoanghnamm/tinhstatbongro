@@ -12,10 +12,11 @@ import { Seg, type SegItem } from '../components/stats/parts';
 import { Press } from '../components/ui/Press';
 import { Col, Row } from '../components/ui/Row';
 import { freeThrowsIn, periodsOf, report, shotsIn, type Split } from '../lib/box';
+import { periodLabel } from '../lib/format';
 import { opponentLabel } from '../lib/team';
 import { useGameStore } from '../store/gameStore';
 import { useMetrics } from '../theme/metrics';
-import { LS_BTN, LS_LABEL, fNum, fUi, ls } from '../theme/tokens';
+import { LS_MICRO, LS_TIGHT, LS_TITLE, fNum, fUi, ls } from '../theme/tokens';
 import { useTheme } from '../theme/useTheme';
 import type { GameState } from '../types';
 
@@ -26,9 +27,6 @@ const TABS: SegItem<Tab>[] = [
   { key: 'players', label: 'PLAYERS' },
   { key: 'zones', label: 'ZONES' },
 ];
-
-/** Q1–Q4, then overtimes. The board has no period cap, so neither has this. */
-const periodLabel = (p: number): string => (p <= 4 ? `Q${p}` : p === 5 ? 'OT' : `OT${p - 4}`);
 
 /**
  * THE STATS SCREEN — where a finished game goes.
@@ -68,6 +66,8 @@ export default function StatsScreen() {
         note: s.note,
         score: s.score,
         oppScore: s.oppScore,
+        periods: s.periods,
+        periodLen: s.periodLen,
         period: s.period,
         remaining: s.remaining,
         running: s.running,
@@ -85,7 +85,7 @@ export default function StatsScreen() {
 
   const splits: SegItem<string>[] = [
     { key: 'all', label: 'ALL' },
-    ...periodsOf(g).map((p) => ({ key: String(p), label: periodLabel(p) })),
+    ...periodsOf(g).map((p) => ({ key: String(p), label: periodLabel(p, g.periods) })),
   ];
 
   const margin = rep.us - rep.them;
@@ -132,7 +132,7 @@ export default function StatsScreen() {
             style={{
               fontFamily: fNum(700),
               fontSize: m.fsXl,
-              letterSpacing: ls(m.fsXl, LS_BTN),
+              letterSpacing: ls(m.fsXl, LS_TITLE),
               color: t.ink,
             }}
           >
@@ -143,13 +143,13 @@ export default function StatsScreen() {
             style={{
               fontFamily: fUi(500),
               fontSize: m.fsXs,
-              letterSpacing: ls(m.fsXs, LS_LABEL),
+              letterSpacing: ls(m.fsXs, LS_MICRO),
               color: t.ink2,
             }}
           >
             {g.team.name.toUpperCase()}
             {g.opponent ? ` VS ${opponentLabel(g.opponent)}` : ''}
-            {split === null ? ' · WHOLE GAME' : ` · ${periodLabel(split)}`}
+            {split === null ? ' · WHOLE GAME' : ` · ${periodLabel(split, g.periods)}`}
           </Text>
           {/* the match note, if the scorer left one at tip-off. Quiet, one
               line, and absent entirely when empty — which is the common case. */}
@@ -169,6 +169,7 @@ export default function StatsScreen() {
             style={{
               fontFamily: fNum(700),
               fontSize: m.fsXl,
+              letterSpacing: ls(m.fsXl, LS_TIGHT),
               color: margin > 0 ? t.accent : t.ink,
               fontVariant: ['tabular-nums'],
             }}
@@ -180,6 +181,7 @@ export default function StatsScreen() {
             style={{
               fontFamily: fNum(700),
               fontSize: m.fsXl,
+              letterSpacing: ls(m.fsXl, LS_TIGHT),
               color: margin < 0 ? t.accent : t.ink,
               fontVariant: ['tabular-nums'],
             }}

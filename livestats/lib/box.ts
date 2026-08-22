@@ -44,13 +44,30 @@ export const clockSeconds = (clock: string): number => {
   return Number(m) * 60 + Number(s);
 };
 
-/** Game time elapsed when an event happened, counted from the opening tip. */
-export const absOf = (e: { period: number; gameClock: string }): number =>
-  (e.period - 1) * PERIOD_LEN + (PERIOD_LEN - clockSeconds(e.gameClock));
+/**
+ * HOW LONG A PERIOD OF THIS GAME WAS, and it is asked of the GAME rather than
+ * of `constants/game.ts`, because it is settable now — see `GameState.periods`.
+ * A game read off disk that was saved before it was settable was played to ten
+ * minutes, which is what the board was hardcoded to; the fallback lives here
+ * rather than at every call site so no reader can forget it.
+ */
+export const lenOf = (g: { periodLen?: number }): number => g.periodLen || PERIOD_LEN;
+
+/**
+ * Game time elapsed when an event happened, counted from the opening tip.
+ *
+ * The length is passed in rather than read off a constant: an event carries a
+ * period and a clock, and neither says how long a period is. Every caller has
+ * the game in hand and gets it from `lenOf`.
+ */
+export const absOf = (e: { period: number; gameClock: string }, len: number): number =>
+  (e.period - 1) * len + (len - clockSeconds(e.gameClock));
 
 /** …and the same number for right now, which is where the last gap ends. */
-export const gameElapsed = (g: GameState): number =>
-  (g.period - 1) * PERIOD_LEN + (PERIOD_LEN - g.remaining);
+export const gameElapsed = (g: GameState): number => {
+  const len = lenOf(g);
+  return (g.period - 1) * len + (len - g.remaining);
+};
 
 /**
  * Every period the game has reached. The clock's period leads the log — a
@@ -143,8 +160,9 @@ export function linesFor(g: GameState, split: Split): Player[] {
 
   const stats = new Map(g.players.map((p) => [p.id, zeroStats()]));
   const floor = startingFloor(g);
-  const from = (split - 1) * PERIOD_LEN;
-  const to = split * PERIOD_LEN;
+  const len = lenOf(g);
+  const from = (split - 1) * len;
+  const to = split * len;
   const end = gameElapsed(g);
   let at = 0;
 
@@ -169,7 +187,7 @@ export function linesFor(g: GameState, split: Split): Player[] {
 
   for (const e of g.events) {
     // a clock corrected forwards must not rewind the walk
-    const t = Math.min(absOf(e), end);
+    const t = Math.min(absOf(e, len), end);
     if (t > at) {
       played(at, t);
       at = t;
@@ -209,7 +227,7 @@ export interface ScoreMark {
   value: number;
 }
 
-export function scoreline(events: GameEvent[]): ScoreMark[] {
+export function scoreline(events: GameEvent[], len: number = PERIOD_LEN): ScoreMark[] {
   const marks: ScoreMark[] = [{ at: 0, period: 1, us: 0, them: 0, side: null, value: 0 }];
   let us = 0;
   let them = 0;
@@ -219,7 +237,7 @@ export function scoreline(events: GameEvent[]): ScoreMark[] {
     if (ours) us += e.value;
     else them += e.value;
     marks.push({
-      at: absOf(e),
+      at: absOf(e, len),
       period: e.period,
       us,
       them,
@@ -271,6 +289,8 @@ export function advancedFor(g: GameState, split: Split, lines: Player[]): TeamAd
 
   for (const p of lines) if (!p.starter) a.bench += p.stats.points;
 
+  const len = lenOf(g);
+
   /* -- the possession windows -------------------------------------
    * Each is opened by the play that starts it and closed by the next thing
    * that ends a possession; only points inside an open window count. */
@@ -281,7 +301,7 @@ export function advancedFor(g: GameState, split: Split, lines: Player[]): TeamAd
   for (const e of g.events) {
     const mine = inSplit(e, split);
     const scored = (e.type === 'shot' || e.type === 'freeThrow') && e.result === 'made';
-    const t = absOf(e);
+    const t = absOf(e, len);
 
     if (scored && mine) {
       if (e.type === 'shot' && e.zone === 'paint') a.paint += e.value;
@@ -324,10 +344,10 @@ export function advancedFor(g: GameState, split: Split, lines: Player[]): TeamAd
   }
 
   /* -- the shape of the score ------------------------------------- */
-  const marks = scoreline(g.events);
+  const marks = scoreline(g.events, len);
   const now = gameElapsed(g);
-  const from = split === null ? 0 : (split - 1) * PERIOD_LEN;
-  const to = split === null ? Infinity : split * PERIOD_LEN;
+  const from = split === null ? 0 : (split - 1) * len;
+  const to = split === null ? Infinity : split * len;
 
   let run: { side: string; points: number } = { side: '', points: 0 };
   let prev: ScoreMark | null = null;

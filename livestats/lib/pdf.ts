@@ -29,7 +29,7 @@
 import { FOUL_KINDS, ZONE_LABEL } from '../constants/game';
 import { PALETTE } from '../theme/tokens';
 import { BREAK_WINDOW, periodsOf, report, zoneRows, type Report } from './box';
-import { mmss, pct } from './format';
+import { mmss, pct, periodLabel } from './format';
 import { numDateLabel } from './history';
 import { appeared } from './season';
 import { efficiency, efg, plusMinus, ts } from './stats';
@@ -45,9 +45,6 @@ const esc = (s: string): string =>
   s.replace(/[&<>"']/g, (c) =>
     c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : c === '"' ? '&quot;' : '&#39;',
   );
-
-/** Q1–Q4, then overtimes — the same labels the split strip prints. */
-export const periodLabel = (p: number): string => (p <= 4 ? `Q${p}` : p === 5 ? 'OT' : `OT${p - 4}`);
 
 const signed = (n: number): string => (n > 0 ? `+${n}` : String(n));
 const round1 = (n: number): number => Math.round(n * 10) / 10;
@@ -320,7 +317,7 @@ export function gameReportHtml(g: GameState, at: number = Date.now()): string {
 <table>
   <thead>
     <tr><th class="l">Team</th>${qs
-      .map((q) => `<th>${periodLabel(q.period)}</th>`)
+      .map((q) => `<th>${periodLabel(q.period, g.periods)}</th>`)
       .join('')}<th>Total</th></tr>
   </thead>
   <tbody>

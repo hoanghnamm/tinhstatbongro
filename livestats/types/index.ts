@@ -250,6 +250,22 @@ export interface GameState {
   note: string;
   score: number;
   oppScore: number;
+  /**
+   * HOW MANY PERIODS THIS GAME WAS PLAYED IN, before overtime, and HOW LONG one
+   * of them was in seconds. Both are stamped at tip-off off `options` and are
+   * never read from `options` again — they are facts about THIS game, the way
+   * the team name and the kind are, and for the same reason: a quarter split is
+   * arithmetic over `periodLen`, so a saved game whose length came from a live
+   * setting would silently re-slice itself the day the scorer switched to
+   * halves. A game holds copies.
+   *
+   * A game read back off disk that was written before either existed was played
+   * 4 × 10:00, because that is what the board was hardcoded to; `reviveGame`
+   * and the store's own rehydrate both say so.
+   */
+  periods: number;
+  /** seconds in one period — see `periods` */
+  periodLen: number;
   period: number;
   /** seconds */
   remaining: number;

@@ -1,7 +1,7 @@
 import { Image, Text, View } from 'react-native';
 
 import { initials } from '../../lib/team';
-import { LS_BTN, fNum, ls } from '../../theme/tokens';
+import { LS_BTN, fDisplay, ls } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 
 /**
@@ -68,7 +68,11 @@ export function Crest({
       <Text
         numberOfLines={1}
         style={{
-          fontFamily: fNum(700),
+          // the monogram is a MARK, so it is set in the mark's face — the same
+          // Anton the wordmark and the club headline are set in, and the third
+          // and last thing `fDisplay` is spent on. Two initials in the body
+          // face is a label in a circle; in the display face it is a badge.
+          fontFamily: fDisplay(),
           fontSize: fs,
           lineHeight: fs * 1.2,
           letterSpacing: ls(fs, LS_BTN),

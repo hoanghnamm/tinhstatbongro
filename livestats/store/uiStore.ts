@@ -35,9 +35,7 @@ export type Panel =
   | { kind: 'setNumber'; playerId: string }
   | { kind: 'removePlayer'; playerId: string }
   /** a saved game, off the GAMES list — the roster's confirm, one shelf over */
-  | { kind: 'removeGame'; gameId: string }
-  /** the four options, reached from the gear and from nowhere else */
-  | { kind: 'settings' };
+  | { kind: 'removeGame'; gameId: string };
 
 export interface Trip {
   shooter: string;

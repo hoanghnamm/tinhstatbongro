@@ -4,13 +4,14 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
+import { useDots } from '../../hooks/useDots';
 import { FT_SPOT } from '../../lib/court';
 import { mmss, pct } from '../../lib/format';
 import { appeared } from '../../lib/season';
 import { efficiency, plusMinus } from '../../lib/stats';
 import { opponentLabel } from '../../lib/team';
 import { COURT_ASPECT, useMetrics } from '../../theme/metrics';
-import { LS_BTN, LS_LABEL, fNum, fUi, ls } from '../../theme/tokens';
+import { LS_LABEL, LS_MICRO, LS_TIGHT, LS_TITLE, fNum, fUi, ls } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 import { CourtSvg } from '../../components/board/CourtSvg';
 import { Bloom } from '../../components/ui/Bloom';
@@ -88,12 +89,13 @@ const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
  * THE SHOT CHART FOLLOWED ON ITS OWN, which is the part worth noting: the court
  * is `t.court` over `t.courtLine` and both are palette entries, so `CourtSvg`
  * draws a dark floor here with no branch of its own — and the marks keep their
- * grammar, `accent` for a make and `markMiss` for a miss, with the one `danger`
- * dot on the free-throw spot.
+ * grammar through `useDots`, the same hook the board's court and the ZONES tab
+ * read: a make, a miss, and one dot on the free-throw spot.
  */
 function PlayerProfileScreen() {
   const m = useMetrics();
   const t = useTheme();
+  const dots = useDots();
   const safe = useSafeAreaInsets();
 
   const { id, games: gamesJson } = useLocalSearchParams<{ id: string; games: string }>();
@@ -265,6 +267,7 @@ function PlayerProfileScreen() {
                 style={{
                   fontFamily: fNum(700),
                   fontSize: m.fsXl,
+                  letterSpacing: ls(m.fsXl, LS_TIGHT),
                   color: t.accent,
                   fontVariant: ['tabular-nums'],
                 }}
@@ -278,7 +281,7 @@ function PlayerProfileScreen() {
                 flexShrink: 1,
                 fontFamily: fNum(700),
                 fontSize: m.fsXl,
-                letterSpacing: ls(m.fsXl, LS_BTN),
+                letterSpacing: ls(m.fsXl, LS_TITLE),
                 color: t.ink,
               }}
             >
@@ -290,7 +293,7 @@ function PlayerProfileScreen() {
             style={{
               fontFamily: fUi(500),
               fontSize: m.fsXs,
-              letterSpacing: ls(m.fsXs, LS_LABEL),
+              letterSpacing: ls(m.fsXs, LS_MICRO),
               color: t.ink2,
             }}
           >
@@ -354,7 +357,7 @@ function PlayerProfileScreen() {
                     style={{
                       fontFamily: fNum(selectedGameId === 'total' ? 700 : 500),
                       fontSize: m.fsXs,
-                      letterSpacing: ls(m.fsXs, LS_LABEL),
+                      letterSpacing: ls(m.fsXs, LS_MICRO),
                       color: selectedGameId === 'total' ? t.accentInk : t.ink2,
                     }}
                   >
@@ -381,7 +384,7 @@ function PlayerProfileScreen() {
                         style={{
                           fontFamily: fNum(on ? 700 : 500),
                           fontSize: m.fsXs,
-                          letterSpacing: ls(m.fsXs, LS_LABEL),
+                          letterSpacing: ls(m.fsXs, LS_MICRO),
                           color: on ? t.accentInk : t.ink2,
                         }}
                       >
@@ -411,7 +414,7 @@ function PlayerProfileScreen() {
                             width: dot,
                             height: dot,
                             borderRadius: dot / 2,
-                            backgroundColor: mk.made ? t.accent : t.markMiss,
+                            backgroundColor: mk.made ? dots.made : dots.miss,
                           }}
                         />
                       ))}
@@ -424,7 +427,7 @@ function PlayerProfileScreen() {
                             width: dot,
                             height: dot,
                             borderRadius: dot / 2,
-                            backgroundColor: t.danger,
+                            backgroundColor: dots.ft,
                           }}
                         />
                       )}
@@ -438,9 +441,9 @@ function PlayerProfileScreen() {
                 justify="center"
                 style={{ paddingVertical: m.s2, borderTopWidth: 1, borderTopColor: t.rule }}
               >
-                <Key color={t.accent} label="MADE" />
-                <Key color={t.markMiss} label="MISS" ring />
-                <Key color={t.danger} label={`FT ${ftTotal.m}-${ftTotal.a}`} />
+                <Key color={dots.made} label="MADE" />
+                <Key color={dots.miss} label="MISS" ring />
+                <Key color={dots.ft} label={`FT ${ftTotal.m}-${ftTotal.a}`} />
               </Row>
             </Section>
 
@@ -462,7 +465,7 @@ function PlayerProfileScreen() {
                             textAlign: c.left ? 'left' : 'right',
                             fontFamily: fNum(500),
                             fontSize: m.fsXs,
-                            letterSpacing: ls(m.fsXs, LS_LABEL),
+                            letterSpacing: ls(m.fsXs, LS_MICRO),
                             color: t.ink2,
                           }}
                         >

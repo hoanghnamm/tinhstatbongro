@@ -116,6 +116,12 @@ export function Tile({
             textAlign: 'center',
             fontFamily: fUi(600),
             fontSize: m.fsXs,
+            // THE ONE `fsXs` CAPTION THAT KEEPS `LS_LABEL`, and the width is
+            // why. A third of the smallest court is ten characters of caption
+            // and `SUBSTITUTE` is exactly ten: at `LS_MICRO` the last of them
+            // ellipsises away. Everywhere else a caption has room to be set
+            // wide; a board tile does not, and this one truncates rather than
+            // wraps, so the tracking is what has to give.
             letterSpacing: ls(m.fsXs, LS_LABEL),
             // both lines or neither: a red code over a grey word reads as two
             // different things stacked, not as one red button

@@ -6,7 +6,7 @@ import { COACH_NAME_MAX, TEAM_NAME_MAX, cleanTeamName } from '../../lib/team';
 import { useTeamStore } from '../../store/teamStore';
 import { useUiStore } from '../../store/uiStore';
 import { useMetrics } from '../../theme/metrics';
-import { LS_BTN, LS_LABEL, fNum, fUi, ls } from '../../theme/tokens';
+import { LS_BTN, LS_LABEL, LS_MICRO, fNum, fUi, ls } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 import { Card } from '../stats/parts';
 import { Crest } from '../ui/Crest';
@@ -308,7 +308,7 @@ export function ClubCard({ readOnly = false }: { readOnly?: boolean }) {
                   style={{
                     fontFamily: fNum(700),
                     fontSize: m.fsXs,
-                    letterSpacing: ls(m.fsXs, LS_LABEL),
+                    letterSpacing: ls(m.fsXs, LS_MICRO),
                     color: t.ink3,
                   }}
                 >

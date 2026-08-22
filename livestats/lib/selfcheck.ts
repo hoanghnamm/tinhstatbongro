@@ -10,15 +10,26 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
-import { FOULS, FOUL_KINDS, FOUL_MENU, PERIOD_LEN, SEED_ROSTER, TALLY_TILES, seedRoster, zeroStats } from '../constants/game';
+import { FOULS, FOUL_KINDS, FOUL_MENU, PERIOD_LEN, REG_PERIODS, SEED_ROSTER, TALLY_TILES, seedRoster, zeroStats } from '../constants/game';
 import { DEFAULT_OPTIONS } from '../constants/options';
 import * as A from '../lib/actions';
 import { COURT_LINES, FT_SPOT, ZONE_PATHS, shotTypeFor, zoneFor, zoneSide } from './court';
-import { clockEntry, clockReady, mmss, ord, pushClockDigit, secondsFromClock } from './format';
+import {
+  clockEntry,
+  clockReady,
+  mmss,
+  ord,
+  periodLabel,
+  periodName,
+  periodWord,
+  pushClockDigit,
+  secondsFromClock,
+} from './format';
 import { gridFor } from './grid';
 import { advancedFor, linesFor, periodsOf, report, scoreline, shotsIn } from './box';
 import { gameReportHtml, periodScores, reportFileName, reportTitle } from './pdf';
 import { tileWords } from './labels';
+import { DARK, DOT_HUES, DOT_LABEL, PALETTE, dotColor } from '../theme/tokens';
 import { litControl, litPlayerId } from './lit';
 import {
   HISTORY_CAP,
@@ -70,6 +81,11 @@ const game = (): GameState => ({
   note: '',
   score: 0,
   oppScore: 0,
+  // four tens, which is what every game in this file is played to — the two are
+  // on the GAME now, not on a constant, so a night saved under one clock cannot
+  // be re-sliced by a setting changed afterwards
+  periods: REG_PERIODS,
+  periodLen: PERIOD_LEN,
   period: 1,
   remaining: PERIOD_LEN,
   running: false,
@@ -290,6 +306,133 @@ assert.equal(shotTypeFor(396 / 792, 100 / 521), '2PT');
     played,
     'minutes are never rewound — the same rule undo() keeps for every other action',
   );
+}
+
+/* ---- the rules of the game are the GAME's -------------------------
+ * `periods` and `periodLen` are settable, and the whole reason they live on
+ * `GameState` rather than being read off `options` is that a quarter split is
+ * ARITHMETIC over the length: a game saved under 4 × 10:00 must still slice
+ * into ten-minute quarters after the scorer switches to halves. So the three
+ * things that read a length — the buzzer, the split walk and the labels — are
+ * asserted against a game that was NOT played to the default.
+ * ------------------------------------------------------------------ */
+{
+  /* -- the labels -------------------------------------------------- */
+  assert.equal(periodLabel(3, 4), 'Q3', 'a quarter is a quarter');
+  assert.equal(periodLabel(1, 2), 'H1', 'and a half says so rather than lying about it');
+  assert.equal(periodLabel(5, 4), 'OT', 'the first overtime is unnumbered');
+  assert.equal(periodLabel(6, 4), 'OT2', 'the second is not');
+  assert.equal(periodLabel(3, 2), 'OT', 'and OT starts one period earlier in halves');
+
+  // …and the same answer in words, which is what the two clock panels print
+  assert.equal(periodName(1, 4), '1ST QUARTER');
+  assert.equal(periodName(1, 2), '1ST HALF', 'a halves game is not playing a quarter');
+  assert.equal(periodName(5, 4), 'OVERTIME', 'and period 5 is not a 5TH QUARTER');
+  assert.equal(periodName(7, 4), 'OVERTIME 3');
+  assert.equal(periodWord(2, 4), 'QUARTER');
+  assert.equal(periodWord(2, 2), 'HALF');
+  assert.equal(periodWord(3, 2), 'OVERTIME');
+  // the END tile's caption has ten characters to spend and must not truncate
+  for (const reg of [2, 4]) {
+    for (const p of [1, reg, reg + 1, reg + 2]) {
+      assert.ok(periodWord(p, reg).length <= 10, `${periodWord(p, reg)} fits the tile caption`);
+    }
+  }
+
+  /* -- the buzzer puts back the GAME's clock, not the constant ------ */
+  {
+    const g = game();
+    g.periods = 2;
+    g.periodLen = 720;
+    g.remaining = 0;
+    A.nextPeriod(g);
+    assert.equal(g.remaining, 720, 'an overtime is played to the clock the halves were');
+    assert.notEqual(g.remaining, PERIOD_LEN, 'and specifically not to the old constant');
+  }
+
+  /* -- the split walk measures in the game's own periods ------------ */
+  {
+    const g = game();
+    g.periodLen = 480; // eight-minute quarters
+    g.remaining = 480;
+    const paint: Position = { x: 0.5, y: 0.3 };
+
+    g.running = true;
+    A.recordShot(g, 'p1', paint, '2PT', true, null, null);
+    A.tickSeconds(g, 480); // all of the first
+    assert.equal(g.remaining, 0, 'the eight minutes ran out');
+
+    A.nextPeriod(g);
+    assert.equal(g.remaining, 480);
+    A.tickSeconds(g, 30);
+    A.recordShot(g, 'p12', paint, '2PT', true, null, null);
+
+    const q1 = linesFor(g, 1);
+    const q2 = linesFor(g, 2);
+    const secs = (ps: typeof q1, id: string) => ps.find((p) => p.id === id)!.stats.secondsPlayed;
+    assert.equal(secs(q1, 'p1'), 480, 'a starter played all eight minutes of the first');
+    assert.notEqual(secs(q1, 'p1'), PERIOD_LEN, 'not the ten the constant would have credited');
+    assert.equal(secs(q2, 'p1'), 30, 'and thirty seconds of the second');
+    assert.equal(
+      secs(q1, 'p1') + secs(q2, 'p1'),
+      A.byId(g, 'p1')!.stats.secondsPlayed,
+      'the periods still add up to the counter, at any length',
+    );
+    // the basket in each period landed in that period and nowhere else
+    const pts = (ps: typeof q1, id: string) => ps.find((p) => p.id === id)!.stats.points;
+    assert.equal(pts(q1, 'p1'), 2);
+    assert.equal(pts(q2, 'p1'), 0, 'the walk did not spill one period into the next');
+    assert.equal(pts(q2, 'p12'), 2);
+  }
+
+  /* -- a game from before either was a question --------------------- */
+  {
+    const old = reviveGame({
+      team: { name: 'T' },
+      score: 10,
+      oppScore: 8,
+      period: 4,
+      players: seedRoster(),
+      events: [],
+    })!;
+    assert.equal(old.periods, REG_PERIODS, 'an older saved game was played in quarters');
+    assert.equal(old.periodLen, PERIOD_LEN, 'of ten minutes, which is what the board was');
+  }
+}
+
+/* ---- the chart's three dots ---------------------------------------
+ * Four of the eight hues are palette tokens rather than hexes, which is the
+ * only reason NEUTRAL can be white on the board's cool floor and warm grey on
+ * the dark player page. The defaults must reproduce exactly what the chart
+ * drew before any of it was settable.
+ * ------------------------------------------------------------------ */
+{
+  assert.equal(dotColor('orange', PALETTE), PALETTE.accent, 'orange IS the accent');
+  assert.equal(dotColor('red', PALETTE), PALETTE.danger);
+  assert.equal(dotColor('teal', PALETTE), PALETTE.live);
+  assert.equal(dotColor('neutral', PALETTE), PALETTE.markMiss, 'white on the light court');
+  assert.equal(dotColor('neutral', DARK), DARK.markMiss, 'and warm grey on the dark one');
+  assert.notEqual(
+    dotColor('neutral', PALETTE),
+    dotColor('neutral', DARK),
+    'which is the whole point of resolving through the palette',
+  );
+
+  assert.equal(
+    dotColor(DEFAULT_OPTIONS.dotMade, PALETTE),
+    PALETTE.accent,
+    'a made shot defaults to what it has always been',
+  );
+  assert.equal(dotColor(DEFAULT_OPTIONS.dotMiss, PALETTE), PALETTE.markMiss);
+  assert.equal(dotColor(DEFAULT_OPTIONS.dotFt, PALETTE), PALETTE.danger);
+
+  // every hue must answer, or a swatch draws nothing at all
+  for (const hue of DOT_HUES) {
+    assert.ok(/^#|^rgba/.test(dotColor(hue, PALETTE)), `${hue} resolves to a colour`);
+    assert.ok(/^#|^rgba/.test(dotColor(hue, DARK)), `${hue} resolves on the dark palette too`);
+  }
+  assert.equal(DOT_HUES.length, new Set(DOT_HUES).size, 'and no hue is offered twice');
+  for (const hue of DOT_HUES) assert.ok(DOT_LABEL[hue], `${hue} has a name to print`);
 }
 
 /* ---- possessions --------------------------------------------------- */
@@ -1215,6 +1358,7 @@ assert.equal(ord(11), '11th');
     join('components', 'board', 'Court.tsx'), // the live mark is a dot
     join('components', 'stats', 'ZonesTab.tsx'), // shot dots, the zone heat, its scale
     join('components', 'ui', 'Dot.tsx'), // the availability dot, likewise
+    join('components', 'ui', 'Slug.tsx'), // the lobby's accent rule: a ground, not a mark
     join('app', 'player', '[id].tsx'), // shot dots on court
   ];
   for (const f of files) {

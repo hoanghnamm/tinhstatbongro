@@ -3,7 +3,7 @@ import { Text, View } from 'react-native';
 import { useAnnounce } from '../../hooks/useAnnounce';
 import { useUiStore } from '../../store/uiStore';
 import { useMetrics } from '../../theme/metrics';
-import { LS_BTN, fNum, ls } from '../../theme/tokens';
+import { LS_TITLE, fNum, ls } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 import { Press } from '../ui/Press';
 import { CancelX, PHead, PTitleText } from './shell';
@@ -62,7 +62,7 @@ export function WhatPanel() {
         style={{
           fontFamily: fNum(700),
           fontSize: m.fs2xl,
-          letterSpacing: ls(m.fs2xl, LS_BTN),
+          letterSpacing: ls(m.fs2xl, LS_TITLE),
           textAlign: 'center',
           color: made ? t.accentInk : t.ink,
         }}

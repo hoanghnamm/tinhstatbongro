@@ -7,6 +7,7 @@ import { Stack } from 'expo-router';
 import { useFonts } from 'expo-font';
 // deep imports on purpose: the package roots re-export every weight and italic,
 // which drags ~10MB of unused TTF into the bundle
+import { Anton_400Regular } from '@expo-google-fonts/anton/400Regular';
 import { Inter_400Regular } from '@expo-google-fonts/inter/400Regular';
 import { Inter_500Medium } from '@expo-google-fonts/inter/500Medium';
 import { Inter_600SemiBold } from '@expo-google-fonts/inter/600SemiBold';
@@ -46,14 +47,19 @@ function Root() {
 
 export default function RootLayout() {
   /**
-   * INTER ONLY, AND ON iOS IT IS NOT EVEN USED. The type is Helvetica Neue,
+   * ANTON ON BOTH, INTER ON ANDROID ONLY. The BODY type is Helvetica Neue,
    * which is an Apple system face: it needs no loading and cannot be bundled.
-   * Inter is what Android draws instead — see `fUi`/`fNum` — so these four are
+   * Inter is what Android draws instead — see `fUi`/`fNum` — so those four are
    * loaded on both platforms rather than behind a branch, because a
    * conditional hook is worse than four unused faces on a phone that has them
-   * cached anyway.
+   * cached anyway. ANTON is the exception in both directions: it is bundled,
+   * and it is drawn on iOS too, because a wordmark that changes shape between
+   * two phones is not a wordmark. See `fDisplay`.
    */
   const [ready] = useFonts({
+    // the one face that is loaded because it is USED on both platforms: the
+    // wordmark, the club headline and the crest's monogram — see `fDisplay`
+    Anton_400Regular,
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,

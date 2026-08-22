@@ -14,10 +14,11 @@ import { Press } from '../../components/ui/Press';
 import { Col, Row } from '../../components/ui/Row';
 import { numDateLabel, summaryKind } from '../../lib/history';
 import { freeThrowsIn, periodsOf, report, shotsIn, type Split } from '../../lib/box';
+import { periodLabel } from '../../lib/format';
 import { competitionLabel, opponentLabel } from '../../lib/team';
 import { useHistoryStore } from '../../store/historyStore';
 import { useMetrics } from '../../theme/metrics';
-import { LS_BTN, LS_LABEL, fNum, fUi, ls } from '../../theme/tokens';
+import { LS_LABEL, LS_MICRO, LS_TIGHT, LS_TITLE, fNum, fUi, ls } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 import type { GameState } from '../../types';
 
@@ -29,9 +30,6 @@ const TABS: SegItem<Tab>[] = [
   { key: 'zones', label: 'ZONES' },
   { key: 'plays', label: 'PLAYS' },
 ];
-
-/** Q1–Q4, then overtimes. */
-const periodLabel = (p: number): string => (p <= 4 ? `Q${p}` : p === 5 ? 'OT' : `OT${p - 4}`);
 
 /**
  * ONE SAVED GAME — full final stats.
@@ -101,7 +99,9 @@ export default function SavedGameScreen() {
   const splits: SegItem<string>[] = game
     ? [
         { key: 'all', label: 'ALL' },
-        ...periodsOf(game).map((p) => ({ key: String(p), label: periodLabel(p) })),
+        // the labels are the GAME's own — a night played in halves reads H1/H2
+        // however the settings are set today
+        ...periodsOf(game).map((p) => ({ key: String(p), label: periodLabel(p, game.periods) })),
       ]
     : [{ key: 'all', label: 'ALL' }];
 
@@ -151,7 +151,7 @@ export default function SavedGameScreen() {
             style={{
               fontFamily: fNum(700),
               fontSize: m.fsXl,
-              letterSpacing: ls(m.fsXl, LS_BTN),
+              letterSpacing: ls(m.fsXl, LS_TITLE),
               color: t.ink,
               fontVariant: ['tabular-nums'],
             }}
@@ -166,7 +166,7 @@ export default function SavedGameScreen() {
             style={{
               fontFamily: fUi(500),
               fontSize: m.fsXs,
-              letterSpacing: ls(m.fsXs, LS_LABEL),
+              letterSpacing: ls(m.fsXs, LS_MICRO),
               color: t.ink2,
             }}
           >
@@ -198,6 +198,7 @@ export default function SavedGameScreen() {
               style={{
                 fontFamily: fNum(700),
                 fontSize: m.fsXl,
+                letterSpacing: ls(m.fsXl, LS_TIGHT),
                 color: t.ink,
                 fontVariant: ['tabular-nums'],
               }}
@@ -209,6 +210,7 @@ export default function SavedGameScreen() {
               style={{
                 fontFamily: fNum(700),
                 fontSize: m.fsXl,
+                letterSpacing: ls(m.fsXl, LS_TIGHT),
                 color: summary.score > summary.oppScore ? t.accent : t.ink,
                 fontVariant: ['tabular-nums'],
               }}

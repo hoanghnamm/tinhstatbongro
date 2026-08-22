@@ -9,6 +9,7 @@ import { useMeasure } from '../../store/layoutStore';
 import { useUiStore } from '../../store/uiStore';
 import { useMetrics } from '../../theme/metrics';
 import { useTheme } from '../../theme/useTheme';
+import { useDots } from '../../hooks/useDots';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { CourtSvg } from './CourtSvg';
 import type { Position } from '../../types';
@@ -23,6 +24,8 @@ const clamp = (lo: number, v: number, hi: number) => Math.min(hi, Math.max(lo, v
 function CourtImpl() {
   const m = useMetrics();
   const t = useTheme();
+  // the three marks, resolved once and shared with every other chart
+  const dots = useDots();
   const reduced = useReducedMotion();
   const { ref, onLayout } = useMeasure('court');
 
@@ -105,21 +108,22 @@ function CourtImpl() {
               at(s.pos, dot),
               {
                 borderWidth: 0,
-                backgroundColor: s.made ? t.accent : t.markMiss,
+                backgroundColor: s.made ? dots.made : dots.miss,
               },
             ]}
           />
         ))}
 
-        {/* The free-throw spot: one red dot on the line, the same size as a
-            shot's and built the same way, so the chart stays one grammar. It
-            carries no count — the split lives in the box score, and a number on
-            the floor is not what a scorer reads mid-game. */}
+        {/* The free-throw spot: ONE dot on the line, the same size as a shot's
+            and built the same way, so the chart stays one grammar. It carries
+            no count — the split lives in the box score, and a number on the
+            floor is not what a scorer reads mid-game. Its hue is the scorer's,
+            like the other two; red is only the default. */}
         {showFt && (
           <View
             style={[
               at(FT_SPOT, dot),
-              { borderWidth: 0, backgroundColor: t.danger },
+              { borderWidth: 0, backgroundColor: dots.ft },
             ]}
           />
         )}

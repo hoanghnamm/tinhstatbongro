@@ -21,7 +21,6 @@ import { PlayerActionsPanel } from './PlayerActionsPanel';
 import { RebKindPanel } from './RebKindPanel';
 import { RemoveGamePanel } from './RemoveGamePanel';
 import { RemovePlayerPanel } from './RemovePlayerPanel';
-import { SettingsPanel } from './SettingsPanel';
 import { SetClockPanel } from './SetClockPanel';
 import { SetNumberPanel } from './SetNumberPanel';
 import { SubOutPanel } from './SubOutPanel';
@@ -115,7 +114,6 @@ function body(panel: Panel) {
     case 'setNumber': return <SetNumberPanel playerId={panel.playerId} />;
     case 'removePlayer': return <RemovePlayerPanel playerId={panel.playerId} />;
     case 'removeGame': return <RemoveGamePanel gameId={panel.gameId} />;
-    case 'settings': return <SettingsPanel />;
   }
 }
 

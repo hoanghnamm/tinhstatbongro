@@ -15,7 +15,7 @@
  * this ever has to scale further the answer is `expo-sqlite`, not a bigger
  * blob.
  */
-import { PERIOD_LEN } from '../constants/game';
+import { PERIOD_LEN, REG_PERIODS } from '../constants/game';
 import { cleanCompetition, competitionKey } from './team';
 import type { GameKind, GameState } from '../types';
 
@@ -152,6 +152,12 @@ export function reviveGame(raw: unknown): GameState | null {
     note: g.note ?? '',
     score: g.score ?? 0,
     oppScore: g.oppScore ?? 0,
+    // A GAME FROM BEFORE THE CLOCK WAS SETTABLE WAS PLAYED 4 × 10:00, which is
+    // what the board was hardcoded to. Every quarter split on this game is
+    // arithmetic over the length, so guessing anything else here would re-slice
+    // a night that is already over.
+    periods: g.periods ?? REG_PERIODS,
+    periodLen: g.periodLen ?? PERIOD_LEN,
     period: g.period ?? 1,
     remaining: g.remaining ?? PERIOD_LEN,
     running: false,

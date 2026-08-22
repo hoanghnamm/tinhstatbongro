@@ -8,7 +8,7 @@ import { gameReportHtml, reportFileName } from '../../lib/pdf';
 import { Btn } from '../panels/shell';
 import { Col, Row } from '../ui/Row';
 import { useMetrics } from '../../theme/metrics';
-import { LS_LABEL, fUi, ls } from '../../theme/tokens';
+import { LS_MICRO, fUi, ls } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 import type { GameState } from '../../types';
 
@@ -95,7 +95,7 @@ export function ExportButton({ game }: { game: GameState }) {
           textAlign: 'center',
           fontFamily: fUi(500),
           fontSize: m.fsXs,
-          letterSpacing: ls(m.fsXs, LS_LABEL),
+          letterSpacing: ls(m.fsXs, LS_MICRO),
           color: failed ? t.danger : t.ink3,
         }}
       >

@@ -5,8 +5,9 @@ import { ZONE_LABEL } from '../../constants/game';
 import { zoneRows } from '../../lib/box';
 import { FT_SPOT } from '../../lib/court';
 import { pct } from '../../lib/format';
+import { useDots } from '../../hooks/useDots';
 import { COURT_ASPECT, useMetrics } from '../../theme/metrics';
-import { LS_LABEL, fUi, ls, withAlpha } from '../../theme/tokens';
+import { LS_MICRO, fUi, ls, withAlpha } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 import { CourtSvg } from '../board/CourtSvg';
 import { Row } from '../ui/Row';
@@ -68,6 +69,9 @@ export function ZonesTab({
 }) {
   const m = useMetrics();
   const t = useTheme();
+  // the same three marks the board's own court draws — one hook, so the two
+  // charts cannot disagree about what a make looks like
+  const dots = useDots();
   const [boxW, setBoxW] = useState(0);
 
   const rows = zoneRows(report.zones);
@@ -89,9 +93,10 @@ export function ZonesTab({
   return (
     <View>
       {/* ── The marks ── the same grammar the board's own chart uses, because
-          it IS the same chart: a made shot is `accent`, a miss is `markMiss`,
-          and the free throws are one red dot on the line however many were
-          taken, since every one of them is logged at the same coordinate. */}
+          it IS the same chart, down to the hook that resolves the three hues:
+          a made shot, a miss, and ONE dot on the line for the free throws
+          however many were taken, since every one is logged at the same
+          coordinate. The colours are the scorer's — see `useDots`. */}
       <Section title="THE FLOOR">
         <View
           onLayout={(e) => setBoxW(e.nativeEvent.layout.width)}
@@ -111,7 +116,7 @@ export function ZonesTab({
                       width: dot,
                       height: dot,
                       borderRadius: dot / 2,
-                      backgroundColor: s.made ? t.accent : t.markMiss,
+                      backgroundColor: s.made ? dots.made : dots.miss,
                     }}
                   />
                 ))}
@@ -124,7 +129,7 @@ export function ZonesTab({
                       width: dot,
                       height: dot,
                       borderRadius: dot / 2,
-                      backgroundColor: t.danger,
+                      backgroundColor: dots.ft,
                     }}
                   />
                 )}
@@ -139,9 +144,9 @@ export function ZonesTab({
           justify="center"
           style={{ paddingVertical: m.s2, borderTopWidth: 1, borderTopColor: t.rule }}
         >
-          <Key color={t.accent} label="MADE" />
-          <Key color={t.markMiss} label="MISS" ring />
-          <Key color={t.danger} label={`FREE THROWS ${ft.m}-${ft.a}`} />
+          <Key color={dots.made} label="MADE" />
+          <Key color={dots.miss} label="MISS" ring />
+          <Key color={dots.ft} label={`FREE THROWS ${ft.m}-${ft.a}`} />
         </Row>
       </Section>
 
@@ -176,7 +181,7 @@ export function ZonesTab({
             style={{
               fontFamily: fUi(500),
               fontSize: m.fsXs,
-              letterSpacing: ls(m.fsXs, LS_LABEL),
+              letterSpacing: ls(m.fsXs, LS_MICRO),
               color: t.ink2,
             }}
           >
@@ -199,7 +204,7 @@ export function ZonesTab({
             style={{
               fontFamily: fUi(500),
               fontSize: m.fsXs,
-              letterSpacing: ls(m.fsXs, LS_LABEL),
+              letterSpacing: ls(m.fsXs, LS_MICRO),
               color: t.ink2,
             }}
           >

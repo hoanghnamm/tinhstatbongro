@@ -4,7 +4,7 @@ import { litControl } from '../../lib/lit';
 import { useLitRect } from '../../store/layoutStore';
 import { useUiStore } from '../../store/uiStore';
 import { useMetrics } from '../../theme/metrics';
-import { LS_LABEL, fNum, fUi, ls } from '../../theme/tokens';
+import { LS_MICRO, fNum, fUi, ls } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 import { Press } from '../ui/Press';
 
@@ -95,7 +95,7 @@ export function SBtn({
                 style={{
                   fontFamily: fUi(600),
                   fontSize: m.fsXs,
-                  letterSpacing: ls(m.fsXs, LS_LABEL),
+                  letterSpacing: ls(m.fsXs, LS_MICRO),
                   textAlign: 'center',
                   color: pressed && opp ? t.accentInk : t.ink2,
                 }}

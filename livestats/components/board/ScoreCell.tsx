@@ -2,7 +2,7 @@ import { Text, View } from 'react-native';
 
 import { useGameStore } from '../../store/gameStore';
 import { useMetrics } from '../../theme/metrics';
-import { fNum } from '../../theme/tokens';
+import { LS_TIGHT, fNum, ls } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 import { Row } from '../ui/Row';
 
@@ -80,7 +80,7 @@ export function ScoreCell({ grow }: { grow: number }) {
             fontFamily: fNum(700),
             fontSize: size,
             lineHeight: line,
-            letterSpacing: -0.02 * size,
+            letterSpacing: ls(size, LS_TIGHT),
             color: t.ink,
             fontVariant: ['tabular-nums'],
           }}
@@ -98,6 +98,7 @@ export function ScoreCell({ grow }: { grow: number }) {
             fontFamily: fNum(700),
             fontSize: size,
             lineHeight: line,
+            letterSpacing: ls(size, LS_TIGHT),
             color: t.ink2,
             fontVariant: ['tabular-nums'],
           }}

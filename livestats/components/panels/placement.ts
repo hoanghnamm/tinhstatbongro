@@ -44,14 +44,14 @@ export const MODE: Record<Panel['kind'], Mode> = {
   // more two-way choice
   endGame: 'court',
   // the off-board panels. There is no court to dock against or cover, so they
-  // are all centred dialogs — which is what they are anyway: three confirms,
-  // a keypad and a short list of switches. BOTH forms are gone: the TEAM tab
-  // edits a player on its row and the club on its card, inline.
+  // are all centred dialogs — which is what they are anyway: three confirms
+  // and a keypad. BOTH forms are gone, and so is the SETTINGS list: the TEAM
+  // tab edits a player on its row and the club on its card, and the switches
+  // are a page of their own at `app/settings.tsx`.
   newGame: 'center',
   setNumber: 'center',
   removePlayer: 'center',
   removeGame: 'center',
-  settings: 'center',
 };
 
 export const isDocked = (panel: Panel | null): boolean => !!panel && MODE[panel.kind] === 'dock';

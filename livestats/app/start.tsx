@@ -24,7 +24,7 @@ import { useRosterStore } from '../store/rosterStore';
 import { useTeamStore } from '../store/teamStore';
 import { useUiStore } from '../store/uiStore';
 import { useMetrics } from '../theme/metrics';
-import { LS_BTN, LS_LABEL, fNum, fUi, ls } from '../theme/tokens';
+import { LS_LABEL, LS_MICRO, LS_TITLE, fNum, fUi, ls } from '../theme/tokens';
 import { useTheme } from '../theme/useTheme';
 import type { GameKind, RosterPlayer } from '../types';
 
@@ -106,7 +106,7 @@ function Label({ children, tone }: { children: string; tone?: string }) {
       style={{
         fontFamily: fNum(500),
         fontSize: m.fsXs,
-        letterSpacing: ls(m.fsXs, LS_LABEL),
+        letterSpacing: ls(m.fsXs, LS_MICRO),
         color: tone ?? t.ink2,
       }}
     >
@@ -276,7 +276,7 @@ function Chip({ label, onPress }: { label: string; onPress(): void }) {
         style={{
           fontFamily: fNum(500),
           fontSize: m.fsXs,
-          letterSpacing: ls(m.fsXs, LS_LABEL),
+          letterSpacing: ls(m.fsXs, LS_MICRO),
           color: t.ink2,
         }}
       >
@@ -486,7 +486,7 @@ function StartScreen() {
               flexShrink: 1,
               fontFamily: fNum(700),
               fontSize: m.fsXl,
-              letterSpacing: ls(m.fsXl, LS_BTN),
+              letterSpacing: ls(m.fsXl, LS_TITLE),
               color: t.ink,
             }}
           >
@@ -643,7 +643,7 @@ function StartScreen() {
               textAlign: 'center',
               fontFamily: fNum(500),
               fontSize: m.fsXs,
-              letterSpacing: ls(m.fsXs, LS_LABEL),
+              letterSpacing: ls(m.fsXs, LS_MICRO),
               color: t.danger,
             }}
           >

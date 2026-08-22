@@ -39,6 +39,8 @@ export function useLastGame(): LastGame | null {
         note: s.note,
         score: s.score,
         oppScore: s.oppScore,
+        periods: s.periods,
+        periodLen: s.periodLen,
         period: s.period,
         remaining: s.remaining,
         running: s.running,

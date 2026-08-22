@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
-import { PERIOD_LEN, seedRoster } from '../constants/game';
+import { PERIOD_LEN, REG_PERIODS, seedRoster } from '../constants/game';
 import { buildPlayers } from '../lib/roster';
 import { DEFAULT_OPTIONS, type Options } from '../constants/options';
 import { DEFAULT_TEAM, cleanCompetition, cleanNote, cleanOpponent } from '../lib/team';
@@ -106,6 +106,14 @@ const freshGame = (
   players: Player[] = seedRoster(),
   teamName: string = DEFAULT_TEAM.name,
   match: Partial<MatchInfo> = {},
+  // THE RULES OF THE GAME ARE STAMPED HERE AND READ OFF THE GAME EVER AFTER.
+  // They come from `options` at the one call site that has them — `startGame` —
+  // and default to four tens for the board a fresh install opens on, which has
+  // never been through the picker. See `GameState.periods`.
+  rules: { periods: number; periodLen: number } = {
+    periods: REG_PERIODS,
+    periodLen: PERIOD_LEN,
+  },
 ): GameState => ({
   team: { name: teamName },
   // a board that has never been through the picker is a practice, because
@@ -117,8 +125,10 @@ const freshGame = (
   note: cleanNote(match.note ?? ''),
   score: 0,
   oppScore: 0,
+  periods: rules.periods,
+  periodLen: rules.periodLen,
   period: 1,
-  remaining: PERIOD_LEN,
+  remaining: rules.periodLen,
   running: false,
   ended: false,
   possessions: 0,
@@ -186,7 +196,11 @@ export const useGameStore = create<GameStore>()(
         const g: GameState = clone({
           team: s.team, kind: s.kind, competition: s.competition,
           opponent: s.opponent, note: s.note,
-          score: s.score, oppScore: s.oppScore, period: s.period,
+          score: s.score, oppScore: s.oppScore,
+          // the rules of the night ride along with it: `nextPeriod` reads
+          // `periodLen` off the game it is handed, not off a constant
+          periods: s.periods, periodLen: s.periodLen,
+          period: s.period,
           remaining: s.remaining, running: s.running, ended: s.ended,
           possessions: s.possessions, players: s.players, events: s.events,
         });
@@ -202,7 +216,17 @@ export const useGameStore = create<GameStore>()(
         startGame: (roster, starterIds, teamName, match = {}) => {
           // a new game's undo history is empty, not the last game's
           undoStack.length = 0;
-          set(freshGame(buildPlayers(roster, starterIds), teamName, match));
+          // THE ONE PLACE THE SETTINGS CROSS INTO A GAME, and they cross the
+          // way the club's name does: copied once, at tip-off, and never read
+          // back. A game already on the board or already on the shelf does not
+          // hear that the scorer has switched to halves.
+          const { periods, periodLen } = get().options;
+          set(
+            freshGame(buildPlayers(roster, starterIds), teamName, match, {
+              periods,
+              periodLen,
+            }),
+          );
         },
 
         recordShot: (playerId, position, shotType, made, assistId, shotNote) =>
@@ -285,7 +309,7 @@ export const useGameStore = create<GameStore>()(
         // reaches 10:00 like any other time. Kept because `nextQuarter` is the
         // only other thing that puts a whole period back on the clock, and a
         // reset that is not an advance has nowhere else to live.
-        resetClock: () => set({ running: false, remaining: PERIOD_LEN }),
+        resetClock: () => set({ running: false, remaining: get().periodLen }),
 
         // THE ONE CLOCK ACTION THAT IS UNDOABLE, and the only caller that asks
         // `edit` for a clock snapshot. A quarter is ended once a quarter, from a
@@ -308,7 +332,9 @@ export const useGameStore = create<GameStore>()(
       partialize: (s) => ({
         team: s.team, kind: s.kind, competition: s.competition,
         opponent: s.opponent, note: s.note,
-        score: s.score, oppScore: s.oppScore, period: s.period,
+        score: s.score, oppScore: s.oppScore,
+        periods: s.periods, periodLen: s.periodLen,
+        period: s.period,
         remaining: s.remaining, ended: s.ended, possessions: s.possessions,
         players: s.players, events: s.events, options: s.options,
       }),
@@ -321,11 +347,23 @@ export const useGameStore = create<GameStore>()(
         // the shelf gives every game of that vintage: it was official
         s.kind = s.kind === 'practice' ? 'practice' : 'official';
         s.competition = s.competition ?? '';
-        // a build from before the skin switcher was cut persisted a fifth
-        // option. Nothing reads it, but naming the four that are left is what
-        // keeps the stray from outliving the update in storage too.
-        const { ft, tap, assist, bar, labels } = s.options;
+        // a live game persisted before the clock was settable was played to the
+        // board's hardcoded four tens — the same reading `reviveGame` gives a
+        // saved one, and for the same reason: its quarter splits are arithmetic
+        // over the length, so any other guess re-slices a game already played
+        s.periods = s.periods ?? REG_PERIODS;
+        s.periodLen = s.periodLen ?? PERIOD_LEN;
+        // a build from before the skin switcher was cut persisted a stray
+        // option. Nothing reads it, but naming the ones that are left is what
+        // keeps it from outliving the update in storage too.
+        const {
+          periods, periodLen, ft, tap, assist, bar, labels, dotMade, dotMiss, dotFt,
+        } = s.options;
         s.options = {
+          // added after builds shipped, like `labels` below: the default rather
+          // than an undefined that would put NaN on the clock
+          periods: periods ?? DEFAULT_OPTIONS.periods,
+          periodLen: periodLen ?? DEFAULT_OPTIONS.periodLen,
           ft: ft ?? DEFAULT_OPTIONS.ft,
           tap: tap ?? DEFAULT_OPTIONS.tap,
           assist: assist ?? DEFAULT_OPTIONS.assist,
@@ -333,6 +371,9 @@ export const useGameStore = create<GameStore>()(
           // added after builds shipped: a game persisted without it takes the
           // default rather than rendering a tile with no label at all
           labels: labels ?? DEFAULT_OPTIONS.labels,
+          dotMade: dotMade ?? DEFAULT_OPTIONS.dotMade,
+          dotMiss: dotMiss ?? DEFAULT_OPTIONS.dotMiss,
+          dotFt: dotFt ?? DEFAULT_OPTIONS.dotFt,
         };
       },
     },
@@ -347,7 +388,7 @@ export const undoDepth = (): number => undoStack.length;
  * `getState()` hands back the actions and the options as well, and both would
  * be written to disk by a `JSON.stringify` that does not know the difference —
  * the options are a preference and not a fact about the game, and a function
- * serialises to nothing at all. Naming the fourteen keys is what keeps a saved
+ * serialises to nothing at all. Naming the sixteen keys is what keeps a saved
  * game the same shape as the one every reader here already takes.
  */
 export const currentGame = (): GameState => {
@@ -360,6 +401,8 @@ export const currentGame = (): GameState => {
     note: s.note,
     score: s.score,
     oppScore: s.oppScore,
+    periods: s.periods,
+    periodLen: s.periodLen,
     period: s.period,
     remaining: s.remaining,
     running: s.running,

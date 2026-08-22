@@ -1,5 +1,5 @@
 import { useAnnounce } from '../../hooks/useAnnounce';
-import { mmss, ord } from '../../lib/format';
+import { mmss, periodName, periodWord } from '../../lib/format';
 import { useGameStore } from '../../store/gameStore';
 import { useUiStore } from '../../store/uiStore';
 import { CancelX, PHead, PRows, PTitleText, Pts, Tile } from './shell';
@@ -10,8 +10,11 @@ import { CancelX, PHead, PRows, PTitleText, Pts, Tile } from './shell';
  * decision as a foul kind — one tap out of a short list, made with the game in
  * front of you — so it gets the same shape rather than a dialog's.
  *
- * The title IS the quarter being played, so the panel names the thing it is
- * about to end and the live time sits beside it.
+ * The title IS the period being played, so the panel names the thing it is
+ * about to end and the live time sits beside it. It is the GAME'S OWN word,
+ * not the literal QUARTER it used to print: a game set to halves is not playing
+ * a 1ST QUARTER, and period 5 of one set to quarters is an OVERTIME rather than
+ * a 5TH. `periodName` is the one place that is decided.
  *
  * ±1s lands immediately and the panel stays open, because correcting a clock is
  * rarely one tap and reopening between them is the whole cost. SET hands off to
@@ -24,6 +27,8 @@ import { CancelX, PHead, PRows, PTitleText, Pts, Tile } from './shell';
  */
 export function EndQuarterPanel() {
   const period = useGameStore((s) => s.period);
+  // the regulation count is the GAME's, stamped at tip-off — see GameState
+  const periods = useGameStore((s) => s.periods);
   const remaining = useGameStore((s) => s.remaining);
   const adjustClock = useGameStore((s) => s.adjustClock);
   const nextQuarter = useGameStore((s) => s.nextQuarter);
@@ -31,12 +36,12 @@ export function EndQuarterPanel() {
   const reset = useUiStore((s) => s.reset);
   const say = useUiStore((s) => s.say);
 
-  useAnnounce(`${ord(period)} quarter`);
+  useAnnounce(periodName(period, periods));
 
   return (
     <>
       <PHead>
-        <PTitleText>{`${ord(period).toUpperCase()} QUARTER`}</PTitleText>
+        <PTitleText>{periodName(period, periods)}</PTitleText>
         <Pts>{mmss(remaining)}</Pts>
         <CancelX />
       </PHead>
@@ -59,11 +64,11 @@ export function EndQuarterPanel() {
             <Tile
               key="qt"
               code="END"
-              caption="QUARTER"
+              caption={periodWord(period, periods)}
               onPress={() => {
                 nextQuarter();
                 reset();
-                say(`${ord(period + 1)} quarter`);
+                say(periodName(period + 1, periods));
               }}
             />,
             // red, and still only an opener: END GAME keeps its confirm panel

@@ -22,7 +22,16 @@ import { competitionLabel } from '../../lib/team';
 import { useHistoryStore } from '../../store/historyStore';
 import { useRosterStore } from '../../store/rosterStore';
 import { useMetrics } from '../../theme/metrics';
-import { ELEV_CARD, LS_BTN, LS_LABEL, fNum, fUi, isTranslucent, ls } from '../../theme/tokens';
+import {
+  ELEV_CARD,
+  LS_LABEL,
+  LS_MICRO,
+  LS_TITLE,
+  fNum,
+  fUi,
+  isTranslucent,
+  ls,
+} from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 
 const MODES: SegItem<SeasonMode>[] = [
@@ -112,7 +121,7 @@ function CompCard({ comp, onPress }: { comp: CompetitionSeason; onPress(): void 
               style={{
                 fontFamily: fNum(700),
                 fontSize: m.fsXs,
-                letterSpacing: ls(m.fsXs, LS_LABEL),
+                letterSpacing: ls(m.fsXs, LS_MICRO),
                 color: t.ink,
               }}
             >
@@ -217,7 +226,7 @@ export default function SeasonScreen() {
             flexShrink: 1,
             fontFamily: fNum(700),
             fontSize: m.fsXl,
-            letterSpacing: ls(m.fsXl, LS_BTN),
+            letterSpacing: ls(m.fsXl, LS_TITLE),
             color: t.ink,
           }}
         >

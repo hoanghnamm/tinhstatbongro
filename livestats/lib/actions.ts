@@ -230,7 +230,9 @@ export function addPossession(g: GameState, n = 1): void {
 export function nextPeriod(g: GameState): void {
   g.running = false;
   g.period += 1;
-  g.remaining = PERIOD_LEN;
+  // the game's own length, not the constant: it was stamped at tip-off and an
+  // overtime is played to the same clock the quarters were
+  g.remaining = g.periodLen || PERIOD_LEN;
 }
 
 /** One second of game clock: minutes accrue only for players on the floor. */

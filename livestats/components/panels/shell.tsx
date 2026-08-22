@@ -14,6 +14,7 @@ import {
   BLOOM_STOPS,
   LS_BTN,
   LS_LABEL,
+  LS_MICRO,
   bloomFill,
   fNum,
   fUi,
@@ -170,7 +171,7 @@ export function CancelX({ label = 'CANCEL' }: { label?: string }) {
         <Text
           style={{
             fontFamily: fUi(600), fontSize: m.fsXs,
-            letterSpacing: ls(m.fsXs, LS_LABEL), color: t.ink2,
+            letterSpacing: ls(m.fsXs, LS_MICRO), color: t.ink2,
           }}
         >
           {label}

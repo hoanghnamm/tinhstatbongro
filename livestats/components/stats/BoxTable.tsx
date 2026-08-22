@@ -4,7 +4,7 @@ import Svg, { Path } from 'react-native-svg';
 import { mmss } from '../../lib/format';
 import { efficiency, plusMinus } from '../../lib/stats';
 import { useMetrics } from '../../theme/metrics';
-import { LS_LABEL, fNum, fUi, ls } from '../../theme/tokens';
+import { LS_MICRO, fNum, fUi, ls } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 import { Press } from '../ui/Press';
 import { Card } from './parts';
@@ -240,7 +240,7 @@ export function BoxTable({
                   textAlign: c.left ? 'left' : 'right',
                   fontFamily: fNum(500),
                   fontSize: m.fsXs,
-                  letterSpacing: ls(m.fsXs, LS_LABEL),
+                  letterSpacing: ls(m.fsXs, LS_MICRO),
                   color: t.ink2,
                 }}
               >

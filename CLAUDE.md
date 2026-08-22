@@ -58,6 +58,7 @@ app/(tabs)/_layout.tsx the four tabs
   (tabs)/season.tsx    STATS  — every saved game added up
   (tabs)/team.tsx      TEAM   — the durable roster
 app/start.tsx          NEW GAME — the kind, the squad, the five, and who it is against
+app/settings.tsx       GAME SETTINGS — the switches, on a page rather than in a panel
 app/game.tsx           THE BOARD
 app/stats.tsx          THE STATS SCREEN — one game, in full
 app/history/[id].tsx   ONE SAVED GAME — its box score and its play log
@@ -113,14 +114,16 @@ and every shared component inside them — `Card`, `Band`, `Btn`, `Crest`, `Seam
 other three inheriting the light palette off the root, which is how the app came to wear two
 skins in the space of one tap. **The board is NOT in this group and is still light**, along with
 `start`, `stats`, `history/[id]`, `competition` and `player/[id]` — walking onto the board is
-meant to feel like the lights coming up. **GLASS DID NOT SPREAD WITH THE PALETTE**: it is still
-the lobby's cards and its one circular control, because the bloom is strongest there and a blur
-needs something to sample.
+meant to feel like the lights coming up. **GLASS DID NOT SPREAD WITH THE PALETTE**: it is
+the lobby's CARDS and nothing else now, because the bloom is strongest there and a blur needs
+something to sample. It was the cards and one circular control — the gear, which is gone with
+the panel behind it; see "Options".
 
 **THE PALETTE AND THE STATUS BAR TRAVEL TOGETHER, AND THAT PAIR IS `components/ui/DarkRoom.tsx`.**
 Getting one without the other is a bug you only see on a device — a dark screen under a dark
 status bar loses the clock and the battery — so they are one wrapper rather than two things to
-remember, and it has three callers: the tab group, `app/start.tsx` and `app/player/[id].tsx`.
+remember, and it has four callers: the tab group, `app/start.tsx`, `app/settings.tsx` and
+`app/player/[id].tsx`.
 
 **THE BAR IS FLIPPED ON FOCUS, NOT BY A MOUNTED `<StatusBar>`.** That component sets the style
 when it mounts and the last one mounted wins — and a stack keeps every screen under the top one
@@ -130,8 +133,9 @@ actually knows. The cleanup puts the root's `dark` back rather than leaving the 
 choice standing, and React runs every cleanup in a commit before any effect — so a push from one
 dark room to another sets `dark` then `light`, never the other way round.
 
-**TWO PUSHED PAGES WEAR THE SAME WRAPPER AND ARE NOT IN THE GROUP**, because they are not rooms:
-**`app/start.tsx`**, the door into a game, and **`app/player/[id].tsx`**, a player's own season.
+**THREE PUSHED PAGES WEAR THE SAME WRAPPER AND ARE NOT IN THE GROUP**, because they are not
+rooms: **`app/start.tsx`**, the door into a game, **`app/settings.tsx`**, the switches, and
+**`app/player/[id].tsx`**, a player's own season.
 Both are reached FROM the four rooms and read like it — a light picker between a dark lobby and
 a dark TEAM tab was the app blinking once on the way through. Neither needed a colour changed:
 every value on both was already a token, so the fields, the chips, the seams, `ClubCard`, `Seg`
@@ -187,18 +191,44 @@ needs no affordance saying it can be typed in.
 
 **The lobby is a team-profile screen, not a menu.** The brand lockup and the club headline,
 then the LIVE game if there is one with CONTINUE under it, the last game's six numbers, the
-season's six, and NEW GAME at the foot.
+season's six, and NEW GAME at the foot with GAME SETTINGS under it.
 
-**THE HEADER IS TWO ROWS: A LOCKUP AND A HEADLINE.** Crest + HOOPLOG at the left and one
-circular control at the right; then the CLUB NAME at `fs2xl` underneath. It was crest →
+**THE HEADER IS TWO ROWS: A LOCKUP AND A HEADLINE**, and there is NO CONTROL IN THE CORNER any
+more. Crest + HOOPLOG at the left, then the CLUB NAME at `fs3xl` underneath. It was crest →
 wordmark → gear on a single row with the club as an `fsXs` subtitle, which put the one thing
 this screen is about in the smallest type on it. The club is the headline now and HOOPLOG is
 the small mark above it — nobody opens this app wondering what it is called.
 
+**AND THE GEAR IS GONE WITH THE PANEL IT OPENED.** `IconBtn` was a `BlurView` clipped to a
+circle holding a glyph, and it was the only control in the app whose entire label was a picture
+— in the corner of the one row that is the club's own identity. The switches are a PAGE now,
+`app/settings.tsx`, reached by a named verb at the foot of this screen directly under NEW GAME.
+A settings list is read, compared and scrolled, which is a page; a panel is one decision made
+with the game in front of you. **`Btn`'s lightest weight, `plain`, is what says which of the
+two buttons you came here for.**
+
+**AND THE WHOLE BLOCK IS SET IN THE MARK'S FACE — `fDisplay`, which is Anton.** The lockup, the
+headline and the monogram inside the crest are the three things it is spent on and the only
+three; see "Theme and sizing". This block is the one thing on the lobby that is NOT
+information, and it was drawn as though it were: the same Helvetica as the numbers below it,
+at a size those numbers beat, in two greys and nothing else. A display face, caps, an accent
+slug and a glow are what make it read as an identity rather than as a caption.
+
 **The headline is TWO-TONE, and the rule is generic**: every word but the last takes `ink2`,
 the last takes `ink`. It lands the weight on the noun that is actually the club's name, and a
 single-word club needs no special case. It wraps to two lines rather than eliding — this is
-the biggest type on the screen and a truncated club name is worse than a second line.
+the biggest type on the screen and a truncated club name is worse than a second line. **The
+step up from `fs2xl` to `fs3xl` costs the screen nothing**, because Anton is CONDENSED: a name
+that took two lines of Helvetica takes one of these. The leading is pulled to 0.92 for the
+names that still take two — a display face stacked at body leading reads as two separate lines
+rather than as one block — and `textTransform` makes the caps, so a club typed in sentence case
+on the TEAM tab still arrives here as a mark.
+
+**AND IT IS LIT: an accent `textShadow` at 40%, no offset, radius 22.** It is the bloom
+arriving on the one piece of type the bloom is behind — light coming OFF the letters, not a
+drop shadow under them. **It is the only text shadow in the app**, and the reason it is
+allowed here is the reason it would be wrong anywhere else: this is the only text on any
+screen that is a mark rather than a word.
 
 **THE COACH IS NOT ON THIS SCREEN ANY MORE.** It was the `· NAME` half of the subtitle that
 the headline replaced. It is a fact about the club, it is edited on the TEAM tab, and the
@@ -484,6 +514,15 @@ the four places accent actually means something.
 score. Not the crest, not the roster count, not the jerseys, not the US pill — the mockup
 paints nine things with it, which teaches the eye to ignore all nine. The active tab and the
 LIVE banner are the other two places in the app it survives.
+
+**THE LOGOTYPE AND THE SLUG ARE NOT A THIRD AND A FOURTH.** `LOG` in `HOOPLOG` is accent and so
+is the 36×3 rule over the club's name, and neither is a mark in the sense the rule is about:
+one is four characters of a LOGOTYPE, where a colour is allowed to mean nothing but itself, and
+the other is `components/ui/Slug` — a bar that names no control and opens nothing, which is the
+same argument the bloom makes at 36 by 3. Both sit in the identity block, above everything the
+rule is protecting, and neither can be mistaken for a control. **The colour went onto the slug
+rather than onto the headline's last word** for a duller reason than any of that: a club with a
+one-word name would have taken the whole headline orange.
 
 **THE BLOOM IS NOT A THIRD.** The gradient behind the header is the accent at 34% falling to
 nothing before the fold, and it is a GROUND rather than a mark: it names nothing, it is behind
@@ -818,8 +857,9 @@ the same value `surface2` already was on the light skin.
 **THE PANELS ARE INLINE-STYLED NOW, ALL OF THEM.** `PHead`, `PTitleText`, `Pts`, `Note` and
 `Empty` in `components/panels/shell.tsx` carried `className="text-ink"` and friends, and a
 NativeWind class resolves through the CSS variables the ROOT pushes down — which are the LIGHT
-palette's, whatever subtree the panel is actually drawn in. The settings panel over the lobby
-was near-black ink on a near-black sheet. A class and a `useTheme()` read can only agree where
+palette's, whatever subtree the panel is actually drawn in. The settings panel over the lobby —
+which is a page now, but was the case that caught this — was near-black ink on a near-black
+sheet. A class and a `useTheme()` read can only agree where
 one palette is in play, so the panels have none left.
 
 **Two of its tokens are deliberately not the light values.** `danger` and `live` both LIFT,
@@ -861,6 +901,12 @@ colour the teal kept the one job that needed it. `mark` aliases the same raw for
 reason: a tap not yet resolved into a make or a miss is the same "in progress" a running clock
 is — and it must NOT be orange, because two dots away orange means MADE, which is exactly what
 the tap mark exists to be distinct from.
+
+**AND THE CHART'S THREE DOTS ARE THE ONE PLACE A SCORER MAY OVERRIDE A HUE.** `DotHue` and
+`dotColor` in `theme/tokens.ts` are eight named marks, four of which are palette tokens rather
+than new hexes — orange IS `accent`, red IS `danger`, teal IS `live`, NEUTRAL is `markMiss`.
+It is not the switcher coming back: nothing but a mark on a court changes, and the reason it
+exists is a scorer who cannot separate orange from grey. See "Options".
 
 **`accent2` is the pressed accent and it is DARKER, never fainter.** It had no caller for a long
 time and has exactly one now: a filled accent button. `opacity` fades a saturated orange toward
@@ -918,6 +964,20 @@ Petch had the numbers and is gone with its package: a squared display face made 
 like a scoreboard graphic, and the numbers on it are read, not admired. `fNum` and `fUi` still
 both exist — they differ in weight and tracking now, not in family.
 
+**AND THERE IS A THIRD FACE NOW, WHICH IS `fDisplay` — ANTON, BUNDLED, ON BOTH PLATFORMS.**
+That is the opposite of the rule above and deliberately so: `fNum`/`fUi` split because two
+neo-grotesques a hair apart are close enough that nobody holding one phone beside another would
+name the difference. A WORDMARK is the case where they would — it is a shape before it is a
+word — so the mark is the one thing carried in the binary rather than borrowed from the OS.
+
+**It is spent on THREE things and they are all the club saying who it is**: the HOOPLOG
+wordmark, the club headline on the lobby, and the monogram inside a `Crest`. Never a number,
+never a label, never a button — Anton at stat size is a poster shouting at a scorer, which is
+the same reason Chakra Petch left. It has ONE weight and is only ever set in CAPS. **It ships
+the Vietnamese subset**, which is not incidental: the club names this app was built for carry
+diacritics, and a display face that dropped them would fall back to the body face on exactly
+the screen it exists for.
+
 **AND IT IS SPLIT BY PLATFORM, exactly as the tab bar is.** Helvetica Neue is an Apple face:
 free and already installed on iOS, and simply absent on Android, where bundling it would need
 a licence this project does not have. **Android keeps Inter** — the closest neo-grotesque that
@@ -927,6 +987,40 @@ here is already written to; note the family ships **no SemiBold**, so 600 resolv
 which is a real face rather than a synthesised one. Both faces carry tabular figures, which is
 load-bearing and not a nicety — the footer's clock would shift the middle block once a second
 without them.
+
+**TRACKING IS THE OTHER HALF OF THE FACE, AND IT IS AN OPTICAL RAMP — five tokens, and every
+`letterSpacing` in the app comes off one of them.** One face at one tracking is prose; the
+board's voice is the CONTRAST between a number set tight and the word set wide underneath it,
+which is what makes a cell read as an instrument and not as two lines of copy.
+
+| token | em | where |
+|---|---|---|
+| `LS_MICRO` | 0.12 | the `fsXs` caps under a number — the widest thing on any screen |
+| `LS_LABEL` | 0.06 | `fsSm`/`fsMd` labels, where the tracking is only there to say CAPS |
+| `LS_BTN` | 0.04 | a verb on a button |
+| `LS_TITLE` | 0.02 | an uppercase word at display size — a screen's own name |
+| `LS_TIGHT` | −0.02 | the NUMBERS: a score, a tile's value, a jersey plate, the footer's block, and the club headline |
+
+**Caps never go negative and numerals never go positive**, and both halves have a reason.
+`LS_TITLE` is half of `LS_BTN` rather than tighter still because at `fsXl` the counters are
+already wide and 4% reads as a word coming apart — but caps at `LS_TIGHT` collide. A figure at
+`LS_TIGHT` reads as ONE object rather than as digits standing beside each other, and the
+tabular figures keep their column whatever the tracking does. **`LS_TIGHT` is not new, it is
+promoted**: `ScoreCell` was already writing `-0.02 * size` by hand for our score and — the
+tell — NOT for the opponent's beside it, which is exactly the drift a token stops.
+
+**ONE CAPTION KEEPS `LS_LABEL`, and it is the BOARD TILE'S.** A third of the smallest court is
+ten characters of caption and `SUBSTITUTE` is exactly ten, so at `LS_MICRO` the last of them
+ellipsises away. Every other `fsXs` caption has room to be set wide; a board tile does not, and
+it truncates rather than wraps, so the tracking is what gives. It is the only exception.
+
+**A VALUE AND ITS CAPTION ARE TWO WEIGHTS APART, not one.** The number is `fNum(700)` in `ink`;
+the caption under it is `fUi(400)` — Regular, not Medium — in `ink2`, set at `LS_MICRO`. It is
+the WEIGHT that had to move rather than the ink: on iOS `fUi(500)` and `fUi(600)` are the same
+Medium face, so a caption "lightened" from 600 to 500 would have changed nothing at all on the
+platform the board is read on. The ink stays at `ink2` and does not fall to `ink3`, because
+these cells are drawn on the light palette as well — `ink3` there is a warm grey on white and
+a caption in it is a caption nobody reads in a gym.
 
 **`theme/tokens.ts` MAY NOT IMPORT `react-native`**, which is why the platform is read off
 `process.env.EXPO_OS` rather than `Platform.OS`. `lib/pdf.ts` imports `PALETTE` from it and
@@ -985,12 +1079,19 @@ there would drag every panel in with it. Ask `isDocked()`; never keep a second l
 | `court` | the court's own footprint, top edge to footer | dimmed |
 | `center` | a centred dialog | dimmed |
 
-**Five panel kinds live off the board** — `newGame`, `setNumber`, `removePlayer`,
-`removeGame`, `settings` — and all five are `center`, because there is no court to dock
-against or cover and because that is what they are anyway: three confirms, a keypad and a
-short list of switches. They ride the same `Panel` union and the same exhaustive switch as
-everything else. **There is no FORM among them any more**, and that is the pattern rather
-than an accident: the TEAM tab edits a player on its row and the club on its card, in place.
+**Four panel kinds live off the board** — `newGame`, `setNumber`, `removePlayer`,
+`removeGame` — and all four are `center`, because there is no court to dock against or cover
+and because that is what they are anyway: three confirms and a keypad. They ride the same
+`Panel` union and the same exhaustive switch as everything else. **There is no FORM among them
+any more**, and that is the pattern rather than an accident: the TEAM tab edits a player on its
+row and the club on its card, in place.
+
+**`settings` WAS THE FIFTH AND IS A PAGE NOW.** `SettingsPanel` was a `center` dialog holding a
+stack of `Seg` rows with a paragraph under each, over a screen it had nothing to do with. Every
+other panel in this app is ONE decision made with the game in front of you — which foul, which
+rebound, which five. A list of preferences is not that: it is read, compared and scrolled, so
+it is `app/settings.tsx`. The panel kind, its `MODE` entry and its `PanelHost` branch all went
+with it.
 
 **`editTeam` was one of the two that went.** `EditTeamPanel` held the club name, both coaches
 and the crest picker behind a dialog; `ClubCard` holds all four inline now and is the club's
@@ -1207,8 +1308,10 @@ are things that happen, and one that happened in the first is not a fact about t
 Going ahead from 0-0 at the tip is not a lead change.
 
 **The two charts reuse the board's, they do not copy it.** THE FLOOR is the same grammar as the
-court's own chart — `accent` for a make, `markMiss` for a miss, one `danger` dot for the free
-throws however many were taken, because every one of them is logged at `FT_SPOT`. BY ZONE hands
+court's own chart, down to the hook that resolves it — one dot for a make, one for a miss, and
+one for the free throws however many were taken, because every one of them is logged at
+`FT_SPOT`. **The three hues come from `hooks/useDots.ts` and are the SCORER'S**; orange, neutral
+and red are only the defaults. See "Options". BY ZONE hands
 `CourtSvg` a **`heat` fill per zone** rather than carrying the partition a third time; both
 mirrored halves take the zone's colour, because a zone is one bucket in `zoneSplits` however
 many regions draw it. Opacity carries the percentage and **starts at 0.18, not 0** — a zone
@@ -1310,6 +1413,10 @@ crest at all.
 between installs and a backup restore can bring the record back without the file. A dead URI
 renders as a broken square exactly where the monogram would have rendered as a crest, so
 `onRehydrateStorage` nulls it if the file is gone.
+
+**The monogram is set in `fDisplay`**, the wordmark's own face: two initials in the body face
+is a label in a circle, and in the display face it is a badge. It is the third and last thing
+that face is spent on.
 
 **`components/ui/Crest.tsx` is one component for the crest AND the monogram**, because they
 are one thing — the round mark that says whose board this is — and every screen showing it
@@ -1567,18 +1674,67 @@ from a wall-clock stamp, and whatever the app missed while backgrounded is credi
 
 ## Options, and what is deliberately absent
 
-`constants/options.ts` holds five switches (`ft`, `tap`, `assist`, `bar`, `labels`), stored
-in `gameStore` and persisted. **All five are exposed, and in exactly one place**: the gear
-in the lobby's top-right opens `SettingsPanel`, one row of the `Seg` the stats screen
-already uses per option — no new control and no new modal. **There is no SKIN row**, because there is
-no skin to choose. `skin` was another option and the only one ever offered, as an AUTO / LIGHT / DARK
-segmented control in Home's top-right corner; it is gone, along with the corner it sat in.
-`setOption` remains the only writer, and `onRehydrateStorage` rebuilds `options` from the
-names that are left, so a game persisted by a build that still had `skin` does not
-carry the stray key forward — and `labels`, which arrived after builds shipped, falls back
-to its default there rather than rendering a tile with no label at all. Box-score export and a configurable period length were both
-declined; **roster editing was declined and then built** — it is `app/(tabs)/team.tsx` and
-`store/rosterStore.ts` now, and it is the reason the store split exists.
+`constants/options.ts` holds ten switches — `periods`, `periodLen`, `ft`, `tap`, `assist`,
+`bar`, `labels` and the three dot hues `dotMade` / `dotMiss` / `dotFt` — stored in `gameStore`
+and persisted. **All ten are exposed, and in exactly one place**: `app/settings.tsx`, one row
+of the `Seg` the stats screen already uses per option, plus a swatch grid for the three hues.
+**There is no SKIN row**, because there is no skin to choose. `skin` was another option and the
+only one ever offered, as an AUTO / LIGHT / DARK segmented control in Home's top-right corner;
+it is gone, along with the corner it sat in. `setOption` remains the only writer, and
+`onRehydrateStorage` rebuilds `options` from the names that are left, so a game persisted by a
+build that still had `skin` does not carry the stray key forward — and every key that arrived
+after builds shipped (`labels`, the two rules, the three hues) falls back to its default there
+rather than rendering a tile with no label or an undefined on the clock.
+**Roster editing was declined and then built** — it is `app/(tabs)/team.tsx` and
+`store/rosterStore.ts` now, and it is the reason the store split exists. **So was a
+configurable period length**, which is the next two paragraphs. Box-score export was declined
+and then built too, as the PDF.
+
+**IT IS A PAGE, NOT A PANEL, AND THAT IS THE WHOLE OF WHY THE GEAR IS GONE.** `SettingsPanel`
+was a `center` dialog over the lobby; the gear that opened it was a glyph in a circle in the
+corner of the club's own identity row. A list of preferences is read, compared and scrolled,
+which is a page — and the way into a page is a NAMED VERB, so GAME SETTINGS sits at the foot of
+the lobby under NEW GAME at `Btn`'s lightest weight. It is a `DarkRoom` like `start`, four
+blocks deep, ordered by how often a scorer touches them: the rules of the game, what a stat is
+called, the chart's three marks, then the board's own behaviour.
+
+**`periods` AND `periodLen` ARE THE RULES OF THE GAME, AND THEY DO NOT BEHAVE LIKE THE OTHERS.**
+Two halves or four quarters; six, eight, ten or twelve minutes each. Every other option is read
+LIVE, off `options`, every time something needs it. These two are **STAMPED ONTO THE GAME** at
+tip-off — `startGame` is the one place they cross, exactly as the club's name crosses — and
+read off `GameState.periods` / `GameState.periodLen` for ever after. The reason is that a
+quarter split is ARITHMETIC over the length: `lib/box.ts` slices the log into periods by
+multiplying, so a saved game whose length came from a live setting would silently re-slice
+itself the day a scorer switched to halves, and every minutes column on the shelf would move.
+A game holds copies. **The settings page says so out loud** — `FROM THE NEXT GAME ON` — because
+a switch that does nothing until tip-off is otherwise a switch the scorer thinks is broken.
+
+**A GAME FROM BEFORE EITHER WAS A QUESTION WAS PLAYED 4 × 10:00**, which is what the board was
+hardcoded to. `REG_PERIODS` and `PERIOD_LEN` in `constants/game.ts` are that fallback and
+nothing else now: no rule reads them, and they have exactly three consumers —
+`DEFAULT_OPTIONS`, `reviveGame` and the store's own rehydrate. `lib/box.ts`'s **`lenOf(g)`** is
+where the fallback is actually spent, so no reader of a saved game can forget it.
+
+**`lib/format.ts` OWNS WHAT A PERIOD IS CALLED, in two forms, and it had THREE hardcoded
+copies.** `periodLabel(p, regulation)` is the two-character form the split strips, the clock
+panel's header and the PDF print — `Q3`, `H1`, `OT`, `OT2` — and `periodName(p, regulation)` is
+the spoken one the quarter panel's header and every announcement use: `1ST QUARTER`, `1ST
+HALF`, `OVERTIME`. The regulation count is always the GAME's, never the live setting's. It also
+fixes something that was wrong before any of this: period 5 of a four-quarter game printed as
+`5TH QUARTER`, which nobody has ever called an overtime.
+
+**THE THREE DOT HUES ARE NOT THE SKIN SWITCHER COMING BACK.** They move the three marks a chart
+draws — a made shot, a miss, the free-throw spot — and nothing else on any screen. The reason
+they are settable is accessibility: a scorer who cannot separate orange from grey cannot read a
+chart whose two commonest marks are orange and grey. Eight hues, and **four of them are PALETTE
+TOKENS rather than hexes** — orange IS `accent`, red IS `danger`, teal IS `live`, and NEUTRAL is
+`markMiss`, the one that differs between the board's cool floor and the dark player page's warm
+one. Resolving through the palette is what keeps a dot legible on both. **`hooks/useDots.ts` is
+the one reader**, and its three callers are `Court.tsx`, `ZonesTab.tsx` and `app/player/[id].tsx`
+— three copies of `dotColor(options.dotMade, t)` is three chances for one chart to draw a make
+in the colour another draws a miss in. The zone HEAT is deliberately not in it: it is `accent`
+at a computed alpha, and it is a bucket's percentage rather than a mark. The defaults reproduce
+exactly what the chart drew before any of it was settable.
 
 **`labels` is what a stat is CALLED once the panel is open — SHORT (`DF`), WORD
 (`DEFENSIVE`) or BOTH — and the default is the WORD.** The abbreviations are the
@@ -1603,14 +1759,17 @@ the word drops to `fsXl` (`fs2xl` when `big`), takes two lines, and keeps
 `tileWords` sets it.
 
 The team NAME is no longer hardcoded — it is `DEFAULT_TEAM.name` in `lib/team.ts`, which is
-what a fresh install starts on and what the editor overwrites. The period length still is.
+what a fresh install starts on and what the editor overwrites. **Neither is the period length
+any more**, nor the number of periods: both are settings, stamped onto a game at tip-off — see
+"Options".
 
 `SEED_ROSTER` in `constants/game.ts` is the first-run team and **nothing more** — it seeds
 `rosterStore` and is never read again. Its ids stay `p${number}` so a game persisted before
-the split still lines up with the roster it was built from. The PERIOD LENGTH is still
-hardcoded there; the team name is not any more — it is `DEFAULT_TEAM` in `lib/team.ts`, and
-the editor overwrites it. Every store persists to AsyncStorage and survives a kill, the
-crest as a file beside them; nothing syncs anywhere.
+the split still lines up with the roster it was built from. `REG_PERIODS` and `PERIOD_LEN` sit
+beside it as the FALLBACK for a game saved before either was settable, not as the rule; the
+team name is not there at all any more — it is `DEFAULT_TEAM` in `lib/team.ts`, and the editor
+overwrites it. Every store persists to AsyncStorage and survives a kill, the crest as a file
+beside them; nothing syncs anywhere.
 
 **The opponent is a single number.** `oppScore` and nothing else: no opponent roster, no
 opponent shot chart, no opponent fouls.

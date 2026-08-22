@@ -9,6 +9,17 @@ import type {
 } from '../types';
 
 export const FOULS = 5;
+
+/**
+ * WHAT A GAME IS WHEN NOBODY HAS SAID OTHERWISE — four tens.
+ *
+ * Neither is read by a rule any more: `GameState` carries its own `periods` and
+ * `periodLen`, stamped at tip-off off the settings. These two are the FALLBACK
+ * and the default, in three places and no others — `DEFAULT_OPTIONS`, the
+ * store's rehydrate, and `reviveGame` — because a game saved before either was
+ * a question was played under exactly this.
+ */
+export const REG_PERIODS = 4;
 export const PERIOD_LEN = 600; // 10:00
 
 /**

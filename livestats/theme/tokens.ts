@@ -222,6 +222,85 @@ export const DARK: Palette = {
  */
 export const isTranslucent = (p: Palette): boolean => p.surface.startsWith('rgba');
 
+/* ------------------------------------------------------------------ *
+ * The chart's three dots
+ *
+ * A made shot, a miss and the free-throw spot are the only three marks the
+ * floor ever carries, and they are the one part of the palette a SCORER may
+ * move. That is not the skin switcher coming back: nothing else on any screen
+ * changes with it, the three are read on a court and nowhere else, and the
+ * reason they are settable at all is that a scorer who cannot separate orange
+ * from grey cannot read a chart whose two commonest marks are orange and grey.
+ *
+ * FOUR OF THE EIGHT ARE PALETTE TOKENS, not new hexes — orange IS `accent`,
+ * red IS `danger`, teal IS `live`, and NEUTRAL is `markMiss`, which is the one
+ * that differs between the light board and the dark player page. Resolving
+ * them through the palette rather than freezing a hex is what keeps a dot
+ * legible on both floors. The other four are raw, and this is still the only
+ * file in the app where a hex is written.
+ *
+ * The defaults reproduce exactly what the chart drew before it was settable:
+ * orange, neutral, red.
+ * ------------------------------------------------------------------ */
+export type DotHue =
+  | 'orange'
+  | 'red'
+  | 'yellow'
+  | 'green'
+  | 'teal'
+  | 'blue'
+  | 'purple'
+  | 'neutral';
+
+/** The swatch row, warm to cool with the neutral last. */
+export const DOT_HUES: readonly DotHue[] = [
+  'orange',
+  'red',
+  'yellow',
+  'green',
+  'teal',
+  'blue',
+  'purple',
+  'neutral',
+];
+
+/** The four that are not already in the palette. Mid-tone on purpose: each has
+ *  to read on the board's cool floor AND on the dark player page's warm one. */
+const DOT_RAW = {
+  yellow: '#E0A200',
+  green: '#2E9E4F',
+  blue: '#2563C9',
+  purple: '#7B4BC9',
+} as const;
+
+export const dotColor = (hue: DotHue, p: Palette): string => {
+  switch (hue) {
+    case 'orange':
+      return p.accent;
+    case 'red':
+      return p.danger;
+    case 'teal':
+      return p.live;
+    // the palette-dependent one, and the reason a hex here would be wrong:
+    // white on the board's cool floor, warm grey on the dark player page
+    case 'neutral':
+      return p.markMiss;
+    default:
+      return DOT_RAW[hue];
+  }
+};
+
+export const DOT_LABEL: Record<DotHue, string> = {
+  orange: 'ORANGE',
+  red: 'RED',
+  yellow: 'YELLOW',
+  green: 'GREEN',
+  teal: 'TEAL',
+  blue: 'BLUE',
+  purple: 'PURPLE',
+  neutral: 'NEUTRAL',
+};
+
 /** Every palette key, for pushing into CSS variables. */
 export const COLOR_KEYS = [
   'ink',
@@ -366,9 +445,63 @@ export const fUi = (w: UiWeight = 400): string =>
           ? 'Inter_600SemiBold'
           : 'Inter_700Bold';
 
-/** CSS tracking is em-relative; React Native's letterSpacing is absolute. */
+/**
+ * THE THIRD FACE, AND IT IS THE ONLY ONE THAT IS THE SAME ON BOTH PLATFORMS.
+ *
+ * `fNum` and `fUi` are the body: Helvetica Neue on iOS, Inter on Android, two
+ * neo-grotesques near enough that nobody holding one phone beside the other
+ * would name the difference. A WORDMARK is the opposite case — it is a shape
+ * before it is a word, and a brand that is condensed on one phone and not on
+ * the next is not a brand. So Anton is BUNDLED, on both, and the extra weight
+ * on the iOS binary is the price of the mark being the mark.
+ *
+ * It is a display face and it is treated like one: it has ONE weight, it is
+ * only ever set in CAPS, and it is spent on THREE things — the HOOPLOG
+ * wordmark, the club's own headline on the lobby, and the monogram inside a
+ * `Crest`. All three are the club saying who it is. It is deliberately not on
+ * a single number, a single label or a single button: Anton at stat size is a
+ * poster shouting at a scorer, and the numbers on this board are read, not
+ * admired — which is the same reason Chakra Petch left.
+ *
+ * Anton ships latin, latin-ext and VIETNAMESE, which is not incidental: the
+ * club names this app was built for carry diacritics, and a display face that
+ * dropped them would fall back to the body face on exactly the one screen
+ * this face exists for.
+ */
+export const fDisplay = (): string => 'Anton_400Regular';
+
+/**
+ * TRACKING IS OPTICAL: the smaller the type is set, the wider it is tracked,
+ * and a display NUMERAL is tracked NEGATIVE. That is one ramp and not five
+ * opinions — every letter-spacing in the app comes off this table, so a caption
+ * on the lobby and a caption on a saved game cannot drift a hair apart.
+ *
+ * The ramp is what carries the app's voice. A number set tight and a caption
+ * set wide under it is the instrument-panel contrast this board is read with:
+ * the eye lands on the figure, and the word beneath it is a legend rather than
+ * a competitor. Set the two at the same tracking and both read as prose.
+ *
+ *   LS_MICRO   the `fsXs` caps under a number — the widest thing on the screen
+ *   LS_LABEL   `fsSm`/`fsMd` labels, where the letters are big enough to space
+ *              themselves and the tracking is only there to say CAPS
+ *   LS_BTN     a verb on a button
+ *   LS_TITLE   an uppercase word at display size: a screen's own name. Caps
+ *              still need positive tracking — a title at `LS_TIGHT` collides —
+ *              but half of `LS_BTN`, because at `fsXl` the counters are wide
+ *              enough already and 4% reads as a word coming apart.
+ *   LS_TIGHT   the numbers: a score, a tile's value, the footer's block, and
+ *              the club headline. Negative, so a figure reads as ONE object
+ *              rather than as digits standing next to each other. Tabular
+ *              figures keep their column whatever the tracking does.
+ *
+ * CSS tracking is em-relative; React Native's letterSpacing is absolute, which
+ * is the whole reason `ls()` exists — an em is a multiplication here, not a unit.
+ */
 export const LS_BTN = 0.04;
 export const LS_LABEL = 0.06;
+export const LS_MICRO = 0.12;
+export const LS_TITLE = 0.02;
+export const LS_TIGHT = -0.02;
 export const ls = (fontSize: number, em: number): number => fontSize * em;
 
 /**

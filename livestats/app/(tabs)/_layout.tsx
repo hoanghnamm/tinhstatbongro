@@ -5,7 +5,7 @@ import { Tabs } from 'expo-router';
 import { Icon, Label, NativeTabs, VectorIcon } from '../../components/nav/nativeTabs';
 import { DarkRoom } from '../../components/ui/DarkRoom';
 import { useMetrics } from '../../theme/metrics';
-import { LS_LABEL, fNum, ls } from '../../theme/tokens';
+import { LS_LABEL, LS_MICRO, fNum, ls } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 
 /**
@@ -154,7 +154,7 @@ function JsTabs() {
         tabBarLabelStyle: {
           fontFamily: fNum(600),
           fontSize: m.fsXs,
-          letterSpacing: ls(m.fsXs, LS_LABEL),
+          letterSpacing: ls(m.fsXs, LS_MICRO),
         },
         // THE SCENE IS PAINTED HERE NOW, and it has to be: the shell in
         // `app/_layout.tsx` paints the LIGHT canvas, which is right for the

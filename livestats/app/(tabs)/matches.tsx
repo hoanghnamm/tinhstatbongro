@@ -13,7 +13,7 @@ import { competitionLabel, opponentLabel } from '../../lib/team';
 import { useHistoryStore } from '../../store/historyStore';
 import { useUiStore } from '../../store/uiStore';
 import { useMetrics } from '../../theme/metrics';
-import { LS_BTN, LS_LABEL, fNum, fUi, ls } from '../../theme/tokens';
+import { LS_LABEL, LS_TIGHT, LS_TITLE, fNum, fUi, ls } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 import type { GameSummary } from '../../lib/history';
 
@@ -148,6 +148,7 @@ function GameRow({ game }: { game: GameSummary }) {
           flexShrink: 0,
           fontFamily: fNum(700),
           fontSize: m.fsXl,
+          letterSpacing: ls(m.fsXl, LS_TIGHT),
           color: t.ink,
           fontVariant: ['tabular-nums'],
         }}
@@ -196,7 +197,7 @@ export default function MatchesScreen() {
             flexShrink: 1,
             fontFamily: fNum(700),
             fontSize: m.fsXl,
-            letterSpacing: ls(m.fsXl, LS_BTN),
+            letterSpacing: ls(m.fsXl, LS_TITLE),
             color: t.ink,
           }}
         >

@@ -1,9 +1,7 @@
 import { useMemo, type ReactNode } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { router } from 'expo-router';
-import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Path } from 'react-native-svg';
 
 import { PanelHost } from '../../components/panels/PanelHost';
 import { Btn } from '../../components/panels/shell';
@@ -11,6 +9,7 @@ import { Band, Card, Seam } from '../../components/stats/parts';
 import { Bloom } from '../../components/ui/Bloom';
 import { Crest } from '../../components/ui/Crest';
 import { Press } from '../../components/ui/Press';
+import { Slug } from '../../components/ui/Slug';
 import { Col, Row } from '../../components/ui/Row';
 import { useLastGame } from '../../hooks/useLastGame';
 import { useTabInset } from '../../hooks/useTabInset';
@@ -26,15 +25,26 @@ import { useRosterStore } from '../../store/rosterStore';
 import { useTeamStore } from '../../store/teamStore';
 import { useUiStore } from '../../store/uiStore';
 import { useMetrics } from '../../theme/metrics';
-import { LS_BTN, LS_LABEL, fNum, fUi, ls } from '../../theme/tokens';
+import {
+  LS_LABEL,
+  LS_MICRO,
+  LS_TIGHT,
+  LS_TITLE,
+  fDisplay,
+  fNum,
+  fUi,
+  ls,
+  withAlpha,
+} from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 
 /**
  * THE LOBBY — a team profile, not a menu.
  *
- * Crest, wordmark, gear; then the LIVE game if there is one with the way back
- * into it, the last game's six numbers, the season's six, and NEW GAME at the
- * foot. Everything on it is derived — the live score straight off `gameStore`,
+ * Crest and wordmark, then the club's own headline; then the LIVE game if there
+ * is one with the way back into it, the last game's six numbers, the season's
+ * six, and NEW GAME at the foot with GAME SETTINGS under it. Everything on it is
+ * derived — the live score straight off `gameStore`,
  * `totals()` over the last finished game, `season()` over the saved ones — and
  * nothing on it is stored twice.
  *
@@ -71,10 +81,16 @@ import { useTheme } from '../../theme/useTheme';
  * Tuesday and the screen says so by being short. The onboarding card stands in
  * on a fresh install, where there is neither a board nor a shelf.
  *
- * CONTINUE GAME rides with the scoreline; NEW GAME is the last thing on the
+ * CONTINUE GAME rides with the scoreline; NEW GAME is the last VERB on the
  * screen, always, and it does not move between the two states — it only drops
  * from `accent` to `surface` while a game is on, and goes through the confirm
  * panel so a mis-tap cannot throw a live game away.
+ *
+ * GAME SETTINGS SITS UNDER IT AT THE LIGHTEST WEIGHT `Btn` HAS, and it is what
+ * replaced the gear that used to float in this screen's top-right corner. A
+ * settings list is read, compared and scrolled, which is a page rather than a
+ * panel — see `app/settings.tsx` — and the way into a page is a named verb, not
+ * a glyph in a circle.
  *
  * ACCENT IS SPENT ON TWO THINGS HERE and no others: the primary button, and our
  * own score. Not the crest ring, not the roster count, not the jerseys, not the
@@ -97,67 +113,19 @@ const TWO_UP = 700;
 
 /* ---- the pieces ---------------------------------------------------- */
 
-/**
- * A CIRCULAR CONTROL, and it is the one piece of GLASS on the screen.
+/*
+ * THE CIRCULAR GLASS CONTROL IS GONE, and `IconBtn` with it.
  *
- * Both references put their top-right actions in a translucent circle rather
- * than leaving a bare glyph floating in the corner: the circle is what says the
- * icon is a BUTTON, and on a dark surface a stroked glyph with no ground under
- * it reads as decoration. It is also the only shape on this screen that is a
- * full circle, which is what keeps it from being confused with a card.
+ * It was the one piece of glass on this screen — a `BlurView` clipped to a
+ * circle in the top-right corner, holding a gear — and it was the only control
+ * in the app whose entire label was a glyph. What it opened is a full page now
+ * (`app/settings.tsx`), reached by a NAMED verb at the foot of this screen,
+ * directly under NEW GAME. A settings list is read and scrolled, which is a
+ * page, and the way into it is a word.
  *
- * The blur is real and not a flat translucent fill, and that is only worth
- * anything because of what is behind it: the gradient bloom runs under the
- * header, so the circle picks up the orange where it crosses it and stays
- * near-black where it does not. Over a flat slab this would be a slightly
- * lighter flat slab and would not be worth the dependency.
- *
- * `overflow:'hidden'` is what clips the blur to the circle — a `BlurView` fills
- * its own bounds square otherwise — and the 1px inner rule is the highlight
- * both references carry along the top edge of the glass.
+ * The `expo-blur` dependency did not leave with it: `Card`'s `glass` variant is
+ * still the lobby's alone and is still the reason the bloom is worth drawing.
  */
-function IconBtn({
-  label,
-  onPress,
-  children,
-}: {
-  label: string;
-  onPress(): void;
-  children: ReactNode;
-}) {
-  const m = useMetrics();
-  return (
-    <Press
-      onPress={onPress}
-      accessibilityLabel={label}
-      style={{
-        marginLeft: 'auto',
-        flexGrow: 0,
-        flexShrink: 0,
-        width: m.tap,
-        height: m.tap,
-        borderRadius: 999,
-        overflow: 'hidden',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-      pressedStyle={{ opacity: 0.6 }}
-    >
-      <BlurView
-        intensity={40}
-        tint="dark"
-        style={{
-          position: 'absolute',
-          inset: 0,
-          borderRadius: 999,
-          borderWidth: 1,
-          borderColor: 'rgba(255,255,255,0.14)',
-        }}
-      />
-      {children}
-    </Press>
-  );
-}
 
 /**
  * The club name at headline size, in TWO TONES.
@@ -174,6 +142,13 @@ function IconBtn({
  * biggest type on the screen, and a name that will not fit on one line should
  * wrap rather than turn into an ellipsis. Two is the budget the one-window rule
  * can afford.
+ *
+ * AND IT IS THE MARK'S FACE, NOT THE BODY'S — `fDisplay`, in caps, lit by an
+ * accent glow, under a three-point accent slug. This block is the one thing on
+ * the lobby that is not information: it is the club saying who it is, and it
+ * was set in the same Helvetica as the numbers under it, at a size the numbers
+ * beat, with nothing on it but two greys. The face, the slug and the glow are
+ * the three things that make it read as an identity rather than as a caption.
  */
 function Headline({ text }: { text: string }) {
   const m = useMetrics();
@@ -181,22 +156,49 @@ function Headline({ text }: { text: string }) {
   const words = text.trim().split(/\s+/);
   const head = words.slice(0, -1).join(' ');
   const tail = words[words.length - 1] ?? '';
+  const fs = m.fs3xl;
 
   return (
-    <Text
-      numberOfLines={2}
-      style={{
-        marginTop: m.s3,
-        fontFamily: fUi(700),
-        fontSize: m.fs2xl,
-        lineHeight: m.fs2xl * 1.12,
-        letterSpacing: -m.fs2xl * 0.015,
-        color: t.ink,
-      }}
-    >
-      {!!head && <Text style={{ color: t.ink2 }}>{head} </Text>}
-      {tail}
-    </Text>
+    <>
+      {/* the accent rule over the name — see `components/ui/Slug`, which owns
+          the whole of the argument for it being there and for it being a
+          component rather than three lines of style on this screen */}
+      <View style={{ marginTop: m.s4 }}>
+        <Slug />
+      </View>
+
+      <Text
+        numberOfLines={2}
+        style={{
+          marginTop: m.s2,
+          // THE MARK'S FACE, set in CAPS — see `fDisplay`. Anton is condensed,
+          // so the step UP to `fs3xl` costs the screen nothing: a club name
+          // that took two lines of Helvetica at `fs2xl` takes one of these, and
+          // the leading is pulled in to 0.92 because a display face stacked at
+          // body leading reads as two separate lines rather than as a block.
+          fontFamily: fDisplay(),
+          fontSize: fs,
+          lineHeight: fs * 0.92,
+          // CAPS, always. Anton has a lowercase and it is not what it is for:
+          // the mark is a block of capitals, and a club typed in sentence case
+          // on the TEAM tab must still arrive here as one.
+          textTransform: 'uppercase',
+          letterSpacing: ls(fs, LS_TITLE),
+          // AND IT IS LIT. The glow is the bloom arriving on the one piece of
+          // type the bloom is behind: a warm halo at 40%, no offset, so it
+          // reads as light coming off the letters rather than as a drop shadow
+          // under them. It is the only text shadow in the app, and it is here
+          // because this is the only text that is a MARK.
+          textShadowColor: withAlpha(t.accent, 0.4),
+          textShadowOffset: { width: 0, height: 0 },
+          textShadowRadius: 22,
+          color: t.ink,
+        }}
+      >
+        {!!head && <Text style={{ color: t.ink2 }}>{head} </Text>}
+        {tail}
+      </Text>
+    </>
   );
 }
 
@@ -209,7 +211,7 @@ function Label({ children, tone }: { children: ReactNode; tone?: string }) {
       style={{
         fontFamily: fNum(500),
         fontSize: m.fsXs,
-        letterSpacing: ls(m.fsXs, LS_LABEL),
+        letterSpacing: ls(m.fsXs, LS_MICRO),
         color: tone ?? t.ink2,
         fontVariant: ['tabular-nums'],
       }}
@@ -242,6 +244,7 @@ function Side({ title, value, pill, tone }: { title: string; value: number; pill
         style={{
           fontFamily: fNum(700),
           fontSize: m.fs3xl,
+          letterSpacing: ls(m.fs3xl, LS_TIGHT),
           lineHeight: m.fs3xl * 1.08,
           color: tone ?? t.ink,
           fontVariant: ['tabular-nums'],
@@ -288,6 +291,7 @@ function Stat({ value, label }: { value: string | number; label: string }) {
         style={{
           fontFamily: fNum(700),
           fontSize: m.fsXl,
+          letterSpacing: ls(m.fsXl, LS_TIGHT),
           lineHeight: m.fsXl * 1.1,
           color: t.ink,
           fontVariant: ['tabular-nums'],
@@ -298,9 +302,13 @@ function Stat({ value, label }: { value: string | number; label: string }) {
       <Text
         numberOfLines={1}
         style={{
-          fontFamily: fUi(600),
+          // THE LIGHT HALF OF THE PAIR. The number above is Bold and set
+          // tight; this is Regular, set wide and dim. Two weights apart is
+          // what makes the figure the thing you read and the word under it a
+          // legend — at the same weight the cell reads as two lines of prose.
+          fontFamily: fUi(400),
           fontSize: m.fsXs,
-          letterSpacing: ls(m.fsXs, LS_LABEL),
+          letterSpacing: ls(m.fsXs, LS_MICRO),
           color: t.ink2,
         }}
       >
@@ -505,7 +513,7 @@ function LobbyScreen() {
             fontFamily: fNum(700),
             fontSize: m.fsXl,
             lineHeight: m.fsXl * 1.2,
-            letterSpacing: ls(m.fsXl, LS_BTN),
+            letterSpacing: ls(m.fsXl, LS_TITLE),
             color: t.ink,
           }}
         >
@@ -594,6 +602,16 @@ function LobbyScreen() {
           onPress={newGame}
         />
       </Row>
+      {/* GAME SETTINGS, and it is the SECOND WEIGHT under the first.
+          It replaces the gear that used to float in this screen's top-right
+          corner — a glyph in a circle, with no word on it, in the one row that
+          is the club's own identity. A settings list is read and scrolled, so
+          it is a page now, and the way into a page is a named verb. `plain` is
+          the lightest weight `Btn` has, which is the whole of what this button
+          is saying beside the one above it: you came here to start a game. */}
+      <Row align="stretch">
+        <Btn label="GAME SETTINGS" variant="plain" onPress={() => router.push('/settings')} />
+      </Row>
       {/* only the WARNING survives — it is why NEW GAME is dark. A count
           nobody has to act on was a row the screen could not spare. */}
       {!enough && (
@@ -665,36 +683,25 @@ function LobbyScreen() {
             pressedStyle={{ opacity: 0.6 }}
           >
             <Crest name={club.name} uri={club.logoUri} size={m.fsXl} />
+            {/* THE WORDMARK, AND IT IS SPLIT — `HOOP` in ink, `LOG` in accent.
+                A logotype is the one place in this app a colour is allowed to
+                mean nothing but ITSELF: it names no control, it opens nothing,
+                and it is four characters, so it cannot compete with the two
+                things accent is spent on lower down the screen. It is the same
+                Anton the headline under it is set in, tracked out to `LS_LABEL`
+                because a condensed face at label size closes up without it. */}
             <Text
               numberOfLines={1}
               style={{
-                fontFamily: fUi(700),
-                fontSize: m.fsMd,
-                letterSpacing: ls(m.fsMd, LS_BTN),
+                fontFamily: fDisplay(),
+                fontSize: m.fsLg,
+                letterSpacing: ls(m.fsLg, LS_LABEL),
                 color: t.ink,
               }}
             >
-              HOOPLOG
+              HOOP<Text style={{ color: t.accent }}>LOG</Text>
             </Text>
           </Press>
-
-          <IconBtn label="settings" onPress={() => open({ kind: 'settings' })}>
-            <Svg width={m.fsMd} height={m.fsMd} viewBox="0 0 24 24">
-              <Path
-                d="M12 15.5a3.5 3.5 0 100-7 3.5 3.5 0 000 7z"
-                stroke={t.ink}
-                strokeWidth={1.8}
-                fill="none"
-              />
-              <Path
-                d="M19.4 13a7.6 7.6 0 000-2l2-1.5-2-3.4-2.4 1a7.6 7.6 0 00-1.7-1L15 3.5H9.9l-.3 2.6a7.6 7.6 0 00-1.7 1l-2.4-1-2 3.4L5.5 11a7.6 7.6 0 000 2l-2 1.5 2 3.4 2.4-1a7.6 7.6 0 001.7 1l.3 2.6H15l.3-2.6a7.6 7.6 0 001.7-1l2.4 1 2-3.4-2-1.5z"
-                stroke={t.ink}
-                strokeWidth={1.8}
-                strokeLinejoin="round"
-                fill="none"
-              />
-            </Svg>
-          </IconBtn>
         </Row>
 
         <Headline text={club.name} />
