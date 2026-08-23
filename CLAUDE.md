@@ -816,6 +816,30 @@ inversions and are written as pairs. **Both dimensions are the caller's**, becau
 callers know different things: the rail *measures* its row (a `flex:1` leftover no ramp can
 name), the team list takes a size off the ramp. Do not build a second one for a third caller.
 
+**AND THE RESTING PLATE IS DRESSED — THREE LAYERS UNDER THE NUMBER, AND ALL THREE ARE
+GROUND.** The club's MONOGRAM in `fDisplay`, oversized and bled off the far corner at 16% of
+the accent; the CORNER BLOOM, which is `plateWash` in `theme/tokens.ts` on `BLOOM_START` /
+`BLOOM_END` / `BLOOM_STOPS`, so a plate is lit from the same corner as the room it is standing
+in; and a 2px ACCENT EDGE down the left, which is the one solid thing in the set — a wash with
+no hard edge anywhere reads as a smudge. **`plateWash` is the third weight of one idea and it
+is pinned between the other two**: the screen's 0.34 → 0.07 falls to nothing across sixty
+points and leaves the corner flat, while `bloomFill`'s near-solid orange is a weight a plate
+cannot carry — a jersey read at arm's length in a gym spends none of its contrast on the light
+behind it. So it runs 0.30 → 0.09 → nothing.
+
+**NONE OF IT COUNTS AGAINST WHAT ACCENT MEANS**, by the argument that already lets `Bloom`
+off: it names nothing, it is behind everything, and no control is picked out by it.
+
+**AND IT IS THE RESTING PLATE'S ALONE.** `selected` and `out` are STATES, and a state is the
+whole of what that plate is saying — warming a red slab with an orange corner is two messages
+in one 40pt box, and the orange is the louder of them. **THE MONOGRAM IS THE CLUB'S, NOT THE
+PLAYER'S**, which is why five rail rows wear one mark the way five shirts do; it arrives as an
+optional `monogram` prop rather than off `teamStore`, because nothing in `components/ui/`
+reads a store — `Crest` takes its `name` the same way. **It is gated on `m.tap`**: the picker
+draws a 40×34 plate and the rail draws a 64×80 one, and two initials at display size in the
+smaller of those is texture nobody can name. The wash and the edge cross that line; both are
+legible at any size a plate is ever drawn at.
+
 **`Btn` has six variants and the ladder is deliberate:** `accent` (primary) > `solid` (ink)
 > `surface` (filled, 1px `rule`) > `plain` (transparent, 2px `line`), plus `danger` and
 `made`. `surface` exists for the home screen and only for it — three stacked buttons need

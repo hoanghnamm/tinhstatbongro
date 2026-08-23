@@ -583,3 +583,22 @@ export const bloomFill = (accent: string): readonly [string, string, string] => 
   withAlpha(accent, 0.3),
 ];
 
+/**
+ * AND THE SAME WASH ON A JERSEY PLATE, which is the third weight of one idea.
+ *
+ * A plate is smaller than a button and much smaller than a window, so the
+ * screen's 0.34 → 0.07 falls to nothing across sixty points and leaves the
+ * corner flat. But a plate is also a GROUND WITH A NUMBER ON IT, where a button
+ * is a ground with a word on it and can afford `bloomFill`'s near-solid orange:
+ * a jersey read at arm's length in a gym cannot spend any of its contrast on
+ * the light behind it. So this sits between the two — a warm corner that is
+ * clearly there and never competes with the digits.
+ *
+ * It runs on `BLOOM_START` / `BLOOM_END` / `BLOOM_STOPS` like the other two, so
+ * a plate is lit from the same corner as the room it is standing in.
+ */
+export const plateWash = (accent: string): readonly [string, string, string] => [
+  withAlpha(accent, 0.3),
+  withAlpha(accent, 0.09),
+  'transparent',
+];

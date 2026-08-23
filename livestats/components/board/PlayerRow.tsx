@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Text, View, type LayoutChangeEvent } from 'react-native';
 
+import { initials } from '../../lib/team';
 import { useLitRect } from '../../store/layoutStore';
+import { useTeamStore } from '../../store/teamStore';
 import { useMetrics } from '../../theme/metrics';
 import { fNum, fUi } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
@@ -48,6 +50,10 @@ export function PlayerRow({
   const m = useMetrics();
   const t = useTheme();
   const dq = player.status === 'out';
+  // the club's mark, stamped on the plate the way it is stamped on a shirt —
+  // one mark across the five rows, because it is the CLUB's and not the
+  // player's. `Jersey` drops it on any plate too small to carry it.
+  const club = useTeamStore((s) => s.profile.name);
   const squeeze = m.compact && !m.portrait;
   const hole = useLitRect(lit);
 
@@ -107,6 +113,7 @@ export function PlayerRow({
           w={plateW}
           h={plateH}
           tone={dq ? 'out' : selected ? 'selected' : 'floor'}
+          monogram={initials(club)}
         />
       </View>
 
