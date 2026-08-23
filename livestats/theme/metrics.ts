@@ -37,6 +37,16 @@ export interface Metrics {
   safe: { top: number; right: number; bottom: number; left: number };
 
   /* type */
+  /**
+   * BELOW `fsXs`, AND IT HAS ONE CALLER: the lobby's tagline.
+   *
+   * The ramp bottomed out at `fsXs` because that is the smallest thing on the
+   * board a scorer has to READ at arm's length in a gym. A tagline is not that
+   * — it is the lockup's small print, read once and never again — so it is the
+   * one string in the app allowed under the floor. Do not spend it on a label,
+   * a caption or anything on the board.
+   */
+  fs2xs: number;
   fsXs: number;
   fsSm: number;
   fsMd: number;
@@ -171,6 +181,7 @@ export function computeMetrics(
     compact,
     win: { w, h },
     safe,
+    fs2xs: clamp(10, 1.15 * vh, 12),
     fsXs: clamp(12, 1.45 * vh, 15),
     fsSm: clamp(13, 1.9 * vh, 19),
     fsMd: clamp(16, 2.45 * vh, 24),

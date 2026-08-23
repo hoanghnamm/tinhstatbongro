@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { ScrollView, Text, View } from 'react-native';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
 
@@ -399,6 +400,7 @@ export function Btn({
   onPress,
   variant = 'plain',
   disabled = false,
+  icon,
 }: {
   label: string;
   onPress(): void;
@@ -418,6 +420,18 @@ export function Btn({
    */
   variant?: 'plain' | 'solid' | 'accent' | 'danger' | 'made' | 'surface' | 'bloom';
   disabled?: boolean;
+  /**
+   * A GLYPH INSTEAD OF THE LABEL, never beside it. A button carrying both is a
+   * label with decoration on it; a button carrying only the glyph is what a
+   * narrow cell in a split row can actually hold. `label` stays REQUIRED either
+   * way — it is what the screen reader says, and an icon-only control with no
+   * name is a control only a sighted scorer has.
+   *
+   * The family is the tab bar's, and the weights match it: these are the two
+   * places in the app a glyph stands in for a word, and two icon sets would
+   * read as two apps.
+   */
+  icon?: keyof typeof MaterialCommunityIcons.glyphMap;
 }) {
   const m = useMetrics();
   const t = useTheme();
@@ -502,15 +516,18 @@ export function Btn({
               style={{ position: 'absolute', inset: 0 }}
             />
           )}
-          <Text
-            numberOfLines={1}
-            style={{
-              fontFamily: fNum(700), fontSize: m.fsLg,
-              letterSpacing: ls(m.fsLg, LS_BTN), color: fg, textAlign: 'center',
-            }}
-          >
-            {label}
-          </Text>
+          {icon ?
+            <MaterialCommunityIcons name={icon} size={m.fsXl} color={fg} />
+          : <Text
+              numberOfLines={1}
+              style={{
+                fontFamily: fNum(700), fontSize: m.fsLg,
+                letterSpacing: ls(m.fsLg, LS_BTN), color: fg, textAlign: 'center',
+              }}
+            >
+              {label}
+            </Text>
+          }
         </>
       )}
     </Press>

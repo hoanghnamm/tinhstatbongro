@@ -1,6 +1,7 @@
 import { useMemo, type ReactNode } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Image, ScrollView, Text, View } from 'react-native';
 import { router } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PanelHost } from '../../components/panels/PanelHost';
@@ -9,16 +10,14 @@ import { Band, Card, Seam } from '../../components/stats/parts';
 import { Bloom } from '../../components/ui/Bloom';
 import { Crest } from '../../components/ui/Crest';
 import { Press } from '../../components/ui/Press';
-import { Slug } from '../../components/ui/Slug';
 import { Col, Row } from '../../components/ui/Row';
-import { useLastGame } from '../../hooks/useLastGame';
 import { useTabInset } from '../../hooks/useTabInset';
 import { useSavedGames } from '../../hooks/useSavedGames';
-import { mmss, ord, pct } from '../../lib/format';
+import { pct } from '../../lib/format';
 import { ROSTER_CAP, STARTERS } from '../../lib/roster';
-import { officialIn, season } from '../../lib/season';
-import { opponentLabel } from '../../lib/team';
-import { efg, totals, ts } from '../../lib/stats';
+import { competitions, officialIn, season, type SeasonLine } from '../../lib/season';
+import { competitionLabel } from '../../lib/team';
+import { efficiency } from '../../lib/stats';
 import { useGameStore } from '../../store/gameStore';
 import { useHistoryStore } from '../../store/historyStore';
 import { useRosterStore } from '../../store/rosterStore';
@@ -39,166 +38,243 @@ import {
 import { useTheme } from '../../theme/useTheme';
 
 /**
- * THE LOBBY — a team profile, not a menu.
+ * THE LOBBY — TWO BLOCKS AND THE VERBS.
  *
- * Crest and wordmark, then the club's own headline; then the LIVE game if there
- * is one with the way back into it, the last game's six numbers, the season's
- * six, and NEW GAME at the foot with GAME SETTINGS under it. Everything on it is
- * derived — the live score straight off `gameStore`,
- * `totals()` over the last finished game, `season()` over the saved ones — and
- * nothing on it is stored twice.
+ * The lockup and its tagline over the ball, then the LEAGUE, then the MVP, then
+ * one row carrying NEW GAME and the gear. That is the whole screen.
  *
- * THE LAST GAME'S SCORELINE IS NOT HERE, though its stat line is. The scoreline
- * was the hero's FINAL state, and a card that carries a finished score is one
- * the eye reads as the live one whenever there IS a live one. Its numbers stay,
- * as the LAST GAME strip; the score itself lives on the MATCHES shelf and on the
- * game's own stats screen.
+ * THE LEAGUE IS THE UPPER BLOCK AND THE MVP IS THE LOWER ONE. They were the
+ * other way round, and the order is an argument about what the screen is for:
+ * how the season is going is the question a scorer opens the app with, and who
+ * is carrying it is the one they ask next.
  *
- * IT FITS IN ONE WINDOW DOWN TO THE VERBS, and that is why the roster list is
- * not on it. A preview of eight rows, the FINAL STATS and MY TEAM buttons and
- * the running availability count were four blocks whose only job was to point
- * somewhere a tab already points, and together they pushed the screen past the
- * fold. The `ScrollView` stays as the small-window safety net, not as the
- * design.
+ * WHAT IT USED TO BE WAS FIVE BLOCKS, and four of them have gone: the LIVE
+ * hero with CONTINUE under it, the LAST GAME strip of six numbers, THE SEASON
+ * card of six more, and the club headline over all of them. The screen was a
+ * dashboard — every number the app knows, stacked, none of them the reason
+ * anybody opened it. It is a POSTER now: the player who is carrying the season,
+ * and how the season is going. Both are one tap into the room that holds the
+ * detail, which is what the six-number strips were standing in for.
  *
- * THE SEASON CARD IS THE ONE BLOCK BELOW THE BUTTONS, and it is there on
- * purpose. It moved here off the STATS tab, where it sat above a table nobody
- * reads during a possession; on the lobby it is the line a scorer actually
- * opens the app to see. Putting it UNDER the verbs is what keeps the rule
- * intact — NEW GAME does not move, and the thing that may fall past the fold on
- * a short phone is six numbers you scroll to rather than the button you came
- * for. It is a way into the STATS tab, the way the identity block is a way into
- * TEAM.
+ * THE TAGLINE IS ONE SMALL LINE UNDER THE MARK, AND THE CLUB HAS ITS SLOT.
+ * BALL DON'T LIE. STATS NEITHER. sits hard against `HOOPLOG` at `fs2xs`, which
+ * is what a tagline is — the lockup's small print — and the slot it used to
+ * take two lines of air over is the CREST AND THE NAME. It is a readout and
+ * NOT the identity block coming back: nothing here opens the team editor, and
+ * the accent on the tagline's second half is still the LOCKUP'S rather than
+ * the screen's, so it spends nothing against the budget below.
  *
- * IT IS THE OFFICIAL GAMES, like everything else that says "season" — a
- * practice keeps its box score and stays out of this. Reading them costs the
- * lobby every saved game off disk, which is the one thing the two-key storage
- * shape was meant to avoid on this screen; it is a single pass on mount, off
- * the render path, and the card simply is not drawn until it lands.
+ * SO `fDisplay` LANDS ON TWO NAMES HERE AND THEY ARE A STEP APART. The MVP's
+ * is at `fs2xl`, the wordmark's own size, and the club's at `fsXl` under it:
+ * the face's rule is a NAME at headline size, and the two sizes are which name
+ * the screen is ABOUT. Set level they would be two headlines arguing. The
+ * crest's monogram is the third and is unchanged.
  *
- * THE HERO IS THE LIVE GAME AND ONLY THAT, so most of the time there is no
- * hero at all — a shelf full of games and nothing on the board is an ordinary
- * Tuesday and the screen says so by being short. The onboarding card stands in
- * on a fresh install, where there is neither a board nor a shelf.
+ * ACCENT IS THE PRIMARY VERB AND THE ONE NUMBER EACH BLOCK IS ABOUT — the MVP's
+ * jersey and the league's points — and nothing else. Not the record, not the
+ * FG, not the tiles, not the league band's note. The old rule said "the primary button
+ * and our own score", and with the live score off the screen this is the same
+ * rule over the same count: three marks, each of them the thing its block
+ * exists to say.
  *
- * CONTINUE GAME rides with the scoreline; NEW GAME is the last VERB on the
- * screen, always, and it does not move between the two states — it only drops
- * from `accent` to `surface` while a game is on, and goes through the confirm
- * panel so a mis-tap cannot throw a live game away.
+ * THERE IS NO LIVE HERO, so the way back into a running game is the FOOT of the
+ * screen: CONTINUE GAME takes the primary slot while a game is on and NEW GAME
+ * steps down under it at `surface`, behind the confirm panel. The verbs stack;
+ * a third block does not reappear.
  *
- * GAME SETTINGS SITS UNDER IT AT THE LIGHTEST WEIGHT `Btn` HAS, and it is what
- * replaced the gear that used to float in this screen's top-right corner. A
- * settings list is read, compared and scrolled, which is a page rather than a
- * panel — see `app/settings.tsx` — and the way into a page is a named verb, not
- * a glyph in a circle.
+ * AND THE LAST OF THOSE ROWS IS SPLIT FOUR TO ONE, with the gear in the fifth.
+ * GAME SETTINGS was a full-width named verb of its own directly under NEW GAME
+ * — a page opened once a season wearing the same width as the one opened every
+ * night. It is a glyph on the right of the verb's own row now, which is the
+ * ratio said out loud, and it is the only icon-only control in the app outside
+ * the tab bar.
  *
- * ACCENT IS SPENT ON TWO THINGS HERE and no others: the primary button, and our
- * own score. Not the crest ring, not the roster count, not the jerseys, not the
- * pills. On the board `accent` means the primary action or a made shot, and a
- * screen that paints nine things with it has taught the eye to ignore all nine.
+ * The wordmark LEANS and carries no full stop. `HOOPLOG.` was set upright; the
+ * lean comes from `WORDMARK_SLANT` rather than from `fontStyle`, for the reason
+ * written on that constant.
  *
- * Layout is keyed on WIDTH, not orientation — this is not the board, and a
- * tablet in portrait is wide enough for a six-across strip whichever way it is
- * held. The column itself is capped at that same line.
+ * The MVP is the PER-GAME POINTS LEADER over the season's official games,
+ * averaged over the games each player APPEARED in — the same denominator
+ * `lib/season.ts` uses everywhere, which is what stops a twelfth man who turned
+ * up twice being punished for the nights the team played without them. The
+ * LEAGUE is the CURRENT COMPETITION, not the whole season: `competitions()`
+ * hands its groups back newest first, so the one being played this month heads
+ * the list and is the one this card is made of.
+ *
+ * Both are read off every saved game, which is the one thing the two-key
+ * storage shape was meant to avoid on this screen: a single pass on mount
+ * through `useSavedGames`, off the render path, memoised.
+ *
+ * Layout is keyed on WIDTH, not orientation — this is not the board. The column
+ * is capped at the same line, or a tablet draws a jersey number a foot across.
  *
  * `Band` / `Card` / `Seam` come from the stats screen's furniture rather than
- * being redrawn here, and every one of the pieces below is module-level: a
- * component declared inside `LobbyScreen` would be a new type on every render,
- * and a running clock would remount the whole page once a second.
+ * being redrawn here, and every piece below is module-level: a component
+ * declared inside `LobbyScreen` would be a new type on every render.
  */
 
-/** Six-across from here up, and the column's own cap. The same line
- *  `team.tsx` and `RotateGate` draw. */
+/** The column's own cap. The same line `team.tsx` and `RotateGate` draw. */
 const TWO_UP = 700;
+
+/**
+ * THE WORDMARK'S LEAN, as a skew rather than an italic face.
+ *
+ * Anton has one weight, no italic, and nothing to synthesise from on iOS, so
+ * `fontStyle: 'italic'` is a rule one platform honours and the other ignores.
+ * Nine degrees is inside the range a real oblique of a condensed grotesque sits
+ * at; past about twelve the counters start to close and a condensed face goes
+ * to mush. It is a raw value like a hex and it is a lockup's, not a layout's —
+ * nothing else in the app leans, and nothing else should.
+ */
+const WORDMARK_SLANT = '-9deg';
+
+/** The ball, as a share of the window. Wide enough to run off the right edge —
+ *  a photograph that ends inside the screen is a picture pasted onto it. */
+const ART_W = 0.82;
+const ART_H = 0.24;
 
 /* ---- the pieces ---------------------------------------------------- */
 
-/*
- * THE CIRCULAR GLASS CONTROL IS GONE, and `IconBtn` with it.
- *
- * It was the one piece of glass on this screen — a `BlurView` clipped to a
- * circle in the top-right corner, holding a gear — and it was the only control
- * in the app whose entire label was a glyph. What it opened is a full page now
- * (`app/settings.tsx`), reached by a NAMED verb at the foot of this screen,
- * directly under NEW GAME. A settings list is read and scrolled, which is a
- * page, and the way into it is a word.
- *
- * The `expo-blur` dependency did not leave with it: `Card`'s `glass` variant is
- * still the lobby's alone and is still the reason the bloom is worth drawing.
- */
-
 /**
- * The club name at headline size, in TWO TONES.
+ * THE BALL BEHIND THE LOCKUP.
  *
- * The reference sets "Professional **Match** Insights" with the weight of the
- * sentence on one word and the rest stepped back a tone, which is what stops a
- * three-word headline from reading as three equal shouts. The rule here is the
- * generic form of that: every word but the LAST is `ink2`, the last is `ink`.
- * `KHANH HOA Warriors` lands the emphasis on the noun, which is the half of a
- * club's name that is actually its name — and a single-word club simply gets a
- * white headline, with no special case needed.
+ * It obeys the two rules `Bloom` obeys, for the same reasons: it is the first
+ * thing in the screen and OUTSIDE the padded flow, so it runs under the status
+ * bar rather than starting below it, and it eats no taps — the wordmark sits on
+ * top of it.
  *
- * It is `numberOfLines={2}` and not one: club names are long, this is the
- * biggest type on the screen, and a name that will not fit on one line should
- * wrap rather than turn into an ellipsis. Two is the budget the one-window rule
- * can afford.
- *
- * AND IT IS THE MARK'S FACE, NOT THE BODY'S — `fDisplay`, in caps, lit by an
- * accent glow, under a three-point accent slug. This block is the one thing on
- * the lobby that is not information: it is the club saying who it is, and it
- * was set in the same Helvetica as the numbers under it, at a size the numbers
- * beat, with nothing on it but two greys. The face, the slug and the glow are
- * the three things that make it read as an identity rather than as a caption.
+ * IT IS FADED BY TWO GRADIENTS, NOT BY OPACITY. A flat `opacity` on the image
+ * greys the whole photograph including the black it is mostly made of, which
+ * reads as a grey rectangle over a near-black room. The two washes instead run
+ * the room's own `bg` back OVER the picture — solid at the left edge and at the
+ * bottom, clear at the top-right corner — so the ball emerges out of the room
+ * rather than being pasted onto it, and the corner keeps its full contrast.
  */
-function Headline({ text }: { text: string }) {
+function HeaderArt() {
   const m = useMetrics();
   const t = useTheme();
-  const words = text.trim().split(/\s+/);
-  const head = words.slice(0, -1).join(' ');
-  const tail = words[words.length - 1] ?? '';
-  const fs = m.fs3xl;
+  const w = m.win.w * ART_W;
+  const h = m.win.h * ART_H;
 
   return (
-    <>
-      {/* the accent rule over the name — see `components/ui/Slug`, which owns
-          the whole of the argument for it being there and for it being a
-          component rather than three lines of style on this screen */}
-      <View style={{ marginTop: m.s4 }}>
-        <Slug />
-      </View>
+    <View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        top: 0,
+        right: 0,
+        width: w,
+        height: h,
+      }}
+    >
+      <Image
+        source={require('../../assets/hero-ball.png')}
+        resizeMode="cover"
+        style={{ width: w, height: h }}
+      />
+      {/* the left edge, back into the room */}
+      <LinearGradient
+        colors={[t.bg, withAlpha(t.bg, 0.55), 'transparent']}
+        locations={[0, 0.42, 1]}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 1, y: 0.5 }}
+        style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }}
+      />
+      {/* and the bottom edge, so the cards below it start on clean ground */}
+      <LinearGradient
+        colors={['transparent', withAlpha(t.bg, 0.6), t.bg]}
+        locations={[0.35, 0.75, 1]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }}
+      />
+    </View>
+  );
+}
 
+/**
+ * BALL DON'T LIE. STATS NEITHER.
+ *
+ * ONE LINE, TIGHT UNDER THE WORDMARK. It was two lines sitting in a slot of
+ * their own with air above them, which made the tagline read as a second block
+ * rather than as part of the mark — and it left the club with nowhere to go.
+ * The slot it vacated is the club's; see `Identity`.
+ *
+ * IT IS SET AT `fs2xs`, WHICH IS THE RAMP'S NEW BOTTOM STEP AND ITS ONLY
+ * CALLER. The ramp stopped at `fsXs` because that is the smallest thing on the
+ * board a scorer has to read at arm's length in a gym; a tagline is read once
+ * and never again, so it is the one string allowed under that floor. There is
+ * a NEGATIVE `s1` above it, which is how it sits on the mark rather than a step
+ * below it. Squeezing the wordmark's own `lineHeight` was the first attempt and
+ * it CLIPPED the face — see the note there. Pulling the small print up into the
+ * mark's leading costs the mark nothing.
+ *
+ * TWO TONES ON THE ONE LINE, which is the construction the two lines had and
+ * the same reason: the weight lands on the half that is the point. It is set in
+ * the BODY face and not in `fDisplay` — the wordmark above it is the mark, and
+ * a tagline in the same face at half the size reads as the mark repeating
+ * itself rather than as a line under it.
+ *
+ * The accent on the second half is the LOCKUP'S, not the screen's: it names no
+ * control and opens nothing, exactly as `LOG` in the wordmark does, so it does
+ * not count against the marks below.
+ */
+function Tagline() {
+  const m = useMetrics();
+  const t = useTheme();
+
+  const line = {
+    fontFamily: fUi(500),
+    fontSize: m.fs2xs,
+    lineHeight: m.fs2xs * 1.2,
+    letterSpacing: ls(m.fs2xs, LS_MICRO),
+  };
+
+  return (
+    <Text numberOfLines={1} style={{ ...line, color: t.ink2, marginTop: -m.s1 }}>
+      BALL DON&apos;T LIE. <Text style={{ color: t.accent }}>STATS NEITHER.</Text>
+    </Text>
+  );
+}
+
+/**
+ * THE CLUB, IN THE SLOT THE TAGLINE GAVE UP — the crest and the name.
+ *
+ * The lockup says what the APP is; this says whose board it is, which is the
+ * one thing about the club that belongs on a screen that no longer edits it.
+ * It is a READOUT and not a way in: the club is edited on the TEAM tab, one tap
+ * away, and a crest that opened an editor here is exactly the route that was
+ * cut when the identity block went.
+ *
+ * THE NAME IS IN `fDisplay` BUT A STEP BELOW THE WORDMARK, at `fsXl` against
+ * the mark's `fs2xl` and the MVP's. A club name is a NAME at headline size,
+ * which is the whole of that face's rule — but set at the wordmark's own size
+ * it would be a second wordmark, and set at the MVP's it would take the
+ * headline slot back off the player the screen is about.
+ */
+function Identity() {
+  const m = useMetrics();
+  const t = useTheme();
+  const club = useTeamStore((s) => s.profile);
+
+  return (
+    <Row gap={m.s3} style={{ marginTop: m.s4 }}>
+      <Crest name={club.name} uri={club.logoUri} size={Math.round(m.fsXl * 1.5)} />
       <Text
-        numberOfLines={2}
+        numberOfLines={1}
         style={{
-          marginTop: m.s2,
-          // THE MARK'S FACE, set in CAPS — see `fDisplay`. Anton is condensed,
-          // so the step UP to `fs3xl` costs the screen nothing: a club name
-          // that took two lines of Helvetica at `fs2xl` takes one of these, and
-          // the leading is pulled in to 0.92 because a display face stacked at
-          // body leading reads as two separate lines rather than as a block.
+          flexShrink: 1,
           fontFamily: fDisplay(),
-          fontSize: fs,
-          lineHeight: fs * 0.92,
-          // CAPS, always. Anton has a lowercase and it is not what it is for:
-          // the mark is a block of capitals, and a club typed in sentence case
-          // on the TEAM tab must still arrive here as one.
-          textTransform: 'uppercase',
-          letterSpacing: ls(fs, LS_TITLE),
-          // AND IT IS LIT. The glow is the bloom arriving on the one piece of
-          // type the bloom is behind: a warm halo at 40%, no offset, so it
-          // reads as light coming off the letters rather than as a drop shadow
-          // under them. It is the only text shadow in the app, and it is here
-          // because this is the only text that is a MARK.
-          textShadowColor: withAlpha(t.accent, 0.4),
-          textShadowOffset: { width: 0, height: 0 },
-          textShadowRadius: 22,
+          fontSize: m.fsXl,
+          // the display face's floor — see the wordmark
+          lineHeight: m.fsXl * 1.2,
+          letterSpacing: ls(m.fsXl, LS_TITLE),
           color: t.ink,
         }}
       >
-        {!!head && <Text style={{ color: t.ink2 }}>{head} </Text>}
-        {tail}
+        {club.name.toUpperCase()}
       </Text>
-    </>
+    </Row>
   );
 }
 
@@ -221,56 +297,9 @@ function Label({ children, tone }: { children: ReactNode; tone?: string }) {
   );
 }
 
-/**
- * One side of the scoreline: whose it is, the number, and the pill under it.
- *
- * The pill is `surface2` on both sides. The mockup gives US an accent fill, and
- * that is one of the nine places the accent stopped meaning anything — the
- * SCORE already says which side is ours, and it says it in the one ink the eye
- * has been trained to read as ours.
- */
-function Side({ title, value, pill, tone }: { title: string; value: number; pill: string; tone?: string }) {
-  const m = useMetrics();
-  const t = useTheme();
-  return (
-    <Col
-      align="center"
-      gap={m.s2}
-      style={{ flex: 1, minWidth: 0, paddingVertical: m.s4, backgroundColor: t.surface }}
-    >
-      <Label>{title}</Label>
-      <Text
-        numberOfLines={1}
-        style={{
-          fontFamily: fNum(700),
-          fontSize: m.fs3xl,
-          letterSpacing: ls(m.fs3xl, LS_TIGHT),
-          lineHeight: m.fs3xl * 1.08,
-          color: tone ?? t.ink,
-          fontVariant: ['tabular-nums'],
-        }}
-      >
-        {value}
-      </Text>
-      <View
-        style={{
-          flexGrow: 0,
-          flexShrink: 0,
-          borderRadius: 99,
-          paddingVertical: 2,
-          paddingHorizontal: m.s3,
-          backgroundColor: t.surface2,
-        }}
-      >
-        <Label>{pill}</Label>
-      </View>
-    </Col>
-  );
-}
-
-/** A cell of the LAST GAME and THE SEASON strips. Opaque and edgeless — it
- *  lives in a `Seam`, and the seam is the 1px of parent showing between two. */
-function Stat({ value, label }: { value: string | number; label: string }) {
+/** A cell of either block's stat strip. Opaque and edgeless — it lives in a
+ *  `Seam`, and the seam is the 1px of parent showing between two. */
+function Stat({ value, label, tone }: { value: string | number; label: string; tone?: string }) {
   const m = useMetrics();
   const t = useTheme();
   return (
@@ -293,7 +322,7 @@ function Stat({ value, label }: { value: string | number; label: string }) {
           fontSize: m.fsXl,
           letterSpacing: ls(m.fsXl, LS_TIGHT),
           lineHeight: m.fsXl * 1.1,
-          color: t.ink,
+          color: tone ?? t.ink,
           fontVariant: ['tabular-nums'],
         }}
       >
@@ -319,75 +348,308 @@ function Stat({ value, label }: { value: string | number; label: string }) {
 }
 
 /**
- * THE SEASON'S SIX NUMBERS — the card that used to head the STATS tab.
+ * BLOCK ONE — THE MVP.
  *
- * The same six, in the same order, out of the same `season()` call: games,
- * record and points a game, then the three shooting numbers. It reads TOTALS
- * whatever anyone's toggle says, because points per game computed off per-game
- * numbers divides by the games twice.
+ * The jersey at the left, the name at the right, and the three numbers the
+ * question is actually asked in underneath: points, assists, rebounds, all per
+ * game and all to one decimal, because 18 and 18.4 are the same number to a
+ * reader and the difference between two players is usually the tenth.
+ *
+ * THE JERSEY IS THE ONE ACCENT MARK ON THIS CARD. Not the name, not the tiles,
+ * not the band — the number IS the player at courtside, and it is the one thing
+ * on the block a scorer recognises before they have read anything.
+ *
+ * THE NAME IS THE DISPLAY FACE, and it is the biggest name on the screen — a
+ * step above the club's in the header, which is which of the two the lobby is
+ * about. It shrinks to fit rather than wrapping: this is one line by
+ * construction, and a two-line name would push the strip under it past the
+ * block's own height.
+ *
+ * TWO CAPTIONS ARE CUT AND NEITHER COMES BACK. `N GAMES THIS SEASON` rode the
+ * band's note and `POINTS PER GAME LEADER` sat under the name; between them
+ * they turned a poster into a card explaining itself. THE `Slug` WENT WITH THE
+ * SECOND OF THEM — a 36×3 accent rule between a name and a caption is a join,
+ * and with nothing under it to join to it was underlining thin air. The rule is not named
+ * here any more — the foot of the card says POINTS / ASSISTS / REBOUNDS per
+ * game, which is the rule shown rather than stated, and the player's own page
+ * behind the press is where a denominator is argued with.
  *
  * It presses on OPACITY rather than on a fill, for the reason a competition
  * card does: the cells are opaque so their 1px seams can show, and a background
  * change under them is visible nowhere but the edges.
  */
-function SeasonCard({
-  games,
-  record,
+function MvpCard({
+  number,
+  name,
   ppg,
-  fg,
-  efgv,
-  tsv,
-  wide,
+  apg,
+  rpg,
   onPress,
 }: {
-  games: number;
-  record: string;
-  ppg: number;
-  fg: string;
-  efgv: string;
-  tsv: string;
-  wide: boolean;
+  number: number;
+  name: string;
+  ppg: string;
+  apg: string;
+  rpg: string;
   onPress(): void;
 }) {
   const m = useMetrics();
   const t = useTheme();
 
-  const cells = [
-    <Stat key="g" value={games} label="GAMES" />,
-    <Stat key="r" value={record} label="RECORD" />,
-    <Stat key="p" value={ppg} label="POINTS / GAME" />,
-    <Stat key="fg" value={fg} label="FG%" />,
-    <Stat key="efg" value={efgv} label="EFFECTIVE FG" />,
-    <Stat key="ts" value={tsv} label="TRUE SHOOTING" />,
-  ];
+  return (
+    <Press
+      onPress={onPress}
+      accessibilityLabel={`most valuable player, ${name}, number ${number}, ${ppg} points a game — open their season`}
+      style={{ borderRadius: m.r }}
+      pressedStyle={{ opacity: 0.6 }}
+    >
+      <Card glass>
+        {/* THE BAND CARRIES THE LABEL AND NOTHING ELSE. `N GAMES THIS SEASON`
+            rode the note and is cut: the denominator behind a per-game number
+            is a thing to ARGUE with, which is what the player's own page is
+            for, and on a poster it was a second small caption competing with
+            the one under the name — which is itself now gone. */}
+        <Band label="MVP" tone={t.accent} />
+        <Col gap={1} style={{ backgroundColor: t.rule }}>
+          <Seam>
+            {/* THE JERSEY PLATE — a share of the row rather than a fixed width,
+                so it holds its proportion from a 320pt phone to a tablet.
+                `flexGrow` off a zero basis and not `flex`, because the row's
+                height comes from the column beside it. */}
+            <Col
+              align="center"
+              justify="center"
+              style={{
+                flexGrow: 1,
+                flexShrink: 1,
+                flexBasis: 0,
+                minWidth: 0,
+                paddingVertical: m.s4,
+                backgroundColor: t.surface,
+              }}
+            >
+              <Row gap={1} align="center" style={{ flexGrow: 0, flexShrink: 1, minWidth: 0 }}>
+                <Text
+                  style={{
+                    fontFamily: fNum(700),
+                    fontSize: m.fsMd,
+                    color: t.accent,
+                  }}
+                >
+                  #
+                </Text>
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    fontFamily: fNum(700),
+                    fontSize: m.fs3xl,
+                    letterSpacing: ls(m.fs3xl, LS_TIGHT),
+                    lineHeight: m.fs3xl * 1.06,
+                    color: t.accent,
+                    fontVariant: ['tabular-nums'],
+                  }}
+                >
+                  {number}
+                </Text>
+              </Row>
+            </Col>
+
+            <Col
+              justify="center"
+              style={{
+                flexGrow: 2.4,
+                flexShrink: 1,
+                flexBasis: 0,
+                minWidth: 0,
+                paddingVertical: m.s4,
+                paddingHorizontal: m.s3,
+                backgroundColor: t.surface,
+              }}
+            >
+              <Text
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                style={{
+                  // THE MARK'S FACE, in caps, and the biggest name on the
+                  // screen. Anton is condensed, so a long name still lands on
+                  // one line at this size; `adjustsFontSizeToFit` is the floor
+                  // under the one that will not. The 1.2 is the same floor the
+                  // wordmark keeps — under about 1.15 this face is CLIPPED
+                  // rather than merely tight.
+                  fontFamily: fDisplay(),
+                  fontSize: m.fs2xl,
+                  lineHeight: m.fs2xl * 1.2,
+                  textTransform: 'uppercase',
+                  letterSpacing: ls(m.fs2xl, LS_TITLE),
+                  color: t.ink,
+                }}
+              >
+                {name}
+              </Text>
+              {/* THE NAME AND NOTHING UNDER IT. Both the `Slug` — the 36×3
+                  accent rule — and `POINTS PER GAME LEADER` under it are cut:
+                  the card's own foot says POINTS / ASSISTS / REBOUNDS per
+                  game, so the caption spelled out what the numbers beside it
+                  already say, and with the caption gone the bar was underlining
+                  nothing. `components/ui/Slug.tsx` is left standing with no
+                  caller. */}
+            </Col>
+          </Seam>
+
+          <Seam>
+            <Stat value={ppg} label="POINTS" />
+            <Stat value={apg} label="ASSISTS" />
+            <Stat value={rpg} label="REBOUNDS" />
+          </Seam>
+        </Col>
+      </Card>
+    </Press>
+  );
+}
+
+/**
+ * BLOCK TWO — THE LEAGUE, which is the CURRENT COMPETITION.
+ *
+ * Total points at the left at headline size, the record and the games it is out
+ * of at the right, and the shooting under them as a pill.
+ *
+ * THE POINTS ARE THE ONE ACCENT MARK, for the same reason the jersey is on the
+ * block above: it is the number the card exists to say. The record deliberately
+ * is NOT coloured — on the shelf a win is `accent` and a loss is `ink2`, and a
+ * W-L pair is both of those at once, so colouring it would mean choosing which
+ * half of a season to shout.
+ *
+ * THE FG IS A PILL AND NOT A FOURTH TILE. It is two readings of one fact — the
+ * split and the percentage — and a tile holds one number. The pill is also what
+ * keeps the right column two rows rather than three, which is what lets the
+ * points at the left run at `fs4xl` beside it.
+ */
+function LeagueCard({
+  name,
+  points,
+  record,
+  games,
+  fgm,
+  fga,
+  onPress,
+}: {
+  name: string;
+  points: number;
+  record: string;
+  games: number;
+  fgm: number;
+  fga: number;
+  onPress(): void;
+}) {
+  const m = useMetrics();
+  const t = useTheme();
 
   return (
     <Press
       onPress={onPress}
-      accessibilityLabel={`the season, ${games} game${games === 1 ? '' : 's'}, open the stats tab`}
-      style={{
-        borderWidth: 1,
-        borderColor: t.rule,
-        borderRadius: m.r,
-        overflow: 'hidden',
-        backgroundColor: t.surface,
-      }}
+      accessibilityLabel={`${name}, ${points} points, record ${record} — open the competition`}
+      style={{ borderRadius: m.r }}
       pressedStyle={{ opacity: 0.6 }}
     >
-      <Band label="THE SEASON" />
-      {wide ? (
-        <Seam>{cells}</Seam>
-      ) : (
-        <Col gap={1} style={{ backgroundColor: t.rule }}>
-          <Seam>{cells.slice(0, 3)}</Seam>
-          <Seam>{cells.slice(3)}</Seam>
-        </Col>
-      )}
+      <Card glass>
+        <Band label="LEAGUE STATS" tone={t.accent} note={<Label>{name}</Label>} />
+        <Seam>
+          <Col
+            align="center"
+            justify="center"
+            gap={2}
+            style={{
+              flexGrow: 1,
+              flexShrink: 1,
+              flexBasis: 0,
+              minWidth: 0,
+              paddingVertical: m.s4,
+              paddingHorizontal: m.s2,
+              backgroundColor: t.surface,
+            }}
+          >
+            <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              style={{
+                fontFamily: fNum(700),
+                fontSize: m.fs4xl,
+                letterSpacing: ls(m.fs4xl, LS_TIGHT),
+                lineHeight: m.fs4xl * 1.04,
+                color: t.accent,
+                fontVariant: ['tabular-nums'],
+              }}
+            >
+              {points}
+            </Text>
+            <Text
+              numberOfLines={1}
+              style={{
+                fontFamily: fUi(400),
+                fontSize: m.fsXs,
+                letterSpacing: ls(m.fsXs, LS_MICRO),
+                color: t.ink2,
+              }}
+            >
+              POINTS
+            </Text>
+          </Col>
+
+          <Col
+            gap={1}
+            style={{
+              flexGrow: 1.35,
+              flexShrink: 1,
+              flexBasis: 0,
+              minWidth: 0,
+              backgroundColor: t.rule,
+            }}
+          >
+            <Seam>
+              <Stat value={record} label="RECORD" />
+              <Stat value={games} label="GAMES" />
+            </Seam>
+            <Row
+              align="center"
+              justify="center"
+              style={{
+                paddingVertical: m.s3,
+                paddingHorizontal: m.s2,
+                backgroundColor: t.surface,
+              }}
+            >
+              <Row
+                gap={m.s2}
+                align="center"
+                style={{
+                  flexGrow: 0,
+                  flexShrink: 1,
+                  minWidth: 0,
+                  borderRadius: 99,
+                  paddingVertical: m.s1,
+                  paddingHorizontal: m.s3,
+                  backgroundColor: t.surface2,
+                }}
+              >
+                <Label>FG</Label>
+                <Label tone={t.ink}>
+                  {fgm}/{fga}
+                </Label>
+                <Label>·</Label>
+                <Label tone={t.ink}>{pct(fgm, fga)}</Label>
+              </Row>
+            </Row>
+          </Col>
+        </Seam>
+      </Card>
     </Press>
   );
 }
 
 /* ---- the screen ----------------------------------------------------- */
+
+/** Whole numbers stay whole; an average keeps its one decimal. */
+const avg = (n: number): string => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
 function LobbyScreen() {
   const m = useMetrics();
@@ -396,47 +658,52 @@ function LobbyScreen() {
   const bar = useTabInset();
 
   const roster = useRosterStore((s) => s.players);
-  // THE HEADER IS THE CLUB AS IT IS TODAY; the hero's scoreline is the game as
-  // it was played, so the two names come from two different places on purpose
-  const club = useTeamStore((s) => s.profile);
-  const team = useGameStore((s) => s.team.name);
-  const score = useGameStore((s) => s.score);
-  const oppScore = useGameStore((s) => s.oppScore);
-  // the live game's opponent; a finished one carries its own
-  const oppName = useGameStore((s) => s.opponent);
-  const period = useGameStore((s) => s.period);
-  const remaining = useGameStore((s) => s.remaining);
-  const running = useGameStore((s) => s.running);
   const ended = useGameStore((s) => s.ended);
   const played = useGameStore((s) => s.events.length > 0);
   const open = useUiStore((s) => s.open);
-
-  // the LAST FINISHED game, wherever it is living — `gameStore` while it is
-  // still the one on the board, `historyStore` once a new game has replaced it
-  const last = useLastGame();
   const savedCount = useHistoryStore((s) => s.index.length);
 
-  // THE SEASON, which is the one thing on this screen that is not free: it
-  // opens every saved game. The memo is what keeps the aggregate off the clock
-  // — this screen re-renders once a second while a game is live, and
-  // `useSavedGames` hands back the same array until the shelf itself changes.
+  // THE ONE EXPENSIVE READ ON THIS SCREEN: every saved game off disk, because
+  // both blocks are made of stat lines and a summary has none. It lands once,
+  // off the render path, and both memos hang off it.
   const saved = useSavedGames();
-  const S = useMemo(() => {
-    const official = saved ? officialIn(saved) : null;
-    return official && official.length ? season(official, roster, 'totals') : null;
-  }, [saved, roster]);
+  const official = useMemo(() => (saved ? officialIn(saved) : null), [saved]);
+
+  /* -- THE MVP: the per-game points leader.
+        `season(…, 'perGame')` has already divided each line by the games that
+        player APPEARED in, so the comparison is a straight read of `pts`.
+        Ties break on efficiency and then on games played — a scorer looking at
+        two identical averages wants the one who did more of everything else,
+        and after that the one who did it more often. -- */
+  const mvp = useMemo<SeasonLine | null>(() => {
+    if (!official || !official.length) return null;
+    const { lines } = season(official, roster, 'perGame');
+    if (!lines.length) return null;
+    return lines.reduce((best, line) => {
+      const p1 = line.stats.points;
+      const p2 = best.stats.points;
+      if (p1 !== p2) return p1 > p2 ? line : best;
+      const a = efficiency(line.stats);
+      const b = efficiency(best.stats);
+      if (a !== b) return a > b ? line : best;
+      return line.games > best.games ? line : best;
+    });
+  }, [official, roster]);
+
+  /* -- THE LEAGUE: the CURRENT competition, which is the first group back —
+        `competitions()` keeps the order the games are handed in and
+        `useSavedGames` hands them newest first. -- */
+  const league = useMemo(
+    () => (official && official.length ? (competitions(official, roster)[0] ?? null) : null),
+    [official, roster],
+  );
 
   const inProgress = played && !ended;
   // a board with nothing on it and a shelf with nothing on it: the one state
-  // that gets the onboarding card, and it is true exactly once per install
+  // that gets the onboarding copy, and it is true exactly once per install
   const nothingYet = !played && savedCount === 0;
   const available = roster.filter((p) => p.available);
   const enough = available.length >= STARTERS;
-  const wide = m.win.w >= TWO_UP;
-
-  // the six numbers are the LAST FINISHED game's, whichever copy that is —
-  // never the live one, which would read as a final line for a game still on
-  const T = last ? totals(last.state.players) : null;
 
   const newGame = () => {
     // losing a live game to a mis-tap is the worst thing this screen can do
@@ -444,67 +711,45 @@ function LobbyScreen() {
     else router.push('/start');
   };
 
+  // the player page reads its games out of the route, the way the season tab
+  // hands them over — one shape, and no second way in
+  const openPlayer = (id: string) =>
+    router.push({
+      pathname: '/player/[id]',
+      params: { id, games: JSON.stringify(official ?? []) },
+    });
 
-  /* -- THE HERO IS THE LIVE GAME, and now it is only that.
-
-        The FINAL state is cut. One card carrying a scoreline is unambiguous;
-        the same card carrying either a live score or a finished one is a card
-        the eye has to read a band to trust. So it carries the one thing that
-        cannot be got anywhere else: THERE IS A GAME ON THE BOARD RIGHT NOW,
-        with its score, its period and its clock, and CONTINUE directly under it
-        in the same block. A finished score is on the MATCHES shelf.
-
-        The onboarding card takes its place on a fresh install and only there:
-        no board, no shelf. Once a game has been played the lobby simply has no
-        hero, because there is nothing live to be about. -- */
-  const live = inProgress && (
-    <Col gap={m.s2}>
-      <Card glass>
-        <Band
-          label="LIVE"
-          tone={t.accent}
-          note={
-            <Row gap={m.s2}>
-              {/* the live dot takes `live`, the same teal the running clock and
-                  the court's tap mark take. All three mean "now"; `accent` is
-                  the brand and means "ours". */}
-              {running && (
-                <View
-                  style={{
-                    width: 7,
-                    height: 7,
-                    borderRadius: 99,
-                    flexGrow: 0,
-                    flexShrink: 0,
-                    backgroundColor: t.live,
-                  }}
-                />
-              )}
-              <Label>
-                {ord(period).toUpperCase()} · {mmss(remaining)}
-              </Label>
-            </Row>
-          }
-        />
-        <Seam>
-          <Side title={team.toUpperCase()} value={score} pill="US" tone={t.accent} />
-          <Side title={opponentLabel(oppName)} value={oppScore} pill="THEM" />
-        </Seam>
-      </Card>
-
-      {/* CONTINUE is part of the live block, not of the verbs at the foot: it
-          is the same tap as the card over it — "the game that is on" — and a
-          scorer coming back mid-quarter should not read past the season to
-          find it. The gap is the tight one, because the two are one thing. */}
-      <Row align="stretch">
-        <Btn label="CONTINUE GAME" variant="accent" onPress={() => router.push('/game')} />
-      </Row>
-    </Col>
+  const mvpBlock = mvp && (
+    <MvpCard
+      number={mvp.number}
+      name={mvp.name}
+      ppg={avg(mvp.stats.points)}
+      apg={avg(mvp.stats.assists)}
+      rpg={avg(mvp.stats.offensiveRebounds + mvp.stats.defensiveRebounds)}
+      onPress={() => openPlayer(mvp.id)}
+    />
   );
 
-  const onboard = nothingYet && (
+  const leagueBlock = league && (
+    <LeagueCard
+      name={competitionLabel(league.name)}
+      points={league.season.team.pts}
+      record={`${league.season.wins}-${league.season.losses}`}
+      games={league.season.games}
+      fgm={league.season.team.fgm}
+      fga={league.season.team.fga}
+      onPress={() => router.push({ pathname: '/competition', params: { key: league.key } })}
+    />
+  );
+
+  /* -- Nothing to be a poster ABOUT yet. One card stands in for both blocks
+        rather than one empty state per block: two cards reading NO DATA is a
+        screen apologising twice for one fact. It is drawn whenever neither
+        block can be, which covers a fresh install and also a shelf with
+        nothing but practices on it. -- */
+  const empty = !leagueBlock && !mvpBlock && (
     <Card glass>
-      <Band label="NO GAME YET" />
+      <Band label={nothingYet ? 'NO GAME YET' : 'NO OFFICIAL GAME YET'} />
       <Col align="center" gap={m.s2} style={{ paddingVertical: m.s6, paddingHorizontal: m.s4 }}>
         <Text
           numberOfLines={2}
@@ -517,100 +762,66 @@ function LobbyScreen() {
             color: t.ink,
           }}
         >
-          START YOUR FIRST GAME
+          {nothingYet ? 'START YOUR FIRST GAME' : 'A PRACTICE IS NOT A SEASON'}
         </Text>
         <Label>
-          {roster.length}/{ROSTER_CAP} PLAYERS
+          {nothingYet ?
+            `${roster.length}/${ROSTER_CAP} PLAYERS`
+          : 'MARK A GAME OFFICIAL AT THE DOOR'}
         </Label>
       </Col>
     </Card>
   );
 
-  /* -- THE LAST GAME'S SIX NUMBERS, and they are the last FINISHED game's,
-        never the live one — a final line for a game still being played is a
-        lie. Hidden outright when there is none: six zeros read as a game that
-        went badly rather than as no data.
+  /* -- THE VERBS, and they are the whole of the way into a game now.
 
-        Its SCORELINE is not here, and that is what was cut: the hero's FINAL
-        state carried it and the hero is the live game only now. -- */
-  const strip = T && (
-    <Card glass>
-      <Band label="LAST GAME" />
-      {wide ? (
-        <Seam>
-          <Stat value={T.pts} label="POINTS" />
-          <Stat value={pct(T.fgm, T.fga)} label="FG%" />
-          <Stat value={pct(T.ftm, T.fta)} label="FT%" />
-          <Stat value={T.reb} label="REBOUNDS" />
-          <Stat value={T.ast} label="ASSISTS" />
-          <Stat value={T.to} label="TURNOVERS" />
-        </Seam>
-      ) : (
-        <Col gap={1} style={{ backgroundColor: t.rule }}>
-          <Seam>
-            <Stat value={T.pts} label="POINTS" />
-            <Stat value={pct(T.fgm, T.fga)} label="FG%" />
-            <Stat value={pct(T.ftm, T.fta)} label="FT%" />
-          </Seam>
-          <Seam>
-            <Stat value={T.reb} label="REBOUNDS" />
-            <Stat value={T.ast} label="ASSISTS" />
-            <Stat value={T.to} label="TURNOVERS" />
-          </Seam>
-        </Col>
-      )}
-    </Card>
-  );
-
-  /* -- the season's six, over NEW GAME. Hidden while the shelf is being read
-        and hidden outright when no OFFICIAL game has been played — six zeros
-        under the word SEASON reads as a bad one, not as an empty one. -- */
-  const seasonCard = S && (
-    <SeasonCard
-      games={S.games}
-      record={`${S.wins}-${S.losses}`}
-      ppg={S.games ? Math.round(S.team.pts / S.games) : 0}
-      fg={pct(S.team.fgm, S.team.fga)}
-      efgv={efg(S.team)}
-      tsv={ts(S.team)}
-      wide={wide}
-      onPress={() => router.push('/season')}
-    />
-  );
-
-  /* -- NEW GAME IS THE LAST THING ON THE SCREEN, always, and it is one button.
-
-        It used to share a row with RESUME, which meant the primary verb moved
-        depending on whether a game was on. It does not move now: the way back
-        into a live game is up with the scoreline, and the foot of the screen is
-        where the one thing that starts something lives. While a game IS on it
-        drops to `surface` and goes through the confirm panel — losing a live
-        game to a mis-tap is the worst thing this screen can do. -- */
+        With the LIVE hero cut, CONTINUE has nowhere else to be — so it takes
+        the primary slot while a game is on and NEW GAME steps down under it at
+        `surface`, behind the confirm panel. The stack grows by one row rather
+        than the screen growing by a block, and the primary verb never moves:
+        the thing at the foot of the lobby is always the thing that puts you on
+        the board. -- */
   const actions = (
     <Col gap={m.s2}>
-      <Row align="stretch">
-        {/* THE VERB IS LIT THE WAY THE ROOM IS. `bloom` is the accent filled
-            with the bloom's own gradient, on the bloom's own axis, so the one
-            button that starts something belongs to the screen behind it rather
-            than sitting on it as a slab. While a game is ON it drops to
-            `surface` and stops catching any light at all — which is the whole
-            of what that state is saying. */}
-        <Btn
-          label="NEW GAME"
-          variant={inProgress ? 'surface' : 'bloom'}
-          disabled={!enough}
-          onPress={newGame}
-        />
-      </Row>
-      {/* GAME SETTINGS, and it is the SECOND WEIGHT under the first.
-          It replaces the gear that used to float in this screen's top-right
-          corner — a glyph in a circle, with no word on it, in the one row that
-          is the club's own identity. A settings list is read and scrolled, so
-          it is a page now, and the way into a page is a named verb. `plain` is
-          the lightest weight `Btn` has, which is the whole of what this button
-          is saying beside the one above it: you came here to start a game. */}
-      <Row align="stretch">
-        <Btn label="GAME SETTINGS" variant="plain" onPress={() => router.push('/settings')} />
+      {inProgress && (
+        <Row align="stretch">
+          {/* THE VERB IS LIT THE WAY THE ROOM IS. `bloom` is the accent filled
+              with the bloom's own gradient, on the bloom's own axis, so the one
+              button that puts you on the board belongs to the screen behind it
+              rather than sitting on it as a slab. */}
+          <Btn label="CONTINUE GAME" variant="bloom" onPress={() => router.push('/game')} />
+        </Row>
+      )}
+      {/* ONE ROW, SPLIT FOUR TO ONE: the verb and the way to the settings page.
+
+          They were two stacked rows, and the lower one spelled GAME SETTINGS
+          out at `plain` — a full-width named verb for a page a scorer opens
+          once a season, directly under the one they open every night. Sharing
+          the row says the ratio out loud: four fifths of it is what you came
+          here to do, and the last fifth is the gear. The fifth is a GLYPH
+          because a fifth of this row cannot hold a word — and it sits on the
+          RIGHT, where nothing that starts a game has ever been.
+
+          The weights are on the WRAPPERS rather than on the buttons, because
+          `Btn` is `flex:1` inside whatever it is handed and every caller in the
+          app relies on that. */}
+      <Row align="stretch" gap={m.s2}>
+        <View style={{ flex: 4, flexDirection: 'row' }}>
+          <Btn
+            label="NEW GAME"
+            variant={inProgress ? 'surface' : 'bloom'}
+            disabled={!enough}
+            onPress={newGame}
+          />
+        </View>
+        <View style={{ flex: 1, flexDirection: 'row' }}>
+          <Btn
+            label="GAME SETTINGS"
+            icon="cog"
+            variant="plain"
+            onPress={() => router.push('/settings')}
+          />
+        </View>
       </Row>
       {/* only the WARNING survives — it is why NEW GAME is dark. A count
           nobody has to act on was a row the screen could not spare. */}
@@ -642,89 +853,74 @@ function LobbyScreen() {
         paddingRight: safe.right + m.s4,
       }}
     >
-      {/* THE BLOOM. It is a component now, because the other three rooms
-          draw the same one — see `components/ui/Bloom.tsx` for why it must be
-          the first child, outside the padding, and why it eats no taps. */}
+      {/* THE BALL FIRST, THEN THE BLOOM OVER IT. Both are grounds and both are
+          outside the padded flow; the order is what makes the warm corner sit
+          on the photograph rather than behind it, so the two read as one light
+          rather than as a picture with a gradient beside it. */}
+      <HeaderArt />
       <Bloom />
-      {/* ---- identity ------------------------------------------------ *
-          THE BRAND LOCKUP AND THE HEADLINE, in that order and on two rows.
 
-          One row: the mark and the wordmark at the left, the circular control
-          at the right. Then the club NAME at headline size underneath. It used
-          to be crest + HOOPLOG with the club as a `fsXs` subtitle beside the
-          coach — which put the one thing this screen is ABOUT in the smallest
-          type on it. The club is the headline now and HOOPLOG is the small
-          mark above it, which is the right way round: nobody opens this app
-          wondering what it is called.
+      {/* ---- the lockup ---------------------------------------------- *
+          THE WORDMARK, ITS TAGLINE TIGHT UNDER IT, AND THEN THE CLUB.
 
-          THE COACH IS NO LONGER HERE. It was the `· NAME` half of that
-          subtitle, and the subtitle is gone. It is a fact about the club, it
-          is edited on the TEAM tab, and this screen has a hard one-window
-          budget that the headline has just spent.                            */}
+          The tagline is one small line hard against the mark rather than two
+          lines in a slot of their own, and the slot it gave up is the club's:
+          the crest and the name, as a READOUT. It is not the identity block
+          coming back — there is no route into the team editor from here. The
+          club is edited on the TEAM tab, which is one tap away.             */}
       <View style={{ flexGrow: 0, flexShrink: 0 }}>
-        <Row gap={m.s2} style={{ minHeight: m.tap }}>
-          {/* the whole block is the way into the club, because the crest is the
-              thing a scorer reaches for when they want to change the crest — and
-              it goes to the TAB that edits it rather than opening a second editor
-              over the top of this screen. `EditTeamPanel` was that second editor
-              and is gone: two forms over three fields is one field added twice. */}
-          <Press
-            onPress={() => router.push('/team')}
-            accessibilityLabel="open the team tab to edit the club"
+        <Row>
+          {/* THE WORDMARK, AND IT IS SPLIT — `HOOP` in ink, `LOG` in accent.
+              A logotype is the one place in this app a colour is allowed to
+              mean nothing but ITSELF: it names no control, it opens nothing,
+              and it cannot compete with the marks lower down the screen.
+
+              IT LEANS, AND THE LEAN IS A SKEW RATHER THAN A `fontStyle`. Anton
+              ships ONE face and no italic, so `fontStyle: 'italic'` is a rule
+              the platform answers two different ways — Android fakes an oblique
+              and iOS, which has no face to swap to, draws it upright. A skew is
+              the same synthesis, stated once and identical on both. It is on
+              the OUTER `Text`, so the accent half leans with the ink half; two
+              skews would be two wordmarks standing at slightly different
+              angles. */}
+          <Text
+            numberOfLines={1}
             style={{
-              flexShrink: 1,
-              minWidth: 0,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: m.s2,
-              paddingRight: m.s2,
-              borderRadius: 999,
+              fontFamily: fDisplay(),
+              fontSize: m.fs2xl,
+              // 1.2, AND IT MAY NOT GO TIGHTER. Anton is a tall condensed face
+              // with almost no descender, which makes a tight `lineHeight`
+              // look like free space right up until it CLIPS — the box is what
+              // the text is drawn into, so anything under about 1.15 shaves the
+              // caps off the top. It was 1.04 for one revision and it cut the
+              // wordmark in half. The tagline is pulled up by a margin instead.
+              lineHeight: m.fs2xl * 1.2,
+              letterSpacing: ls(m.fs2xl, LS_TITLE),
+              color: t.ink,
+              transform: [{ skewX: WORDMARK_SLANT }],
             }}
-            pressedStyle={{ opacity: 0.6 }}
           >
-            <Crest name={club.name} uri={club.logoUri} size={m.fsXl} />
-            {/* THE WORDMARK, AND IT IS SPLIT — `HOOP` in ink, `LOG` in accent.
-                A logotype is the one place in this app a colour is allowed to
-                mean nothing but ITSELF: it names no control, it opens nothing,
-                and it is four characters, so it cannot compete with the two
-                things accent is spent on lower down the screen. It is the same
-                Anton the headline under it is set in, tracked out to `LS_LABEL`
-                because a condensed face at label size closes up without it. */}
-            <Text
-              numberOfLines={1}
-              style={{
-                fontFamily: fDisplay(),
-                fontSize: m.fsLg,
-                letterSpacing: ls(m.fsLg, LS_LABEL),
-                color: t.ink,
-              }}
-            >
-              HOOP<Text style={{ color: t.accent }}>LOG</Text>
-            </Text>
-          </Press>
+            HOOP<Text style={{ color: t.accent }}>LOG</Text>
+          </Text>
         </Row>
 
-        <Headline text={club.name} />
+        <Tagline />
+        <Identity />
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        style={{ flex: 1, marginTop: m.s3 }}
+        style={{ flex: 1, marginTop: m.s5 }}
         contentContainerStyle={{ paddingBottom: bar + m.s5, alignItems: 'center' }}
       >
-        {/* ONE COLUMN, and it fits. The roster list is gone from here — it is
-            a tab of its own, and it was the only block that made this screen
-            taller than the window. Capped at the two-up line rather than run
-            full width, or a tablet draws a scoreline a foot across. */}
-        {/* live game and its way back in, the season, then the one verb.
-            Nothing between them is a fixed block: on a shelf with no live game
-            the column is the season card and NEW GAME, and that is the whole
-            screen. */}
+        {/* TWO BLOCKS AND THE VERBS. Capped at the two-up line rather than run
+            full width, or a tablet draws a jersey number a foot across. The
+            `ScrollView` is the small-window safety net, not the design — do
+            not put a third block back on this screen. */}
         <Col gap={m.s3} style={{ width: '100%', maxWidth: TWO_UP }}>
-          {live}
-          {onboard}
-          {strip}
-          {seasonCard}
+          {leagueBlock}
+          {mvpBlock}
+          {empty}
           {actions}
         </Col>
       </ScrollView>
@@ -735,7 +931,7 @@ function LobbyScreen() {
 }
 
 /**
- * THE PALETTE AND THE STATUS BAR ARE THE GROUP'S NOW, not this screen's.
+ * THE PALETTE AND THE STATUS BAR ARE THE GROUP'S, not this screen's.
  *
  * This file used to wrap itself in `ThemeProvider value={DARK}` and mount its
  * own `<StatusBar style="light" />`, because it was the one screen in the app

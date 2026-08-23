@@ -53,7 +53,7 @@ Expo Router, a stack with a tab group inside it, headers hidden:
 ```
 app/_layout.tsx        Stack + SafeAreaProvider + the palette + the fonts
 app/(tabs)/_layout.tsx the four tabs
-  (tabs)/index.tsx     LOBBY  — the team profile and the way into a game
+  (tabs)/index.tsx     LOBBY  — the MVP, the league, and the way into a game
   (tabs)/matches.tsx   MATCHES — the shelf of finished games
   (tabs)/season.tsx    STATS  — every saved game added up
   (tabs)/team.tsx      TEAM   — the durable roster
@@ -179,118 +179,144 @@ one tab without one, because nothing on it opens a panel.
 `router.replace('/game')` out of the picker, not `push` — back off the board goes home, not
 to a picker for a game that has already started.
 
-**The lobby's header is the club as it is TODAY; the hero's scoreline is the game being
-PLAYED.** The two names come from two different stores on purpose — rename the club mid-season
-and the game on the board still says the name it was started under. The whole identity block is a way into the
-team editor, because the crest is the thing a scorer reaches for when they want to change
-the crest — and it **ROUTES TO THE TEAM TAB** rather than opening a dialog over itself.
-`EditTeamPanel` was that dialog and is gone: two editors over three fields is one field added
-twice, and this screen has no room for a card. **`components/ui/Icon.tsx` went with the two
-pencils it existed for**: the player row and the club card are both fields now, and a field
-needs no affordance saying it can be typed in.
+**THE LOBBY IS TWO BLOCKS AND THE VERBS, and it is a POSTER rather than a dashboard.**
+The lockup, its tagline and the club over the ball, then the LEAGUE, then the MVP, then ONE ROW
+carrying NEW GAME and the gear. That is the whole screen.
 
-**The lobby is a team-profile screen, not a menu.** The brand lockup and the club headline,
-then the LIVE game if there is one with CONTINUE under it, the last game's six numbers, the
-season's six, and NEW GAME at the foot with GAME SETTINGS under it.
+**IT WAS FIVE BLOCKS AND FOUR OF THEM ARE CUT**: the LIVE hero with CONTINUE under it, the
+LAST GAME strip of six numbers, THE SEASON card of six more, and the CLUB HEADLINE over all
+of them. Every number the app knows, stacked, none of them the reason anybody opens the app.
+What is left is the player who is carrying the season and how the season is going — and both
+are one tap into the room that holds the detail, which is what the six-number strips were
+standing in for. **Do not put a third block back on this screen.**
 
-**THE HEADER IS TWO ROWS: A LOCKUP AND A HEADLINE**, and there is NO CONTROL IN THE CORNER any
-more. Crest + HOOPLOG at the left, then the CLUB NAME at `fs3xl` underneath. It was crest →
-wordmark → gear on a single row with the club as an `fsXs` subtitle, which put the one thing
-this screen is about in the smallest type on it. The club is the headline now and HOOPLOG is
-the small mark above it — nobody opens this app wondering what it is called.
+**THE HEADER IS THE LOCKUP, ITS TAGLINE AND THE CLUB, over the BALL.** `HOOPLOG` at `fs2xl`
+in the mark's face — `HOOP` in ink, `LOG` in accent — then BALL DON'T LIE. STATS NEITHER. hard
+under it, then the crest and the club's name. The tagline is set in `fUi` and not in `fDisplay`
+deliberately: a tagline in the mark's own face at half its size reads as the mark repeating
+itself rather than as a line under it.
 
-**AND THE GEAR IS GONE WITH THE PANEL IT OPENED.** `IconBtn` was a `BlurView` clipped to a
-circle holding a glyph, and it was the only control in the app whose entire label was a picture
-— in the corner of the one row that is the club's own identity. The switches are a PAGE now,
-`app/settings.tsx`, reached by a named verb at the foot of this screen directly under NEW GAME.
-A settings list is read, compared and scrolled, which is a page; a panel is one decision made
-with the game in front of you. **`Btn`'s lightest weight, `plain`, is what says which of the
-two buttons you came here for.**
+**THE TAGLINE IS ONE SMALL LINE AND IT WAS TWO.** BALL DON'T LIE. / YOUR STATS DO. was set at
+`fsSm` over two lines in a slot of its own with `s3` of air above it, which read as a second
+BLOCK rather than as part of the mark — and it was standing in the one place the club could go.
+It is ONE line now, at `fs2xs`, pulled up into the mark's leading by a NEGATIVE `s1`. The two
+tones survive on the one line, the second half in accent, and that accent is still the
+LOCKUP'S — it names no control and opens nothing, exactly as `LOG` does.
 
-**AND THE WHOLE BLOCK IS SET IN THE MARK'S FACE — `fDisplay`, which is Anton.** The lockup, the
-headline and the monogram inside the crest are the three things it is spent on and the only
-three; see "Theme and sizing". This block is the one thing on the lobby that is NOT
-information, and it was drawn as though it were: the same Helvetica as the numbers below it,
-at a size those numbers beat, in two greys and nothing else. A display face, caps, an accent
-slug and a glow are what make it read as an identity rather than as a caption.
+**THE TAGLINE IS PULLED UP; THE WORDMARK IS NOT SQUEEZED DOWN.** Tightening `HOOPLOG`'s own
+`lineHeight` to 1.04 was the first attempt and it CUT THE FACE IN HALF. Anton is tall and
+condensed with almost no descender, so a tight line box looks like free space right up until it
+clips the caps — **`fDisplay` may not go under about 1.15, anywhere**, and all three places it
+is set now carry 1.2. The MVP's name was at 1.02 from the day it landed and was clipped the
+whole time; it is 1.2 as well.
 
-**The headline is TWO-TONE, and the rule is generic**: every word but the last takes `ink2`,
-the last takes `ink`. It lands the weight on the noun that is actually the club's name, and a
-single-word club needs no special case. It wraps to two lines rather than eliding — this is
-the biggest type on the screen and a truncated club name is worse than a second line. **The
-step up from `fs2xl` to `fs3xl` costs the screen nothing**, because Anton is CONDENSED: a name
-that took two lines of Helvetica takes one of these. The leading is pulled to 0.92 for the
-names that still take two — a display face stacked at body leading reads as two separate lines
-rather than as one block — and `textTransform` makes the caps, so a club typed in sentence case
-on the TEAM tab still arrives here as a mark.
+**`fs2xs` IS A NEW BOTTOM STEP ON THE RAMP AND THE TAGLINE IS ITS ONLY CALLER.** The ramp
+stopped at `fsXs` because that is the smallest thing on the BOARD a scorer has to read at arm's
+length in a gym. A tagline is not that — it is read once and never again — so it is the one
+string in the app allowed under the floor. Do not spend it on a label, a caption, or anything
+the board draws.
 
-**AND IT IS LIT: an accent `textShadow` at 40%, no offset, radius 22.** It is the bloom
-arriving on the one piece of type the bloom is behind — light coming OFF the letters, not a
-drop shadow under them. **It is the only text shadow in the app**, and the reason it is
-allowed here is the reason it would be wrong anywhere else: this is the only text on any
-screen that is a mark rather than a word.
+**THE WORDMARK LEANS, IT CARRIES NO FULL STOP, AND THE LEAN IS A SKEW.** It was `HOOPLOG.`,
+upright; the stop is gone and the mark is set ITALIC. Anton ships one face and no italic, so
+`fontStyle: 'italic'` is a rule Android fakes an oblique for and iOS — with nothing to swap to
+— draws upright, which is one wordmark standing two ways. `WORDMARK_SLANT` (`-9deg`) is that
+synthesis stated once, on the OUTER `Text` so the accent half leans with the ink half. It is
+the only leaning type in the app.
 
-**THE COACH IS NOT ON THIS SCREEN ANY MORE.** It was the `· NAME` half of the subtitle that
-the headline replaced. It is a fact about the club, it is edited on the TEAM tab, and the
-one-window budget the headline just spent had to come from somewhere. All of it is derived — the live score straight off `gameStore`,
-`totals()` over the last finished game, `season()` over the saved ones — and nothing on it is
-stored twice.
+**THE CLUB IS BACK IN THAT SLOT — THE CREST AND THE NAME — AND IT IS A READOUT.** What is
+NOT back is the identity block's route into the TEAM tab: nothing in this row presses, and the
+club is still edited on the tab built for it, which is one tap away. It says whose board this
+is and stops there. The accent `textShadow` the old headline carried did not come back either,
+so **there is still no text shadow in the app.**
 
-**THE LAST GAME'S SCORELINE IS NOT ON THIS SCREEN, though its STAT LINE is.** The scoreline
-was the hero's `FINAL` state and it is cut: one card carrying a scoreline is unambiguous,
-while the same card carrying either a live score or a finished one is a card the eye has to
-read a band to trust. The six numbers stay as the `LAST GAME` strip; the score itself is on
-the MATCHES shelf and on the game's own stats screen.
+**SO `fDisplay` LANDS ON TWO NAMES ON THIS SCREEN AND THEY ARE A STEP APART.** The MVP's is at
+`fs2xl`, the wordmark's own size; the club's is at `fsXl` in the header above it. The face's
+rule is a NAME at headline size and both are one — the SIZE is which name the screen is about,
+and the player is. Set level they would be two headlines arguing; the club at `fs2xl` would
+also be a second wordmark directly under the first. With the crest's monogram the count on this
+screen is three, and four across the app.
 
-**AND IT FITS IN ONE WINDOW DOWN TO THE VERBS.** A roster preview of eight rows, a FINAL
-STATS button, a MY TEAM button and a running `8/8 AVAILABLE` count were all on it and are all
-cut: every one of them pointed at a tab that is one tap away anyway, and together they pushed
-the screen past the fold. What survives of the count is the WARNING — `NEED AT LEAST 5
-AVAILABLE PLAYERS` — because that one is the reason NEW GAME is dark. The `ScrollView` stays
-as the small-window safety net, not as the design; do not put a list back on this screen.
+**BLOCK ONE IS THE LEAGUE AND BLOCK TWO IS THE MVP, and they were the other way round.** The
+order is an argument about what the screen is for: how the season is going is what a scorer
+opens the app asking, and who is carrying it is what they ask next. In the file they are
+`leagueBlock` and `mvpBlock` — numbered names would have to be renumbered the next time.
 
-**THE SEASON'S SIX NUMBERS SIT UNDER LAST GAME AND ABOVE NEW GAME**, having moved here off the STATS tab where
-they were a headline over a table nobody reads during a possession; on the lobby they are the
-line a scorer opens the app to see. The card is a way into the STATS tab, exactly as the
-identity block is a way into TEAM.
+**THE MVP IS THE PER-GAME POINTS LEADER over the season's official games.** Averaged over the games each player APPEARED in — the same denominator
+`lib/season.ts` uses everywhere, which is what stops a twelfth man who turned up twice being
+punished for the nights the team played without them. Ties break on efficiency and then on
+games played. The jersey at the left in accent, the name at the right in the display face, and
+POINTS / ASSISTS / REBOUNDS across the foot, all per game and all to ONE
+DECIMAL — 18 and 18.4 are the same number to a reader and the difference between two players
+is usually the tenth. **TWO CAPTIONS WERE CUT OFF THIS CARD AND NEITHER COMES BACK**: the
+band's note `N GAMES THIS SEASON`, and `POINTS PER GAME LEADER` under the name. The rule is
+SHOWN rather than stated — the foot of the card is three per-game numbers — and the denominator
+behind them is what the player's own page, one press away, is for. **THE `Slug` WENT WITH THE
+SECOND OF THEM**: the 36×3 accent rule was a join between a name and a caption, and with the
+caption gone it underlined nothing. `components/ui/Slug.tsx` is left standing with NO CALLER. It routes to `player/[id]`,
+handing the official games over in the route exactly as the STATS tab does — one shape, and no
+second way in.
 
-**It is the OFFICIAL games**, like everything else that says "season" — and reading them costs
-the lobby every saved game off disk, which is the one thing the two-key storage shape was meant
-to avoid on this screen. It is a single pass on mount through `useSavedGames`, off the render
-path, memoised so the running clock cannot re-run it, and the card is simply not drawn until it
-lands or when no official game has been played — six zeros under the word SEASON reads as a bad
-one, not as an empty one.
+**THE LEAGUE IS THE CURRENT COMPETITION — NOT THE SEASON.**
+`competitions()` hands its groups back newest first, so the one being played this month is
+`[0]` and is the one this card is made of. Total points at the left at `fs4xl` in accent, the
+RECORD and the GAMES it is out of at the right, and the shooting under them as a PILL. The FG
+is a pill and not a fourth tile because it is two readings of one fact — the split and the
+percentage — where a tile holds one number; the pill is also what keeps the right column two
+rows rather than three, which is what lets the points beside it run at `fs4xl`. It routes to
+`app/competition.tsx` on the folded key.
 
-**THE HERO IS THE LIVE GAME AND ONLY THAT**, so most of the time there is no hero at all —
-a shelf full of games and nothing on the board is an ordinary Tuesday, and the screen says so
-by being short. `LIVE` carries the running score with the period and the clock beside it, the
-mark-coloured dot showing only while the clock is actually running. The `NO GAME YET`
-onboarding card stands in on a FRESH INSTALL and only there: no board, no shelf.
+**BOTH BLOCKS COST THE LOBBY EVERY SAVED GAME OFF DISK**, which is the one thing the two-key
+storage shape was meant to avoid on this screen. It is a single pass on mount through
+`useSavedGames`, off the render path, and both derivations are memoised over it. Neither block
+is drawn until it lands.
 
-**LAST GAME is the last FINISHED game, never the live one**, and it is hidden outright when
-there is none — six zeros read as a game that went badly rather than as no data. Which copy
-that is comes from `hooks/useLastGame.ts`: `gameStore` while the finished game is still the
-one on the board, `historyStore` once a new game has replaced it.
+**ONE EMPTY CARD STANDS IN FOR BOTH, never one per block** — two cards reading NO DATA is a
+screen apologising twice for one fact. It says `NO GAME YET` on a fresh install and
+`NO OFFICIAL GAME YET` on a shelf with nothing but practices on it, which is the second state
+worth telling apart: the season rule is the reason the screen is empty, so the screen says so.
 
-**CONTINUE GAME rides with the scoreline, NEW GAME is the last thing on the screen.** The two
-used to share a row, which meant the primary verb moved depending on whether a game was on.
-Now neither moves: a scorer coming back mid-quarter finds the way in directly under the score
-they were just looking at, and the foot of the screen is where the one thing that STARTS
-something lives. NEW GAME only changes weight — `accent` normally, `surface` while a game is
-on — and while one is on it goes through the confirm panel, because losing a live game to a
-mis-tap is the worst thing this screen can do.
+**THERE IS NO LIVE HERO, so the way back into a running game is the FOOT of the screen.**
+CONTINUE GAME takes the primary slot while a game is on and NEW GAME steps down under it at
+`surface`, behind the confirm panel — losing a live game to a mis-tap is the worst thing this
+screen can do. The verbs STACK; a third block does not reappear. `hooks/useLastGame.ts` lost
+its one caller here and is left standing with none.
 
-**The two strips' cells use the 1px seam, but NOT `flex:1`.** The card is in a column sized by its own
-content, and a `flex:1` child of one of those collapses to nothing — so the rows take their
-height from padding and type. Every piece is a module-level component for the same class of
-reason: declared inside `LobbyScreen` they would be a new type on every render, and a
-running clock would remount the whole card once a second.
+**AND THE LAST ROW IS SPLIT FOUR TO ONE, WITH THE GEAR IN THE FIFTH.** GAME SETTINGS was a
+full-width `plain` button of its own directly under NEW GAME — a page opened once a season
+wearing the same width as the one opened every night. It shares the verb's row now: four
+fifths for NEW GAME, one fifth for a `cog`, on the RIGHT, where nothing that starts a game has
+ever been. The weights sit on WRAPPER views, not on the buttons: `Btn` is `flex:1` inside
+whatever it is handed and every other caller in the app relies on that.
+
+**`Btn` TAKES AN `icon`, AND IT REPLACES THE LABEL RATHER THAN JOINING IT.** A fifth of a row
+cannot hold a word, and a button carrying both a glyph and a word is a label with decoration on
+it. `label` stays REQUIRED whichever is drawn — it is what the screen reader says. The family
+is the tab bar's `MaterialCommunityIcons` and the weights match it: those are the only two
+places in the app a glyph stands in for a word, and two icon sets would read as two apps.
+
+**AND IT FITS IN ONE WINDOW DOWN TO THE VERBS.** A roster preview, a FINAL STATS button, a MY
+TEAM button and a running `8/8 AVAILABLE` count were all on it once and were all cut: each
+pointed at a tab that is one tap away anyway. What survives of the count is the WARNING —
+`NEED AT LEAST 5 AVAILABLE PLAYERS` — because that one is the reason NEW GAME is dark. The
+`ScrollView` stays as the small-window safety net, not as the design.
+
+**THE BALL IS `HeaderArt`, AND IT OBEYS THE BLOOM'S TWO RULES**: outside the padded flow so it
+runs under the status bar rather than starting below it, and `pointerEvents="none"` so the
+wordmark on top of it is still tappable. **IT IS FADED BY TWO GRADIENTS, NOT BY `opacity`** — a
+flat opacity greys the whole photograph including the black it is mostly made of, which reads
+as a grey rectangle over a near-black room. The two washes run the room's own `bg` back OVER
+the picture instead, solid at the left edge and at the bottom and clear at the top-right
+corner, so the ball emerges out of the room with the corner at full contrast. **The bloom is
+drawn AFTER it**, so the warm corner sits ON the photograph and the two read as one light.
+The file is `assets/hero-ball.png`, and it is the only photograph in the app.
+
+**Every piece is a module-level component**: declared inside `LobbyScreen` they would be a new
+type on every render.
 
 **Layout here is keyed on WIDTH, not orientation** — 700pt, the same line `team.tsx` draws.
-This is not the board: a tablet in portrait is wide enough whichever way it is held, so the
-LAST GAME strip and the season card both go six-across above that line and 3+3 below it. There is one column now
-that the roster is off the screen, and it is capped at that same 700 — run full width, a
-tablet draws a scoreline a foot across.
+This is not the board: a tablet in portrait is wide enough whichever way it is held. The one
+column is capped at that same 700 — run full width, a tablet draws a jersey number a foot
+across.
 
 ## The team tab
 
@@ -337,7 +363,7 @@ the field beside it rather than setting the band's. Then COACH and ASSISTANT COA
 then a dashed `+ ADD CLUB LOGO` with REMOVE beside it once there is a crest. **The 2px rule
 under the name is the card's whole error message** — `accent` while the name is good, `danger`
 while it is empty, no words. The name is the one required field: it is the crest's fallback,
-the lobby's subtitle and what every game is filed under, so `setProfile` refuses an empty one
+and what every game is filed under, so `setProfile` refuses an empty one
 and blur puts the last good name back.
 
 **No club colours, and that is a decision.** The mockup pairs the crest with MAIN and ACCENT
@@ -458,8 +484,7 @@ are cleaned by `lib/team.ts`'s own `clean()` — they are the same kind of thing
 which is why they live beside it rather than in a fourth lib file.
 
 **A blank opponent reads as OPPONENT, never as a gap.** `opponentLabel()` is the one place
-that decides so. The lobby's hero, the two stats screens and the shelf row all print through
-it; the ones that would rather say nothing than say OPPONENT test the string themselves.
+that decides so. The two stats screens and the shelf row all print through it; the ones that would rather say nothing than say OPPONENT test the string themselves.
 
 **THE ROW'S SUBTITLE IS THE OPPONENT AND THE DATE, AND NOTHING ELSE.** The kick-off TIME and
 the QUARTER COUNT were both on it and are both cut, on the shelf and on the saved game's own
@@ -510,19 +535,21 @@ the four places accent actually means something.
 
 ## The lobby
 
-**`accent` is spent on exactly two things on this screen**: the primary button and our own
-score. Not the crest, not the roster count, not the jerseys, not the US pill — the mockup
-paints nine things with it, which teaches the eye to ignore all nine. The active tab and the
-LIVE banner are the other two places in the app it survives.
+**`accent` is spent on THREE things on this screen**: the primary verb, and the ONE NUMBER
+EACH BLOCK IS ABOUT — the MVP's jersey and the league's points. Not the record, not the FG,
+not the tiles, not the band notes, not the crest that used to be here. The old rule said "the
+primary button and our own score"; with the live score off the screen this is the same rule
+over the same count, and each of the three marks is the thing its block exists to say.
 
-**THE LOGOTYPE AND THE SLUG ARE NOT A THIRD AND A FOURTH.** `LOG` in `HOOPLOG` is accent and so
-is the 36×3 rule over the club's name, and neither is a mark in the sense the rule is about:
-one is four characters of a LOGOTYPE, where a colour is allowed to mean nothing but itself, and
-the other is `components/ui/Slug` — a bar that names no control and opens nothing, which is the
-same argument the bloom makes at 36 by 3. Both sit in the identity block, above everything the
-rule is protecting, and neither can be mistaken for a control. **The colour went onto the slug
-rather than onto the headline's last word** for a duller reason than any of that: a club with a
-one-word name would have taken the whole headline orange.
+**THE RECORD IS DELIBERATELY NOT ONE OF THEM.** On the shelf a win is `accent` and a loss is
+`ink2`, and a `12-4` is both of those at once — colouring it would mean choosing which half of
+a season to shout.
+
+**THE LOGOTYPE AND THE TAGLINE ARE NOT A FOURTH AND A FIFTH.** `LOG` in `HOOPLOG` and the
+second half of the tagline are both accent, and neither is a mark in the sense the rule is
+about: they are the LOCKUP, where a colour is allowed to mean nothing but itself, and neither
+can be mistaken for a control. The `Slug` under the MVP's name was a third of these and is
+gone — see the MVP card.
 
 **THE BLOOM IS NOT A THIRD.** The gradient behind the header is the accent at 34% falling to
 nothing before the fold, and it is a GROUND rather than a mark: it names nothing, it is behind
@@ -892,7 +919,7 @@ place the contrast is worth the seam.
 | hue | means | where |
 |---|---|---|
 | `accent` orange | OURS — the primary action, our score, a made shot, the active tab | the four places accent has always been |
-| `live` teal | NOW — in progress, unresolved | the running clock, the lobby's LIVE dot, the court's tap mark |
+| `live` teal | NOW — in progress, unresolved | the running clock, the court's tap mark |
 | `danger` red | this destroys something, or it has stopped | destructive verbs, the stopped clock, an unavailable player |
 
 **`live` IS THE RETIRED ACCENT, not a fourth hue.** When accent was teal it sat opposite red and
@@ -970,8 +997,10 @@ neo-grotesques a hair apart are close enough that nobody holding one phone besid
 name the difference. A WORDMARK is the case where they would — it is a shape before it is a
 word — so the mark is the one thing carried in the binary rather than borrowed from the OS.
 
-**It is spent on THREE things and they are all the club saying who it is**: the HOOPLOG
-wordmark, the club headline on the lobby, and the monogram inside a `Crest`. Never a number,
+**It is spent on FOUR things and they are all a name at headline size**: the HOOPLOG
+wordmark, the MVP's name on the lobby, the CLUB's name in that screen's header, and the
+monogram inside a `Crest`. The last two are the same club said twice over, in the two sizes
+that say which name a screen is about — see "The lobby". Never a number,
 never a label, never a button — Anton at stat size is a poster shouting at a scorer, which is
 the same reason Chakra Petch left. It has ONE weight and is only ever set in CAPS. **It ships
 the Vietnamese subset**, which is not incidental: the club names this app was built for carry
@@ -1095,7 +1124,8 @@ with it.
 
 **`editTeam` was one of the two that went.** `EditTeamPanel` held the club name, both coaches
 and the crest picker behind a dialog; `ClubCard` holds all four inline now and is the club's
-only writer. The lobby's identity block, which was its one caller, routes to the TEAM tab.
+only writer. The lobby's identity block was its one caller and is itself gone now — the way
+into the club is the TEAM tab and nothing else.
 
 **`editPlayer` was the other, and was the seventh.** It was one panel for ADD and EDIT, with
 `playerId: string | null` deciding which. The TEAM tab's ROW IS THE EDITOR now — the jersey
@@ -1438,8 +1468,8 @@ nothing else, and the panel says so out loud rather than leaving it to be discov
 
 **The coaches are optional and the name is not.** Most scorers keeping stats for their own
 club ARE the coach, and a form that insisted would be asking them to write their own name
-down to get past it. The name is required because it is the crest's fallback, the lobby's
-subtitle and what every game is filed under.
+down to get past it. The name is required because it is the crest's fallback, and what every
+game is filed under.
 
 ## The shelf
 
@@ -1526,9 +1556,10 @@ passes it: an average without its denominator beside it is a number you cannot a
 competition's page, anywhere. Points per game computed off per-game numbers divides by the
 games twice.
 
-**THE SEASON'S OWN SIX NUMBERS ARE NOT ON THIS SCREEN — they are the card on the LOBBY**, and
-nothing heads this one but the word SEASON. A headline belongs on the screen the app opens
-on, not on the one you come to when you already want the detail. `app/competition.tsx` keeps its own copy of the six, because that page has no
+**THE SEASON'S OWN SIX NUMBERS ARE ON NO SCREEN ANY MORE**, and nothing heads this one but
+the word SEASON. They were the card on the LOBBY and the lobby is two blocks now; what stands
+where they stood is the CURRENT COMPETITION, which is the same question asked at the scope a
+scorer actually thinks in. `app/competition.tsx` keeps its own copy of the six, because that page has no
 lobby above it.
 
 **SO THE FIRST THING ON IT IS THE COMPETITIONS, one card each**, and each is a way in
@@ -1693,8 +1724,11 @@ and then built too, as the PDF.
 **IT IS A PAGE, NOT A PANEL, AND THAT IS THE WHOLE OF WHY THE GEAR IS GONE.** `SettingsPanel`
 was a `center` dialog over the lobby; the gear that opened it was a glyph in a circle in the
 corner of the club's own identity row. A list of preferences is read, compared and scrolled,
-which is a page — and the way into a page is a NAMED VERB, so GAME SETTINGS sits at the foot of
-the lobby under NEW GAME at `Btn`'s lightest weight. It is a `DarkRoom` like `start`, four
+which is a page — and the way into a page is its own control, so GAME SETTINGS sits at the foot
+of the lobby, sharing NEW GAME's row at `Btn`'s lightest weight and one fifth of its width. It
+was a full-width NAMED VERB under that row first; the gear came back as a GLYPH once it was
+clear a fifth of a row cannot hold two words. **It is not the gear that was cut** — that one
+floated in the corner of the club's identity row and opened a dialog. It is a `DarkRoom` like `start`, four
 blocks deep, ordered by how often a scorer touches them: the rules of the game, what a stat is
 called, the chart's three marks, then the board's own behaviour.
 

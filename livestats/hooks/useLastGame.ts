@@ -8,6 +8,12 @@ import type { GameState } from '../types';
 /**
  * The last game that FINISHED, wherever it happens to be living.
  *
+ * IT HAS NO CALLER, and it is left standing rather than deleted, exactly as
+ * `app/stats.tsx` is. Its one caller was the lobby's LAST GAME strip, and the
+ * lobby is two blocks now — the MVP and the current competition — neither of
+ * which is about one game. Nothing routes here today; the last game's own line
+ * is on the MATCHES shelf, on its own page.
+ *
  * There are two places it can be, and only two:
  *
  *   - `gameStore`, when the game on the board is the one that ended. That state
