@@ -58,7 +58,7 @@ export function Jersey({
       <Text
         numberOfLines={1}
         style={{
-          fontFamily: fNum(700),
+          ...fNum(700),
           fontSize: fs,
           lineHeight: fs * 1.1,
           // a plate is a jersey: two digits set tight read as ONE number the

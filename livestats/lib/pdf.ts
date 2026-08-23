@@ -62,7 +62,7 @@ const stampLabel = (ms: number): string => {
 
 /** What the sheet is filed under: the competition, or the word PRACTICE. */
 export const reportTitle = (g: GameState): string =>
-  g.kind === 'practice' ? 'PRACTICE' : competitionLabel(g.competition);
+  g.kind === 'practice' ? 'Practice' : competitionLabel(g.competition);
 
 /**
  * The name the file is saved and shared under.
@@ -223,15 +223,15 @@ const CSS = `
   @page { size: A4 portrait; margin: 12mm 9mm; }
   body {
     margin: 0;
-    font-family: -apple-system, "Helvetica Neue", Helvetica, Roboto, Arial, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Arial, sans-serif;
     font-size: 9px; color: ${PALETTE.ink};
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
     font-variant-numeric: tabular-nums;
   }
   h1 { margin: 2px 0 0; font-size: 16px; letter-spacing: 0.01em; }
   h2 {
-    margin: 13px 0 4px; font-size: 10px; letter-spacing: 0.09em;
-    text-transform: uppercase; color: ${PALETTE.ink2};
+    margin: 13px 0 4px; font-size: 10px; letter-spacing: 0.01em;
+    color: ${PALETTE.ink2};
     border-bottom: 1px solid ${PALETTE.ink}; padding-bottom: 2px;
   }
   .head { display: flex; align-items: flex-start; gap: 12px; }
@@ -239,7 +239,7 @@ const CSS = `
     margin-left: auto; text-align: right;
     color: ${PALETTE.ink2}; font-size: 8px; line-height: 1.6;
   }
-  .kicker { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: ${PALETTE.ink2}; }
+  .kicker { font-size: 10px; letter-spacing: 0.02em; color: ${PALETTE.ink2}; }
   .score { margin-top: 4px; font-size: 20px; font-weight: 700; }
   .score .us { color: ${PALETTE.accent}; }
   .sep { color: ${PALETTE.ink3}; font-weight: 400; padding: 0 5px; }
@@ -261,7 +261,7 @@ const CSS = `
   .kv { margin-bottom: 6px; }
   .kv td.v { width: 56px; font-weight: 700; }
   .kv td.s { width: 42px; color: ${PALETTE.ink2}; }
-  .kv th { letter-spacing: 0.09em; text-transform: uppercase; }
+  .kv th { letter-spacing: 0.02em; }
 
   .legend { margin-top: 8px; font-size: 7.5px; color: ${PALETTE.ink2}; line-height: 1.7; }
   .legend b { color: ${PALETTE.ink}; }
@@ -307,7 +307,7 @@ export function gameReportHtml(g: GameState, at: number = Date.now()): string {
     ${g.note ? `<div class="note">${esc(g.note)}</div>` : ''}
   </div>
   <div class="right">
-    <b>HOOPLOG BOX SCORE</b><br/>
+    <b>HoopLog box score</b><br/>
     Periods played: ${qs.length}<br/>
     Report generated: ${stampLabel(at)}
   </div>

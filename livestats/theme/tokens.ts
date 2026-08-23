@@ -291,14 +291,14 @@ export const dotColor = (hue: DotHue, p: Palette): string => {
 };
 
 export const DOT_LABEL: Record<DotHue, string> = {
-  orange: 'ORANGE',
-  red: 'RED',
-  yellow: 'YELLOW',
-  green: 'GREEN',
-  teal: 'TEAL',
-  blue: 'BLUE',
-  purple: 'PURPLE',
-  neutral: 'NEUTRAL',
+  orange: 'Orange',
+  red: 'Red',
+  yellow: 'Yellow',
+  green: 'Green',
+  teal: 'Teal',
+  blue: 'Blue',
+  purple: 'Purple',
+  neutral: 'Neutral',
 };
 
 /** Every palette key, for pushing into CSS variables. */
@@ -382,125 +382,122 @@ export const ELEV_PANEL: Elev = {
 
 /* ------------------------------------------------------------------ *
  * Type
- * Custom fonts have no numeric weight axis in React Native, so a weight
- * is a family name. These two helpers are the only place that mapping lives.
- * ------------------------------------------------------------------ */
-export type NumWeight = 500 | 600 | 700;
-export type UiWeight = 400 | 500 | 600 | 700;
-
-/**
- * ONE FACE NOW, FOR THE NUMBERS AND THE WORDS ALIKE. Chakra Petch had the
- * numbers and is gone with its package: a squared display face made the board
- * look like a scoreboard graphic, and the numbers on it are read, not admired.
  *
- * AND IT IS SPLIT BY PLATFORM, exactly as the tab bar is. Helvetica Neue is an
- * Apple face: it is free and already installed on iOS and it does not exist on
- * Android, where bundling it would need a licence this project does not have.
- * Android keeps Inter — the closest neo-grotesque that is already a dependency
- * — so the split costs no new package on either side.
+ * THE FACE IS THE SYSTEM'S — SAN FRANCISCO ON iOS, INTER ON ANDROID — and
+ * these three helpers are the only place that mapping lives. Each returns a
+ * STYLE FRAGMENT to be spread, not a family string, because the system font
+ * needs a `fontWeight` beside its family where a bundled one does not.
  *
- * On iOS the weight is a POSTSCRIPT NAME rather than a `fontWeight`, because
- * that is the convention every component here is already written to: a weight
- * is a family. Note Helvetica Neue ships no SemiBold, so 600 resolves to
- * Medium — the next real face, never a synthesised one.
- *
- * Both faces carry TABULAR figures, which is not decoration: `TABULAR` is
- * applied everywhere a number ticks, and the footer's clock would shift the
- * whole middle block once a second without it.
- */
-/**
  * THIS FILE MAY NOT IMPORT `react-native`, which is why the platform is read
  * off `process.env.EXPO_OS` rather than off `Platform.OS`. `lib/pdf.ts` imports
  * `PALETTE` from here, and `npm run check` runs that under plain node, where a
  * `react-native` import throws on the first line of Flow syntax it meets.
- * `babel-preset-expo` inlines this constant at build time, so it costs nothing
+ * `babel-preset-expo` inlines the constant at build time, so it costs nothing
  * at runtime and is simply `undefined` under node — which lands on Inter, the
  * branch the node script does not read anyway.
- */
+ * ------------------------------------------------------------------ */
 const APPLE = process.env.EXPO_OS === 'ios';
 
-export const fNum = (w: NumWeight = 700): string =>
-  APPLE
-    ? w === 700
-      ? 'HelveticaNeue-Bold'
-      : 'HelveticaNeue-Medium'
-    : w === 500
-      ? 'Inter_500Medium'
-      : w === 600
-        ? 'Inter_600SemiBold'
-        : 'Inter_700Bold';
-
-export const fUi = (w: UiWeight = 400): string =>
-  APPLE
-    ? w === 400
-      ? 'HelveticaNeue'
-      : w === 700
-        ? 'HelveticaNeue-Bold'
-        : 'HelveticaNeue-Medium'
-    : w === 400
-      ? 'Inter_400Regular'
-      : w === 500
-        ? 'Inter_500Medium'
-        : w === 600
-          ? 'Inter_600SemiBold'
-          : 'Inter_700Bold';
+export type NumWeight = 500 | 600 | 700;
+export type UiWeight = 400 | 500 | 600 | 700;
 
 /**
- * THE THIRD FACE, AND IT IS THE ONLY ONE THAT IS THE SAME ON BOTH PLATFORMS.
+ * A FACE IS A STYLE FRAGMENT NOW, NOT A FAMILY STRING, and that is what
+ * spreading it at every call site is for: `...fUi(500)` rather than
+ * `fontFamily: fUi(500)`.
  *
- * `fNum` and `fUi` are the body: Helvetica Neue on iOS, Inter on Android, two
- * neo-grotesques near enough that nobody holding one phone beside the other
- * would name the difference. A WORDMARK is the opposite case — it is a shape
- * before it is a word, and a brand that is condensed on one phone and not on
- * the next is not a brand. So Anton is BUNDLED, on both, and the extra weight
- * on the iOS binary is the price of the mark being the mark.
+ * The reason is San Francisco. iOS does not expose the system face by
+ * PostScript name — there is no `SFProText-Medium` to ask for — so the only
+ * honest way to get it is `fontFamily: 'System'` with a real `fontWeight`
+ * beside it, which is two keys where the old convention had one. Every other
+ * face in this app was a family per weight because a bundled font has to be;
+ * the system font is the one that is not, and pretending otherwise would mean
+ * one weight for the whole app.
  *
- * It is a display face and it is treated like one: it has ONE weight, it is
- * only ever set in CAPS, and it is spent on THREE things — the HOOPLOG
- * wordmark, the club's own headline on the lobby, and the monogram inside a
- * `Crest`. All three are the club saying who it is. It is deliberately not on
- * a single number, a single label or a single button: Anton at stat size is a
- * poster shouting at a scorer, and the numbers on this board are read, not
- * admired — which is the same reason Chakra Petch left.
+ * IT IS SPLIT BY PLATFORM exactly as the tab bar is. SF is Apple's and exists
+ * nowhere else, so ANDROID KEEPS INTER — already a dependency, already the
+ * closest neo-grotesque to it — and gets its weight the way a bundled face
+ * always has, as a family name. Neither platform pays for the other.
  *
- * Anton ships latin, latin-ext and VIETNAMESE, which is not incidental: the
- * club names this app was built for carry diacritics, and a display face that
- * dropped them would fall back to the body face on exactly the one screen
- * this face exists for.
+ * `fNum` and `fUi` still both exist and still differ in DEFAULT WEIGHT rather
+ * than in family: a number is set at 600 where a word is set at 400, and the
+ * tracking ramp does the rest. SF carries tabular figures, so `TABULAR` keeps
+ * doing its job — the footer's clock would shift the middle block once a
+ * second without it.
  */
-export const fDisplay = (): string => 'Anton_400Regular';
+export interface FontFace {
+  fontFamily: string;
+  fontWeight?: '400' | '500' | '600' | '700';
+}
+
+const SYSTEM = 'System';
+
+const INTER: Record<UiWeight, string> = {
+  400: 'Inter_400Regular',
+  500: 'Inter_500Medium',
+  600: 'Inter_600SemiBold',
+  700: 'Inter_700Bold',
+};
+
+const face = (w: UiWeight): FontFace =>
+  APPLE
+    ? { fontFamily: SYSTEM, fontWeight: String(w) as FontFace['fontWeight'] }
+    : { fontFamily: INTER[w] };
+
+export const fNum = (w: NumWeight = 600): FontFace => face(w);
+
+export const fUi = (w: UiWeight = 400): FontFace => face(w);
 
 /**
- * TRACKING IS OPTICAL: the smaller the type is set, the wider it is tracked,
- * and a display NUMERAL is tracked NEGATIVE. That is one ramp and not five
- * opinions — every letter-spacing in the app comes off this table, so a caption
- * on the lobby and a caption on a saved game cannot drift a hair apart.
+ * THE THIRD FACE, AND IT IS NOW SPENT ON THE WORDMARK AND THE MONOGRAM ONLY.
  *
- * The ramp is what carries the app's voice. A number set tight and a caption
- * set wide under it is the instrument-panel contrast this board is read with:
- * the eye lands on the figure, and the word beneath it is a legend rather than
- * a competitor. Set the two at the same tracking and both read as prose.
+ * Anton is BUNDLED on both platforms, because a wordmark is a shape before it
+ * is a word and a brand that is condensed on one phone and not on the next is
+ * not a brand. That argument covers a logo. It does not cover a name a SCORER
+ * TYPED — the club's own name in the lobby header was set in this face at a
+ * weight a hair off the wordmark's, so the club read as a second logotype
+ * rather than as the answer to "whose board is this". User text is body text,
+ * always, and the body face is the system's.
  *
- *   LS_MICRO   the `fsXs` caps under a number — the widest thing on the screen
- *   LS_LABEL   `fsSm`/`fsMd` labels, where the letters are big enough to space
- *              themselves and the tracking is only there to say CAPS
- *   LS_BTN     a verb on a button
- *   LS_TITLE   an uppercase word at display size: a screen's own name. Caps
- *              still need positive tracking — a title at `LS_TIGHT` collides —
- *              but half of `LS_BTN`, because at `fsXl` the counters are wide
- *              enough already and 4% reads as a word coming apart.
- *   LS_TIGHT   the numbers: a score, a tile's value, the footer's block, and
- *              the club headline. Negative, so a figure reads as ONE object
- *              rather than as digits standing next to each other. Tabular
- *              figures keep their column whatever the tracking does.
+ * So: the HOOPLOG lockup, and the two initials inside a `Crest` — which is a
+ * mark and not a label. Never a number, never a caption, never a button, and
+ * never a string the app did not write itself.
+ *
+ * It ships the Vietnamese subset, which is not incidental: the club names this
+ * app was built for carry diacritics.
+ */
+export const fDisplay = (): FontFace => ({ fontFamily: 'Anton_400Regular' });
+
+/**
+ * TRACKING IS OPTICAL, AND THE RAMP WAS BUILT FOR A SCREEN SET ENTIRELY IN
+ * CAPS. IT IS NOT ANY MORE.
+ *
+ * Every label in this app used to be uppercase, and uppercase needs air:
+ * `LS_MICRO` at 0.12em is what keeps ten capitals from reading as one block.
+ * Mixed case does not need it and is actively hurt by it — lowercase letters
+ * carry their own rhythm in the ascenders and descenders, so tracking them
+ * wide pulls a word apart into letters. The whole positive half of the ramp
+ * therefore steps down to near zero, and the one place real tracking survives
+ * is `LS_CAPS`, for the strings that are still capitals because they are
+ * ABBREVIATIONS rather than shouting: PTS, REB, 3PT, Q1, OT.
+ *
+ *   LS_CAPS    the scorebook's abbreviations — the only caps left
+ *   LS_MICRO   the smallest captions, where a hair of air still helps
+ *   LS_LABEL   an ordinary label
+ *   LS_BTN     a verb on a button: none, it is a word like any other
+ *   LS_TITLE   a screen's own name at display size
+ *   LS_TIGHT   the numbers: a score, a tile's value, the footer's block, so a
+ *              figure reads as ONE object rather than as digits standing next
+ *              to each other. Tabular figures keep their column regardless.
  *
  * CSS tracking is em-relative; React Native's letterSpacing is absolute, which
  * is the whole reason `ls()` exists — an em is a multiplication here, not a unit.
  */
-export const LS_BTN = 0.04;
-export const LS_LABEL = 0.06;
-export const LS_MICRO = 0.12;
-export const LS_TITLE = 0.02;
+export const LS_CAPS = 0.06;
+export const LS_BTN = 0;
+export const LS_LABEL = 0.005;
+export const LS_MICRO = 0.015;
+export const LS_TITLE = -0.01;
 export const LS_TIGHT = -0.02;
 export const ls = (fontSize: number, em: number): number => fontSize * em;
 
@@ -585,3 +582,4 @@ export const bloomFill = (accent: string): readonly [string, string, string] => 
   withAlpha(accent, 0.56),
   withAlpha(accent, 0.3),
 ];
+

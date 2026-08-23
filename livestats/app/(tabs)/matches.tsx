@@ -68,7 +68,7 @@ function Badge({ result }: { result: 'W' | 'L' }) {
     >
       <Text
         style={{
-          fontFamily: fNum(700),
+          ...fNum(700),
           fontSize: m.fsMd,
           color: win ? t.accentInk : t.ink2,
         }}
@@ -96,7 +96,7 @@ function GameRow({ game }: { game: GameSummary }) {
   const open = useUiStore((s) => s.open);
   const result = resultOf(game);
   const practice = summaryKind(game) === 'practice';
-  const title = practice ? 'PRACTICE' : competitionLabel(game.competition);
+  const title = practice ? 'Practice' : competitionLabel(game.competition);
 
   return (
     <Press
@@ -123,7 +123,7 @@ function GameRow({ game }: { game: GameSummary }) {
           numberOfLines={1}
           style={{
             maxWidth: '100%',
-            fontFamily: fNum(700),
+            ...fUi(600),
             fontSize: m.fsMd,
             letterSpacing: ls(m.fsMd, LS_LABEL),
             color: practice ? t.ink2 : t.ink,
@@ -133,9 +133,9 @@ function GameRow({ game }: { game: GameSummary }) {
         </Text>
         <Text
           numberOfLines={1}
-          style={{ fontFamily: fUi(500), fontSize: m.fsXs, color: t.ink2 }}
+          style={{ ...fUi(500), fontSize: m.fsXs, color: t.ink2 }}
         >
-          {game.opponent ? `VS ${opponentLabel(game.opponent)} · ` : ''}
+          {game.opponent ? `vs ${opponentLabel(game.opponent)} · ` : ''}
           {dayMonthLabel(game.endedAt)}
         </Text>
       </Col>
@@ -146,7 +146,7 @@ function GameRow({ game }: { game: GameSummary }) {
           marginLeft: 'auto',
           flexGrow: 0,
           flexShrink: 0,
-          fontFamily: fNum(700),
+          ...fNum(700),
           fontSize: m.fsXl,
           letterSpacing: ls(m.fsXl, LS_TIGHT),
           color: t.ink,
@@ -195,13 +195,13 @@ export default function MatchesScreen() {
           numberOfLines={1}
           style={{
             flexShrink: 1,
-            fontFamily: fNum(700),
+            ...fUi(700),
             fontSize: m.fsXl,
             letterSpacing: ls(m.fsXl, LS_TITLE),
             color: t.ink,
           }}
         >
-          MATCHES
+          Matches
         </Text>
       </Row>
 
@@ -218,15 +218,15 @@ export default function MatchesScreen() {
           <Col align="center" justify="center" gap={m.s2} style={{ flex: 1 }}>
             <Text
               style={{
-                fontFamily: fNum(500),
+                ...fUi(500),
                 fontSize: m.fsMd,
                 letterSpacing: ls(m.fsMd, LS_LABEL),
                 color: t.ink3,
               }}
             >
-              NO MATCHES YET
+              No matches yet
             </Text>
-            <Text style={{ fontFamily: fUi(400), fontSize: m.fsSm, color: t.ink3 }}>
+            <Text style={{ ...fUi(400), fontSize: m.fsSm, color: t.ink3 }}>
               A match lands here the moment you end it.
             </Text>
           </Col>
@@ -237,7 +237,7 @@ export default function MatchesScreen() {
               style={{
                 paddingVertical: m.s3,
                 textAlign: 'center',
-                fontFamily: fUi(400),
+                ...fUi(400),
                 fontSize: m.fsXs,
                 color: t.ink3,
               }}

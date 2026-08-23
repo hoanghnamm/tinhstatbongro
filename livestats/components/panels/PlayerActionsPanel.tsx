@@ -38,7 +38,7 @@ export function PlayerActionsPanel({
     <>
       <PHead>
         <PTitleText>{`#${p.number}. ${p.name}`}</PTitleText>
-        <Pts>{p.status === 'out' ? 'FOULED OUT' : `${p.stats.points} pts`}</Pts>
+        <Pts>{p.status === 'out' ? 'Fouled out' : `${p.stats.points} pts`}</Pts>
         <CancelX />
       </PHead>
       <PGrid columns={2}>
@@ -58,7 +58,7 @@ export function PlayerActionsPanel({
           />
         ))}
       </PGrid>
-      <PSub label="SUBSTITUTE" onPress={() => openSubOut(playerId)} />
+      <PSub label="Substitute" onPress={() => openSubOut(playerId)} />
     </>
   );
 }

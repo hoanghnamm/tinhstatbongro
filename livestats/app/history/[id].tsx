@@ -25,10 +25,10 @@ import type { GameState } from '../../types';
 type Tab = 'team' | 'players' | 'zones' | 'plays';
 
 const TABS: SegItem<Tab>[] = [
-  { key: 'team', label: 'TEAM' },
-  { key: 'players', label: 'PLAYERS' },
-  { key: 'zones', label: 'ZONES' },
-  { key: 'plays', label: 'PLAYS' },
+  { key: 'team', label: 'Team' },
+  { key: 'players', label: 'Players' },
+  { key: 'zones', label: 'Zones' },
+  { key: 'plays', label: 'Plays' },
 ];
 
 /**
@@ -98,12 +98,12 @@ export default function SavedGameScreen() {
 
   const splits: SegItem<string>[] = game
     ? [
-        { key: 'all', label: 'ALL' },
+        { key: 'all', label: 'All' },
         // the labels are the GAME's own — a night played in halves reads H1/H2
         // however the settings are set today
         ...periodsOf(game).map((p) => ({ key: String(p), label: periodLabel(p, game.periods) })),
       ]
-    : [{ key: 'all', label: 'ALL' }];
+    : [{ key: 'all', label: 'All' }];
 
   return (
     <View
@@ -135,7 +135,7 @@ export default function SavedGameScreen() {
         >
           <Svg width={m.fsLg} height={m.fsLg} viewBox="0 0 24 24">
             <Path
-              d="M15 4L7 12l8 8"
+              d="M15 5l-7 7 7 7"
               stroke={t.ink}
               strokeWidth={2.2}
               strokeLinecap="round"
@@ -149,7 +149,7 @@ export default function SavedGameScreen() {
           <Text
             numberOfLines={1}
             style={{
-              fontFamily: fNum(700),
+              ...fUi(700),
               fontSize: m.fsXl,
               letterSpacing: ls(m.fsXl, LS_TITLE),
               color: t.ink,
@@ -159,12 +159,12 @@ export default function SavedGameScreen() {
             {/* WHO IT WAS AGAINST is the title: a shelf of thirty games is
                 remembered by opponent, never by the word FINAL, which every one
                 of them would wear */}
-            {summary ? opponentLabel(summary.opponent) : 'FINAL'}
+            {summary ? opponentLabel(summary.opponent) : 'Final'}
           </Text>
           <Text
             numberOfLines={1}
             style={{
-              fontFamily: fUi(500),
+              ...fUi(500),
               fontSize: m.fsXs,
               letterSpacing: ls(m.fsXs, LS_MICRO),
               color: t.ink2,
@@ -173,7 +173,7 @@ export default function SavedGameScreen() {
             {/* the kind leads the line: it is the one thing on this screen that
                 decides whether the numbers under it are in the season */}
             {summary
-              ? `${summaryKind(summary) === 'practice' ? 'PRACTICE · ' : summary.competition ? `${competitionLabel(summary.competition)} · ` : ''}${numDateLabel(summary.endedAt)}`
+              ? `${summaryKind(summary) === 'practice' ? 'Practice · ' : summary.competition ? `${competitionLabel(summary.competition)} · ` : ''}${numDateLabel(summary.endedAt)}`
               : ''}
           </Text>
           {/* the note is on the GAME, not the summary, so it arrives with the
@@ -182,7 +182,7 @@ export default function SavedGameScreen() {
             <Text
               numberOfLines={1}
               ellipsizeMode="tail"
-              style={{ fontFamily: fUi(400), fontSize: m.fsXs, color: t.ink3 }}
+              style={{ ...fUi(400), fontSize: m.fsXs, color: t.ink3 }}
             >
               {game.note}
             </Text>
@@ -196,7 +196,7 @@ export default function SavedGameScreen() {
           <Row gap={m.s2} style={{ marginLeft: 'auto', flexGrow: 0, flexShrink: 0 }}>
             <Text
               style={{
-                fontFamily: fNum(700),
+                ...fNum(700),
                 fontSize: m.fsXl,
                 letterSpacing: ls(m.fsXl, LS_TIGHT),
                 color: t.ink,
@@ -205,10 +205,10 @@ export default function SavedGameScreen() {
             >
               {summary.oppScore}
             </Text>
-            <Text style={{ fontFamily: fNum(500), fontSize: m.fsMd, color: t.ink3 }}>:</Text>
+            <Text style={{ ...fNum(500), fontSize: m.fsMd, color: t.ink3 }}>:</Text>
             <Text
               style={{
-                fontFamily: fNum(700),
+                ...fNum(700),
                 fontSize: m.fsXl,
                 letterSpacing: ls(m.fsXl, LS_TIGHT),
                 color: summary.score > summary.oppScore ? t.accent : t.ink,
@@ -246,13 +246,13 @@ export default function SavedGameScreen() {
             style={{
               paddingVertical: m.s6,
               textAlign: 'center',
-              fontFamily: fNum(500),
+              ...fUi(500),
               fontSize: m.fsMd,
               letterSpacing: ls(m.fsMd, LS_LABEL),
               color: t.ink3,
             }}
           >
-            {missing ? 'THIS GAME IS NO LONGER ON THE SHELF' : 'READING…'}
+            {missing ? 'This game is no longer on the shelf' : 'Reading…'}
           </Text>
         ) : game && rep ? (
           <>

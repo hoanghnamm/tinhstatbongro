@@ -32,7 +32,7 @@ export const COMPETITION_MAX = 32;
 
 /** What a fresh install is a club of. The name is the one the board shipped. */
 export const DEFAULT_TEAM: TeamProfile = {
-  name: 'MY TEAM',
+  name: 'My Team',
   logoUri: null,
   coach: '',
   assistant: '',
@@ -64,26 +64,31 @@ export const competitionKey = (name: string): string => cleanCompetition(name).t
 /**
  * What to print where a competition's name goes.
  *
- * UNFILED is for the one case that can produce it: an official game saved
+ * Unfiled is for the one case that can produce it: an official game saved
  * before competitions existed. The picker will not start a new official game
  * without a name, so this is a label for history rather than for a gap.
+ *
+ * IT NO LONGER SHOUTS THE NAME BACK. Every label in this app used to be forced
+ * to caps on the way out, so a club typed `Sài Gòn Heat` was printed
+ * `SÀI GÒN HEAT` on every screen it appeared on. A name is text a scorer typed;
+ * it is printed the way they typed it.
  */
 export const competitionLabel = (name: string | undefined): string =>
-  (name ?? '').trim().toUpperCase() || 'UNFILED';
+  (name ?? '').trim() || 'Unfiled';
 
 /**
  * What to print where the other side's name goes.
  *
  * A game started without one — which is the hurried, ordinary case — reads
- * OPPONENT, the word the board has always used for the number it is beside.
- * Callers that would rather say nothing at all than say OPPONENT test the
+ * Opponent, the word the board has always used for the number it is beside.
+ * Callers that would rather say nothing at all than say Opponent test the
  * string themselves; this is for the places that must print something.
  */
 export const opponentLabel = (opponent: string | undefined): string =>
-  (opponent ?? '').trim().toUpperCase() || 'OPPONENT';
+  (opponent ?? '').trim() || 'Opponent';
 
 /**
- * The monogram: 'MY TEAM' → 'MT', 'Hanoi' → 'H'.
+ * The monogram: 'My Team' → 'MT', 'Hanoi' → 'H'.
  *
  * It is the crest when there is no crest, so it is never empty — a club with a
  * blank name still gets a mark rather than an empty circle. Two letters at most,

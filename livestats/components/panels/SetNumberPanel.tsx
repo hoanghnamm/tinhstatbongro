@@ -48,9 +48,9 @@ export function SetNumberPanel({ playerId }: { playerId: string }) {
     // panel closes something that is still painting.
     return (
       <>
-        <PTitle title="PLAYER IS GONE" />
+        <PTitle title="Player is gone" />
         <Row>
-          <Btn label="CLOSE" onPress={reset} />
+          <Btn label="Close" onPress={reset} />
         </Row>
       </>
     );
@@ -82,12 +82,12 @@ export function SetNumberPanel({ playerId }: { playerId: string }) {
     <>
       {/* the entry is the pill, dimmed to the number being replaced until the
           first digit lands — the whole signal that typing has started */}
-      <PTitle title="JERSEY NUMBER" kind={'#' + (typed ? digits : player.number)} />
+      <PTitle title="Jersey number" kind={'#' + (typed ? digits : player.number)} />
 
       <Text
         numberOfLines={1}
         ellipsizeMode="tail"
-        style={{ marginTop: -m.sp, marginBottom: m.sp, fontFamily: fUi(600), fontSize: m.fsMd, color: t.ink2 }}
+        style={{ marginTop: -m.sp, marginBottom: m.sp, ...fUi(600), fontSize: m.fsMd, color: t.ink2 }}
       >
         {player.name}
       </Text>
@@ -102,13 +102,13 @@ export function SetNumberPanel({ playerId }: { playerId: string }) {
               <Tile
                 key="del"
                 code="<"
-                caption="DEL"
+                caption="Del"
                 disabled={!typed}
                 onPress={() => setDigits((s) => s.slice(0, -1))}
               />,
               key('0'),
               // the one key that commits, and the only accent on the pad
-              <Tile key="ok" code="OK" caption="SET" tone="accent" disabled={!ok} onPress={save} />,
+              <Tile key="ok" code="OK" caption="Set" tone="accent" disabled={!ok} onPress={save} />,
             ],
           ]}
         />
@@ -120,17 +120,17 @@ export function SetNumberPanel({ playerId }: { playerId: string }) {
         style={{
           marginTop: m.s2,
           minHeight: m.fsSm * 1.5,
-          fontFamily: fUi(600),
+          ...fUi(600),
           fontSize: m.fsSm,
           lineHeight: m.fsSm * 1.5,
           color: t.danger,
         }}
       >
-        {holder ? `#${holder.number} IS TAKEN BY ${holder.name}` : ''}
+        {holder ? `#${holder.number} is taken by ${holder.name}` : ''}
       </Text>
 
       <Row>
-        <Btn label="CANCEL" onPress={reset} />
+        <Btn label="Cancel" onPress={reset} />
       </Row>
     </>
   );

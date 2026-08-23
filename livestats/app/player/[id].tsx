@@ -23,7 +23,7 @@ import { useRosterStore } from '../../store/rosterStore';
 import type { GameState, Player, PlayerStats } from '../../types';
 
 /** tiny helper — opponent label with fallback */
-const oppLabel = (s: string): string => (s ? opponentLabel(s).toUpperCase() : 'OPPONENT');
+const oppLabel = (s: string): string => (s ? opponentLabel(s) : 'Opponent');
 
 /** Shot mark for per-player chart */
 interface Mark { id: string; x: number; y: number; made: boolean; }
@@ -42,7 +42,7 @@ interface ColDef {
 }
 
 const GAME_LOG_COLS: ColDef[] = [
-  { key: 'VS', w: 110, left: true },
+  { key: 'vs', w: 110, left: true },
   { key: 'MIN', w: 54 },
   { key: 'PTS', w: 44 },
   { key: 'FG', w: 56 },
@@ -209,7 +209,7 @@ function PlayerProfileScreen() {
     return { m: m2, a };
   }, [chartGames, id]);
 
-  const displayName = rosterEntry?.name ?? (playerGames[0] ? getPlayer(playerGames[0])?.name : 'PLAYER') ?? 'PLAYER';
+  const displayName = rosterEntry?.name ?? (playerGames[0] ? getPlayer(playerGames[0])?.name : 'Player') ?? 'Player';
   const displayNumber = rosterEntry?.number ?? (playerGames[0] ? getPlayer(playerGames[0])?.number : null);
   const displayPosition = rosterEntry?.position ?? null;
 
@@ -250,7 +250,7 @@ function PlayerProfileScreen() {
         >
           <Svg width={m.fsLg} height={m.fsLg} viewBox="0 0 24 24">
             <Path
-              d="M15 4L7 12l8 8"
+              d="M15 5l-7 7 7 7"
               stroke={t.ink}
               strokeWidth={2.2}
               strokeLinecap="round"
@@ -265,7 +265,7 @@ function PlayerProfileScreen() {
             {displayNumber !== null && (
               <Text
                 style={{
-                  fontFamily: fNum(700),
+                  ...fNum(700),
                   fontSize: m.fsXl,
                   letterSpacing: ls(m.fsXl, LS_TIGHT),
                   color: t.accent,
@@ -279,25 +279,25 @@ function PlayerProfileScreen() {
               numberOfLines={1}
               style={{
                 flexShrink: 1,
-                fontFamily: fNum(700),
+                ...fUi(700),
                 fontSize: m.fsXl,
                 letterSpacing: ls(m.fsXl, LS_TITLE),
                 color: t.ink,
               }}
             >
-              {displayName.toUpperCase()}
+              {displayName}
             </Text>
           </Row>
           <Text
             numberOfLines={1}
             style={{
-              fontFamily: fUi(500),
+              ...fUi(500),
               fontSize: m.fsXs,
               letterSpacing: ls(m.fsXs, LS_MICRO),
               color: t.ink2,
             }}
           >
-            {[displayPosition, `${gp} GAME${gp === 1 ? '' : 'S'}`]
+            {[displayPosition, `${gp} game${gp === 1 ? '' : 's'}`]
               .filter(Boolean)
               .join(' · ')}
           </Text>
@@ -314,13 +314,13 @@ function PlayerProfileScreen() {
             style={{
               paddingVertical: m.s6,
               textAlign: 'center',
-              fontFamily: fNum(500),
+              ...fUi(500),
               fontSize: m.fsMd,
               letterSpacing: ls(m.fsMd, LS_LABEL),
               color: t.ink3,
             }}
           >
-            NO GAMES RECORDED
+            No games recorded
           </Text>
         ) : (
           <Col gap={m.s3}>
@@ -336,7 +336,7 @@ function PlayerProfileScreen() {
             </View>
 
             {/* ── Shot chart section with Game Filter ── */}
-            <Section title="SHOT CHART">
+            <Section title="Shot chart">
               {/* Game filter bar */}
               <ScrollView
                 horizontal
@@ -355,19 +355,19 @@ function PlayerProfileScreen() {
                 >
                   <Text
                     style={{
-                      fontFamily: fNum(selectedGameId === 'total' ? 700 : 500),
+                      ...fUi(selectedGameId === 'total' ? 600 : 500),
                       fontSize: m.fsXs,
                       letterSpacing: ls(m.fsXs, LS_MICRO),
                       color: selectedGameId === 'total' ? t.accentInk : t.ink2,
                     }}
                   >
-                    TOTAL
+                    Total
                   </Text>
                 </Press>
                 {playerGames.map((g, idx) => {
                   const key = `game-${idx}`;
                   const on = selectedGameId === key;
-                  const label = `${idx + 1}. ${g.opponent ? oppLabel(g.opponent) : 'GAME'}`;
+                  const label = `${idx + 1}. ${g.opponent ? oppLabel(g.opponent) : 'Game'}`;
                   return (
                     <Press
                       key={key}
@@ -382,7 +382,7 @@ function PlayerProfileScreen() {
                     >
                       <Text
                         style={{
-                          fontFamily: fNum(on ? 700 : 500),
+                          ...fUi(on ? 600 : 500),
                           fontSize: m.fsXs,
                           letterSpacing: ls(m.fsXs, LS_MICRO),
                           color: on ? t.accentInk : t.ink2,
@@ -441,14 +441,14 @@ function PlayerProfileScreen() {
                 justify="center"
                 style={{ paddingVertical: m.s2, borderTopWidth: 1, borderTopColor: t.rule }}
               >
-                <Key color={dots.made} label="MADE" />
-                <Key color={dots.miss} label="MISS" ring />
+                <Key color={dots.made} label="Made" />
+                <Key color={dots.miss} label="Miss" ring />
                 <Key color={dots.ft} label={`FT ${ftTotal.m}-${ftTotal.a}`} />
               </Row>
             </Section>
 
             {/* ── Per-game log (Full horizontal scrolling table, no DATE or RESULT) ── */}
-            <Section title="GAME LOG">
+            <Section title="Game log">
               <Card>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   <View>
@@ -463,7 +463,7 @@ function PlayerProfileScreen() {
                             paddingVertical: m.s2,
                             paddingHorizontal: 4,
                             textAlign: c.left ? 'left' : 'right',
-                            fontFamily: fNum(500),
+                            ...fUi(500),
                             fontSize: m.fsXs,
                             letterSpacing: ls(m.fsXs, LS_MICRO),
                             color: t.ink2,
@@ -519,7 +519,7 @@ function PlayerProfileScreen() {
                                   paddingVertical: m.s2,
                                   paddingHorizontal: 4,
                                   textAlign: c.left ? 'left' : 'right',
-                                  fontFamily: c.left ? fUi(600) : fNum(500),
+                                  ...(c.left ? fUi(600) : fNum(500)),
                                   fontSize: m.fsSm,
                                   color: t.ink,
                                   fontVariant: ['tabular-nums'],
@@ -543,7 +543,7 @@ function PlayerProfileScreen() {
                       }}
                     >
                       {[
-                        'TOTAL',
+                        'Total',
                         mmss(seasonStats.sec),
                         num(seasonStats.pts),
                         pair(seasonStats.fgm, seasonStats.fga),
@@ -572,7 +572,7 @@ function PlayerProfileScreen() {
                               paddingVertical: m.s2,
                               paddingHorizontal: 4,
                               textAlign: c.left ? 'left' : 'right',
-                              fontFamily: c.left ? fUi(700) : fNum(700),
+                              ...(c.left ? fUi(700) : fNum(700)),
                               fontSize: m.fsSm,
                               color: t.ink,
                               fontVariant: ['tabular-nums'],
@@ -589,8 +589,8 @@ function PlayerProfileScreen() {
             </Section>
 
             {/* ── Season shooting stats ── */}
-            <Section title="SEASON SHOOTING">
-              <Line head label="" value="M-A" sub="PCT" />
+            <Section title="Season shooting">
+              <Line head label="" value="M-A" sub="Pct" />
               <Line label="Field goals" value={`${seasonStats.fgm}-${seasonStats.fga}`} sub={pctStr(seasonStats.fgm, seasonStats.fga)} />
               <Line label="2 points" value={`${seasonStats.twom}-${seasonStats.twoa}`} sub={pctStr(seasonStats.twom, seasonStats.twoa)} />
               <Line label="3 points" value={`${seasonStats.tpm}-${seasonStats.tpa}`} sub={pctStr(seasonStats.tpm, seasonStats.tpa)} />
@@ -598,8 +598,8 @@ function PlayerProfileScreen() {
             </Section>
 
             {/* ── Season counting stats ── */}
-            <Section title="SEASON TOTALS">
-              <Line head label="" value="TOTAL" sub="PER G" />
+            <Section title="Season totals">
+              <Line head label="" value="Total" sub="Per g" />
               <Line label="Points" value={seasonStats.pts} sub={String(per(seasonStats.pts).toFixed(1))} strong />
               <Line label="Off. rebounds" value={seasonStats.oreb} sub={String(per(seasonStats.oreb).toFixed(1))} />
               <Line label="Def. rebounds" value={seasonStats.dreb} sub={String(per(seasonStats.dreb).toFixed(1))} />

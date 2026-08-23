@@ -14,10 +14,9 @@ import { useMetrics } from '../theme/metrics';
 import {
   DOT_HUES,
   DOT_LABEL,
-  LS_MICRO,
+  LS_LABEL,
   LS_TITLE,
   dotColor,
-  fNum,
   fUi,
   ls,
   type DotHue,
@@ -92,9 +91,9 @@ function OptionRow<T extends string | number>({
     >
       <Text
         style={{
-          fontFamily: fNum(500),
-          fontSize: m.fsXs,
-          letterSpacing: ls(m.fsXs, LS_MICRO),
+          ...fUi(600),
+          fontSize: m.fsSm,
+          letterSpacing: ls(m.fsSm, LS_LABEL),
           color: t.ink2,
         }}
       >
@@ -105,7 +104,7 @@ function OptionRow<T extends string | number>({
 
       <Text
         style={{
-          fontFamily: fUi(400),
+          ...fUi(400),
           fontSize: m.fsXs,
           lineHeight: m.fsXs * 1.5,
           color: t.ink3,
@@ -160,9 +159,9 @@ function Swatches({
       <Row gap={m.s2}>
         <Text
           style={{
-            fontFamily: fNum(500),
-            fontSize: m.fsXs,
-            letterSpacing: ls(m.fsXs, LS_MICRO),
+            ...fUi(600),
+            fontSize: m.fsSm,
+            letterSpacing: ls(m.fsSm, LS_LABEL),
             color: t.ink2,
           }}
         >
@@ -171,7 +170,7 @@ function Swatches({
         <Text
           style={{
             marginLeft: 'auto',
-            fontFamily: fUi(500),
+            ...fUi(500),
             fontSize: m.fsXs,
             color: t.ink3,
           }}
@@ -222,8 +221,8 @@ function Swatches({
 /* ---- the answers --------------------------------------------------- */
 
 const PERIODS: SegItem<Options['periods']>[] = [
-  { key: 2, label: '2 HALVES' },
-  { key: 4, label: '4 QUARTERS' },
+  { key: 2, label: '2 halves' },
+  { key: 4, label: '4 quarters' },
 ];
 
 /** Four cells is the tightest row on this screen, so the UNIT is said once in
@@ -237,9 +236,9 @@ const LENGTHS: SegItem<Options['periodLen']>[] = [
 ];
 
 const LABELS: SegItem<Options['labels']>[] = [
-  { key: 'full', label: 'WORD' },
-  { key: 'short', label: 'SHORT' },
-  { key: 'both', label: 'BOTH' },
+  { key: 'full', label: 'Word' },
+  { key: 'short', label: 'Short' },
+  { key: 'both', label: 'Both' },
 ];
 
 /* ---- the screen ---------------------------------------------------- */
@@ -287,7 +286,7 @@ function SettingsScreen() {
             <Svg width={m.fsLg} height={m.fsLg} viewBox="0 0 24 24">
               <Path
                 d="M15 5l-7 7 7 7"
-                stroke={t.ink2}
+                stroke={t.ink}
                 strokeWidth={2.2}
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -300,13 +299,13 @@ function SettingsScreen() {
             numberOfLines={1}
             style={{
               flexShrink: 1,
-              fontFamily: fNum(700),
+              ...fUi(700),
               fontSize: m.fsXl,
               letterSpacing: ls(m.fsXl, LS_TITLE),
               color: t.ink,
             }}
           >
-         SETTINGS
+            Settings
           </Text>
         </Row>
 
@@ -320,16 +319,16 @@ function SettingsScreen() {
                 read live. The note says so out loud, because a setting that
                 does nothing until the next tip-off is otherwise a setting the
                 scorer thinks is broken. */}
-            <Section title="THE GAME">
+            <Section title="The game">
               <OptionRow
                 first
-                title="PERIODS"
+                title="Periods"
                 items={PERIODS}
                 value={options.periods}
                 onChange={(k) => setOption('periods', k)}
               />
               <OptionRow
-                title="MINUTES PER PERIOD"
+                title="Minutes per period"
                 items={LENGTHS}
                 value={options.periodLen}
                 onChange={(k) => setOption('periodLen', k)}
@@ -337,10 +336,10 @@ function SettingsScreen() {
             </Section>
 
             {/* ── WHAT A STAT IS CALLED ── the panels only; see `lib/labels.ts` */}
-            <Section title="STAT NAMES">
+            <Section title="Stat names">
               <OptionRow
                 first
-                title="ON THE PANELS"
+                title="On the panels"
                 items={LABELS}
                 value={options.labels}
                 onChange={(k) => setOption('labels', k)}
@@ -349,21 +348,21 @@ function SettingsScreen() {
 
             {/* ── THE THREE MARKS ── every chart in the app draws these, and
                 they are the one part of the palette a scorer may move */}
-            <Section title="THE CHART" note="">
+            <Section title="The chart" note="">
               <Col>
                 <Swatches
                   first
-                  label="MADE SHOT"
+                  label="Made shot"
                   value={options.dotMade}
                   onChange={(h) => setOption('dotMade', h)}
                 />
                 <Swatches
-                  label="MISSED SHOT"
+                  label="Missed shot"
                   value={options.dotMiss}
                   onChange={(h) => setOption('dotMiss', h)}
                 />
                 <Swatches
-                  label="FREE THROWS"
+                  label="Free throws"
                   value={options.dotFt}
                   onChange={(h) => setOption('dotFt', h)}
                 />

@@ -70,7 +70,7 @@ export function ExportButton({ game }: { game: GameState }) {
         await Sharing.shareAsync(out, {
           mimeType: 'application/pdf',
           UTI: 'com.adobe.pdf',
-          dialogTitle: 'GAME REPORT',
+          dialogTitle: 'Game report',
         });
       else await Print.printAsync({ html });
     } catch {
@@ -84,7 +84,7 @@ export function ExportButton({ game }: { game: GameState }) {
     <Col gap={m.s2} style={{ marginBottom: m.spLg }}>
       <Row>
         <Btn
-          label={busy ? 'PREPARING…' : 'EXPORT PDF'}
+          label={busy ? 'Preparing…' : 'Export PDF'}
           variant="accent"
           disabled={busy}
           onPress={() => void run()}
@@ -93,15 +93,15 @@ export function ExportButton({ game }: { game: GameState }) {
       <Text
         style={{
           textAlign: 'center',
-          fontFamily: fUi(500),
+          ...fUi(500),
           fontSize: m.fsXs,
           letterSpacing: ls(m.fsXs, LS_MICRO),
           color: failed ? t.danger : t.ink3,
         }}
       >
         {failed
-          ? 'THE SHEET COULD NOT BE MADE — TRY AGAIN'
-          : 'THE WHOLE GAME: BOX SCORE, TEAM LINE, ZONES AND EVERY PLAY'}
+          ? 'The sheet could not be made — try again'
+          : 'The whole game: box score, team line and zones'}
       </Text>
     </Col>
   );

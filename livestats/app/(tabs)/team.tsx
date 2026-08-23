@@ -179,7 +179,7 @@ function PlayerRow({ player, index }: { player: RosterPlayer; index: number }) {
             flexShrink: 0,
             width: Math.max(m.tap, Math.round(m.fsMd * 3.2)),
             textAlign: 'center',
-            fontFamily: fNum(700),
+            ...fNum(700),
             fontVariant: ['tabular-nums'],
             // the one error a row can show, and it needs no words: the number
             // it collides with is a few rows above or below it
@@ -201,7 +201,7 @@ function PlayerRow({ player, index }: { player: RosterPlayer; index: number }) {
         placeholder={`Player ${index + 1}`}
         placeholderTextColor={t.ink3}
         accessibilityLabel={`name for ${who}`}
-        style={[field, { flex: 1, minWidth: 0, fontFamily: fUi(600) }]}
+        style={[field, { flex: 1, minWidth: 0, ...fUi(600) }]}
       />
 
       {/* THE SLOT. Filled is on, exactly as the mockup has it — and the OFF
@@ -336,13 +336,13 @@ export default function TeamScreen() {
                   numberOfLines={1}
                   style={{
                     flexShrink: 1,
-                    fontFamily: fNum(700),
+                    ...fUi(600),
                     fontSize: m.fsMd,
                     letterSpacing: ls(m.fsMd, LS_LABEL),
                     color: t.ink2,
                   }}
                 >
-                  PLAYERS
+                  Players
                 </Text>
 
                 {/* the count is what says why + ADD PLAYER is gone at the cap, so the
@@ -352,7 +352,7 @@ export default function TeamScreen() {
                     marginLeft: 'auto',
                     flexGrow: 0,
                     flexShrink: 0,
-                    fontFamily: fNum(500),
+                    ...fNum(500),
                     fontSize: m.fsMd,
                     color: full ? t.danger : t.ink2,
                     fontVariant: ['tabular-nums'],
@@ -393,13 +393,13 @@ export default function TeamScreen() {
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
               <Text
                 style={{
-                  fontFamily: fNum(500),
+                  ...fUi(500),
                   fontSize: m.fsMd,
                   letterSpacing: ls(m.fsMd, LS_LABEL),
                   color: t.ink3,
                 }}
               >
-                NO PLAYERS YET
+                No players yet
               </Text>
             </View>
           }
@@ -423,13 +423,13 @@ export default function TeamScreen() {
               >
                 <Text
                   style={{
-                    fontFamily: fNum(700),
+                    ...fUi(600),
                     fontSize: m.fsMd,
                     letterSpacing: ls(m.fsMd, LS_LABEL),
                     color: t.accent,
                   }}
                 >
-                  + ADD PLAYER
+                  + Add player
                 </Text>
               </Press>
             )
@@ -469,13 +469,13 @@ export default function TeamScreen() {
             >
               <Text
                 style={{
-                  fontFamily: fNum(700),
+                  ...fUi(600),
                   fontSize: m.fsMd,
                   letterSpacing: ls(m.fsMd, LS_LABEL),
                   color: t.accent,
                 }}
               >
-                DONE
+                Done
               </Text>
             </Press>
           </View>

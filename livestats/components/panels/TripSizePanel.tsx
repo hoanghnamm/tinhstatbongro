@@ -26,15 +26,15 @@ export function TripSizePanel() {
 
   return (
     <>
-      <PTitle title="How many shots?" kind={`#${p.number} AT THE LINE`} />
+      <PTitle title="How many shots?" kind={`#${p.number} at the line`} />
       <Row>
-        <Act code="1" caption="ONE SHOT" onPress={start(1, false)} />
-        <Act code="2" caption="TWO SHOTS" onPress={start(2, false)} />
-        <Act code="3" caption="THREE SHOTS" onPress={start(3, false)} />
-        <Act code="+1" caption="AND-1" onPress={start(1, true)} />
+        <Act code="1" caption="One shot" onPress={start(1, false)} />
+        <Act code="2" caption="Two shots" onPress={start(2, false)} />
+        <Act code="3" caption="Three shots" onPress={start(3, false)} />
+        <Act code="+1" caption="And-1" onPress={start(1, true)} />
       </Row>
       <Row mt>
-        <Btn label="BACK" onPress={back} />
+        <Btn label="Back" onPress={back} />
       </Row>
     </>
   );

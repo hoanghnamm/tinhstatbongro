@@ -6,7 +6,7 @@ import { COACH_NAME_MAX, TEAM_NAME_MAX, cleanTeamName } from '../../lib/team';
 import { useTeamStore } from '../../store/teamStore';
 import { useUiStore } from '../../store/uiStore';
 import { useMetrics } from '../../theme/metrics';
-import { LS_BTN, LS_LABEL, LS_MICRO, fNum, fUi, ls } from '../../theme/tokens';
+import { LS_BTN, LS_LABEL, LS_MICRO, fUi, ls } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 import { Card } from '../stats/parts';
 import { Crest } from '../ui/Crest';
@@ -97,7 +97,7 @@ export function ClubCard({ readOnly = false }: { readOnly?: boolean }) {
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        say('PHOTO ACCESS DENIED', true);
+        say('Photo access denied', true);
         return;
       }
       const picked = await ImagePicker.launchImageLibraryAsync({
@@ -108,9 +108,9 @@ export function ClubCard({ readOnly = false }: { readOnly?: boolean }) {
       });
       if (picked.canceled || !picked.assets[0]) return;
       const done = await setLogo(picked.assets[0].uri);
-      say(done ? 'CREST UPDATED' : 'COULD NOT SAVE THAT IMAGE', !done);
+      say(done ? 'Crest updated' : 'Could not save that image', !done);
     } catch {
-      say('COULD NOT OPEN THE PHOTO LIBRARY', true);
+      say('Could not open the photo library', true);
     } finally {
       setBusy(false);
     }
@@ -129,7 +129,7 @@ export function ClubCard({ readOnly = false }: { readOnly?: boolean }) {
     borderColor: t.rule,
     backgroundColor: t.surface,
   };
-  const field = { ...box, color: t.ink, fontFamily: fUi(600), fontSize: m.fsMd };
+  const field = { ...box, color: t.ink, ...fUi(600), fontSize: m.fsMd };
 
   /** …and its read-only twin, so the picker's card is the same card. */
   const readCell = (value: string, fallback: string) => (
@@ -137,7 +137,7 @@ export function ClubCard({ readOnly = false }: { readOnly?: boolean }) {
       <Text
         numberOfLines={1}
         ellipsizeMode="tail"
-        style={{ fontFamily: fUi(600), fontSize: m.fsMd, color: value ? t.ink : t.ink3 }}
+        style={{ ...fUi(600), fontSize: m.fsMd, color: value ? t.ink : t.ink3 }}
       >
         {value || fallback}
       </Text>
@@ -170,13 +170,13 @@ export function ClubCard({ readOnly = false }: { readOnly?: boolean }) {
                 minWidth: 0,
                 minHeight: m.tap,
                 lineHeight: m.tap,
-                fontFamily: fNum(700),
+                ...fUi(600),
                 fontSize: m.fsLg,
                 letterSpacing: ls(m.fsLg, LS_BTN),
                 color: t.ink,
               }}
             >
-              {club.name.toUpperCase()}
+              {club.name}
             </Text>
           ) : (
             <TextInput
@@ -187,11 +187,15 @@ export function ClubCard({ readOnly = false }: { readOnly?: boolean }) {
               }}
               onBlur={() => setName(club.name)}
               maxLength={TEAM_NAME_MAX}
-              autoCapitalize="characters"
+              // WORDS, NOT CHARACTERS. The field used to force the club's own
+              // name to caps as it was typed and every screen printed it back
+              // that way; a name is text a scorer typed, and it is kept the way
+              // they typed it.
+              autoCapitalize="words"
               autoCorrect={false}
               returnKeyType="done"
               onSubmitEditing={Keyboard.dismiss}
-              placeholder="TEAM NAME"
+              placeholder="Team name"
               placeholderTextColor={t.ink3}
               accessibilityLabel="team name"
               style={{
@@ -199,7 +203,7 @@ export function ClubCard({ readOnly = false }: { readOnly?: boolean }) {
                 minWidth: 0,
                 minHeight: m.tap,
                 padding: 0,
-                fontFamily: fNum(700),
+                ...fUi(600),
                 fontSize: m.fsLg,
                 letterSpacing: ls(m.fsLg, LS_BTN),
                 color: t.ink,
@@ -278,13 +282,13 @@ export function ClubCard({ readOnly = false }: { readOnly?: boolean }) {
               <Text
                 numberOfLines={1}
                 style={{
-                  fontFamily: fNum(700),
+                  ...fUi(600),
                   fontSize: m.fsMd,
                   letterSpacing: ls(m.fsMd, LS_LABEL),
                   color: busy ? t.ink3 : t.accent,
                 }}
               >
-                {busy ? 'OPENING…' : club.logoUri ? '+ CHANGE CLUB LOGO' : '+ ADD CLUB LOGO'}
+                {busy ? 'Opening…' : club.logoUri ? '+ Change club logo' : '+ Add club logo'}
               </Text>
             </Press>
 
@@ -306,13 +310,13 @@ export function ClubCard({ readOnly = false }: { readOnly?: boolean }) {
               >
                 <Text
                   style={{
-                    fontFamily: fNum(700),
+                    ...fUi(600),
                     fontSize: m.fsXs,
                     letterSpacing: ls(m.fsXs, LS_MICRO),
                     color: t.ink3,
                   }}
                 >
-                  REMOVE
+                  Remove
                 </Text>
               </Press>
             )}

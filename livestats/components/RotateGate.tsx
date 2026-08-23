@@ -17,7 +17,7 @@ import Svg, { Path, Rect } from 'react-native-svg';
 
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { useMetrics } from '../theme/metrics';
-import { LS_BTN, fNum, fUi, ls } from '../theme/tokens';
+import { LS_BTN, fUi, ls } from '../theme/tokens';
 import { useTheme } from '../theme/useTheme';
 
 /**
@@ -175,7 +175,7 @@ export function RotateGate() {
         <Text
           style={{
             color: t.ink,
-            fontFamily: fNum(700),
+            ...fUi(600),
             // fsLg, not fsXl: the block is two lines — the instruction and the
             // reason — and one step down is what keeps the instruction on one of
             // them. 19 characters at fsLg come to ~290 of the 342 a 390pt phone
@@ -188,12 +188,12 @@ export function RotateGate() {
             textAlign: 'center',
           }}
         >
-          ROTATE TO LANDSCAPE
+          Rotate to landscape
         </Text>
         <Text
           style={{
             color: t.ink2,
-            fontFamily: fUi(500),
+            ...fUi(500),
             fontSize: m.fsSm,
             textAlign: 'center',
           }}

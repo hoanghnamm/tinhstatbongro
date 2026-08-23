@@ -8,22 +8,22 @@ import { CancelX, Chip, PHead, PlayerGrid } from './shell';
 import type { ShotType } from '../../types';
 
 const WHAT_LABEL: Record<What, string> = {
-  made: 'MADE',
-  miss: 'MISS',
-  oreb: 'OFFENSIVE REBOUND',
-  dreb: 'DEFENSIVE REBOUND',
-  ft: 'FREE THROWS',
-  foul: 'FOUL',
-  turnover: 'TURNOVER',
-  steal: 'STEAL',
-  block: 'BLOCK',
-  foulDrawn: 'FOUL DRAWN',
+  made: 'Made',
+  miss: 'Miss',
+  oreb: 'Offensive rebound',
+  dreb: 'Defensive rebound',
+  ft: 'Free throws',
+  foul: 'Foul',
+  turnover: 'Turnover',
+  steal: 'Steal',
+  block: 'Block',
+  foulDrawn: 'Foul drawn',
 };
 
 export function whoLabel(what: What | null, shotType: ShotType | null, foulKind: string | null): string {
   if (!what) return '';
   if (what === 'foul' && foulKind)
-    return FOUL_KINDS[foulKind as keyof typeof FOUL_KINDS].label + ' FOUL';
+    return FOUL_KINDS[foulKind as keyof typeof FOUL_KINDS].label + ' foul';
   const shot = what === 'made' || what === 'miss' ? shotType + ' ' : '';
   return shot + WHAT_LABEL[what];
 }

@@ -191,10 +191,14 @@ are one tap into the room that holds the detail, which is what the six-number st
 standing in for. **Do not put a third block back on this screen.**
 
 **THE HEADER IS THE LOCKUP, ITS TAGLINE AND THE CLUB, over the BALL.** `HOOPLOG` at `fs2xl`
-in the mark's face — `HOOP` in ink, `LOG` in accent — then BALL DON'T LIE. STATS NEITHER. hard
+in the mark's face — `HOOP` in ink, `LOG` in accent — then Ball don't lie. Stats neither. hard
 under it, then the crest and the club's name. The tagline is set in `fUi` and not in `fDisplay`
 deliberately: a tagline in the mark's own face at half its size reads as the mark repeating
 itself rather than as a line under it.
+
+**AND THE HEADER IS CAPPED AND CENTRED ON THE SAME 700 THE BLOCKS ARE.** It ran full width
+while every card under it was centred, so on a tablet the lockup sat hard against the left edge
+of a column it was supposed to be heading. One measure, top to bottom.
 
 **THE TAGLINE IS ONE SMALL LINE AND IT WAS TWO.** BALL DON'T LIE. / YOUR STATS DO. was set at
 `fsSm` over two lines in a slot of its own with `s3` of air above it, which read as a second
@@ -206,9 +210,9 @@ LOCKUP'S — it names no control and opens nothing, exactly as `LOG` does.
 **THE TAGLINE IS PULLED UP; THE WORDMARK IS NOT SQUEEZED DOWN.** Tightening `HOOPLOG`'s own
 `lineHeight` to 1.04 was the first attempt and it CUT THE FACE IN HALF. Anton is tall and
 condensed with almost no descender, so a tight line box looks like free space right up until it
-clips the caps — **`fDisplay` may not go under about 1.15, anywhere**, and all three places it
-is set now carry 1.2. The MVP's name was at 1.02 from the day it landed and was clipped the
-whole time; it is 1.2 as well.
+clips the caps — **`fDisplay` may not go under about 1.15, anywhere**, and the one place it is
+still set carries 1.2. (It was three places; the MVP's name and the club's have left the face
+entirely, and the MVP's was at 1.02 from the day it landed and was clipped the whole time.)
 
 **`fs2xs` IS A NEW BOTTOM STEP ON THE RAMP AND THE TAGLINE IS ITS ONLY CALLER.** The ramp
 stopped at `fsXs` because that is the smallest thing on the BOARD a scorer has to read at arm's
@@ -219,7 +223,7 @@ the board draws.
 **THE WORDMARK LEANS, IT CARRIES NO FULL STOP, AND THE LEAN IS A SKEW.** It was `HOOPLOG.`,
 upright; the stop is gone and the mark is set ITALIC. Anton ships one face and no italic, so
 `fontStyle: 'italic'` is a rule Android fakes an oblique for and iOS — with nothing to swap to
-— draws upright, which is one wordmark standing two ways. `WORDMARK_SLANT` (`-9deg`) is that
+— draws upright, which is one wordmark standing two ways. `WORDMARK_SLANT` (`-12deg`, the last stop before Anton's counters close) is that
 synthesis stated once, on the OUTER `Text` so the accent half leans with the ink half. It is
 the only leaning type in the app.
 
@@ -229,12 +233,15 @@ club is still edited on the tab built for it, which is one tap away. It says who
 is and stops there. The accent `textShadow` the old headline carried did not come back either,
 so **there is still no text shadow in the app.**
 
-**SO `fDisplay` LANDS ON TWO NAMES ON THIS SCREEN AND THEY ARE A STEP APART.** The MVP's is at
-`fs2xl`, the wordmark's own size; the club's is at `fsXl` in the header above it. The face's
-rule is a NAME at headline size and both are one — the SIZE is which name the screen is about,
-and the player is. Set level they would be two headlines arguing; the club at `fs2xl` would
-also be a second wordmark directly under the first. With the crest's monogram the count on this
-screen is three, and four across the app.
+**`fDisplay` IS THE WORDMARK'S ALONE ON THIS SCREEN, AND IT USED TO LAND ON TWO NAMES BESIDE
+IT.** The MVP's was at `fs2xl` — the wordmark's own size — and the club's at `fsXl` in the
+header, both in Anton and both in forced caps. Both are TEXT A SCORER TYPED: a player's name set
+in the app's logotype reads as a poster shouting a surname, and a club name a hair under the
+wordmark's size reads as a second logotype stacked on the first, which is exactly how it was
+reported. Both are the BODY face now, in the case they were typed in — the MVP at `fsXl`, the
+club a step under at `fsLg` — and **SIZE is what says which name the screen is about**, which
+was always the real argument. The crest's monogram is the only other place the face survives on
+this screen, and it is a mark rather than a label.
 
 **BLOCK ONE IS THE LEAGUE AND BLOCK TWO IS THE MVP, and they were the other way round.** The
 order is an argument about what the screen is for: how the season is going is what a scorer
@@ -483,8 +490,10 @@ number, so a shelf of thirty games can say who each was against. Both are option
 are cleaned by `lib/team.ts`'s own `clean()` — they are the same kind of thing as a club name,
 which is why they live beside it rather than in a fourth lib file.
 
-**A blank opponent reads as OPPONENT, never as a gap.** `opponentLabel()` is the one place
-that decides so. The two stats screens and the shelf row all print through it; the ones that would rather say nothing than say OPPONENT test the string themselves.
+**A blank opponent reads as Opponent, never as a gap.** `opponentLabel()` is the one place
+that decides so — and it no longer SHOUTS a name that is there: it used to `.toUpperCase()` its
+argument, so a club typed `Sài Gòn Heat` was printed `SÀI GÒN HEAT` on every screen it appeared
+on. `competitionLabel()` did the same and no longer does. A name is text a scorer typed. The two stats screens and the shelf row all print through it; the ones that would rather say nothing than say OPPONENT test the string themselves.
 
 **THE ROW'S SUBTITLE IS THE OPPONENT AND THE DATE, AND NOTHING ELSE.** The kick-off TIME and
 the QUARTER COUNT were both on it and are both cut, on the shelf and on the saved game's own
@@ -516,7 +525,7 @@ scorer said when they tapped PRACTICE at the door.
 rehydrate of the live game. The season counted those games when they were saved, and a
 migration that quietly dropped a month of games out of the season line would be the worse
 surprise. The same games have no competition, so they group under `''` and print as
-**UNFILED** — a label for history, not for a gap, because the picker will not start a new
+**Unfiled** — a label for history, not for a gap, because the picker will not start a new
 official game without a name.
 
 **`startGame` takes the four labels as ONE `MatchInfo` argument**, not as four positional
@@ -526,7 +535,7 @@ competition, because a board that has never been through the picker has nothing 
 unnamed OFFICIAL game is the one state the picker refuses to create.
 
 **A SHELF ROW'S TITLE IS THE KIND**: the competition's name on an official game, the word
-PRACTICE on a practice, UNFILED on an official game saved before competitions existed. It was
+Practice on a practice, Unfiled on an official game saved before competitions existed. It was
 a small TAG beside a date that was the title, and the swap is the point — the shelf is read by
 scanning, and nobody scans thirty dates looking for the cup game. The date drops to the
 subtitle beside the opponent as `19/08`. A practice takes `ink2` rather than a pill or a fill:
@@ -982,72 +991,97 @@ six cells of `s1` padding. The vh term wins on every screen the board actually r
 stays because `fsNav` grows with the window height while the block does not, and the day that
 crosses over the clock reads `07:2…` rather than throwing.
 
-Custom fonts have no numeric weight axis in RN, so a weight is a family name — `fNum()` /
-`fUi()` are the only place that mapping lives. **Tabular numerals everywhere a number can
-change**, so a tick never shifts the layout.
+**THE BODY FACE IS THE SYSTEM'S — SAN FRANCISCO ON iOS — AND IT IS ONE FACE FOR THE NUMBERS
+AND THE WORDS ALIKE.** Chakra Petch had the numbers and Helvetica Neue had everything after it;
+both are gone. A squared display face made the board look like a scoreboard graphic, and
+Helvetica Neue is an Apple face that is NOT the Apple face — SF is what every other app on the
+phone is set in, it carries real optical sizes, and it is what a scorer's eye is already
+calibrated to. `fNum` and `fUi` still both exist and differ in DEFAULT WEIGHT and tracking, not
+in family. **Tabular numerals everywhere a number can change**, so a tick never shifts the
+layout; SF carries them.
 
-**THE FACE IS HELVETICA NEUE, AND IT IS ONE FACE FOR THE NUMBERS AND THE WORDS ALIKE.** Chakra
-Petch had the numbers and is gone with its package: a squared display face made the board look
-like a scoreboard graphic, and the numbers on it are read, not admired. `fNum` and `fUi` still
-both exist — they differ in weight and tracking now, not in family.
+**A FACE IS A STYLE FRAGMENT, NOT A FAMILY STRING, AND THAT IS WHY EVERY CALL SITE SPREADS IT**
+— `...fUi(500)`, never `fontFamily: fUi(500)`. iOS does not expose the system face by PostScript
+name, so the only honest way to ask for SF is `fontFamily: 'System'` with a real `fontWeight`
+beside it, which is two keys where a bundled font needs one. Every bundled face in this app was
+a family per weight because a bundled font has to be; the system font is the one that is not,
+and pretending otherwise would mean one weight for the whole app.
 
-**AND THERE IS A THIRD FACE NOW, WHICH IS `fDisplay` — ANTON, BUNDLED, ON BOTH PLATFORMS.**
-That is the opposite of the rule above and deliberately so: `fNum`/`fUi` split because two
+**AND IT IS SPLIT BY PLATFORM, exactly as the tab bar is.** SF is Apple's and exists nowhere
+else. **Android keeps Inter** — the closest neo-grotesque, already a dependency, and it gets its
+weight the way a bundled face always has, as a family name. Neither platform pays for the other.
+
+**AND THERE IS A THIRD FACE, WHICH IS `fDisplay` — ANTON, BUNDLED, ON BOTH PLATFORMS.**
+That is the opposite of the rule above and deliberately so: the body faces split because two
 neo-grotesques a hair apart are close enough that nobody holding one phone beside another would
 name the difference. A WORDMARK is the case where they would — it is a shape before it is a
 word — so the mark is the one thing carried in the binary rather than borrowed from the OS.
 
-**It is spent on FOUR things and they are all a name at headline size**: the HOOPLOG
-wordmark, the MVP's name on the lobby, the CLUB's name in that screen's header, and the
-monogram inside a `Crest`. The last two are the same club said twice over, in the two sizes
-that say which name a screen is about — see "The lobby". Never a number,
-never a label, never a button — Anton at stat size is a poster shouting at a scorer, which is
-the same reason Chakra Petch left. It has ONE weight and is only ever set in CAPS. **It ships
+**IT IS SPENT ON TWO THINGS AND IT WAS SPENT ON FOUR**: the HOOPLOG wordmark, and the monogram
+inside a `Crest`. **The two that went are the two that were TEXT A SCORER TYPED** — the MVP's
+name on the lobby, and the club's name in that screen's header. A player's own name set in the
+app's logotype reads as a poster shouting a surname; a club name set a hair under the wordmark's
+size reads as a SECOND LOGOTYPE stacked on the first, which is exactly what it was reported as.
+**User text is body text, always.** Never a number, never a label, never a button, and never a
+string the app did not write itself — Anton at stat size is a poster shouting at a scorer, which
+is the same reason Chakra Petch left. It has ONE weight and is only ever set in CAPS. **It ships
 the Vietnamese subset**, which is not incidental: the club names this app was built for carry
 diacritics, and a display face that dropped them would fall back to the body face on exactly
 the screen it exists for.
 
-**AND IT IS SPLIT BY PLATFORM, exactly as the tab bar is.** Helvetica Neue is an Apple face:
-free and already installed on iOS, and simply absent on Android, where bundling it would need
-a licence this project does not have. **Android keeps Inter** — the closest neo-grotesque that
-was already a dependency — so the split costs no new package on either side. On iOS a weight
-is a POSTSCRIPT NAME (`HelveticaNeue-Medium`), because that is the convention every component
-here is already written to; note the family ships **no SemiBold**, so 600 resolves to Medium,
-which is a real face rather than a synthesised one. Both faces carry tabular figures, which is
-load-bearing and not a nicety — the footer's clock would shift the middle block once a second
-without them.
+**AND NOTHING IN THIS APP SHOUTS ANY MORE.** Every label, every button, every card title and
+every empty state used to be uppercase, and `opponentLabel` / `competitionLabel` forced a typed
+name to caps on the way out on top of that. A screen set entirely in capitals is a screen
+raising its voice at the person reading it, and it spends the emphasis that the four accent
+marks are supposed to carry. It is **sentence case** now, everywhere — *New game*,
+*Starting five*, *No official game yet* — and a name a scorer typed is printed exactly the way
+they typed it.
 
-**TRACKING IS THE OTHER HALF OF THE FACE, AND IT IS AN OPTICAL RAMP — five tokens, and every
-`letterSpacing` in the app comes off one of them.** One face at one tracking is prose; the
-board's voice is the CONTRAST between a number set tight and the word set wide underneath it,
-which is what makes a cell read as an instrument and not as two lines of copy.
+**WHAT STAYS IN CAPS IS ABBREVIATIONS AND NOTHING ELSE**: the scorebook's own — PTS, REB, MIN,
+FG, 3PT, FT, OR, DR, TOT, AS, TO, ST, BS, PF, FD, EF — plus the board's PF / FT / RB keys, OPP,
+the W/L badge, DNP, and the period labels Q1 / H1 / OT. Those are CODES, not words: nobody reads
+`PTS` as a shout, and lowercasing them would make a box score harder to scan, not friendlier.
+
+**TRACKING IS THE OTHER HALF OF THE FACE, AND THE RAMP CAME DOWN WHEN THE CAPS DID — six
+tokens, and every `letterSpacing` in the app comes off one of them.** The old ramp ran to 0.12em
+at the bottom because UPPERCASE NEEDS AIR: ten capitals set solid read as one block. Mixed case
+does not need it and is actively hurt by it — lowercase carries its own rhythm in the ascenders
+and descenders, so tracking a word wide pulls it apart into letters. The whole positive half
+therefore steps to near zero, and real tracking survives in exactly one token.
 
 | token | em | where |
 |---|---|---|
-| `LS_MICRO` | 0.12 | the `fsXs` caps under a number — the widest thing on any screen |
-| `LS_LABEL` | 0.06 | `fsSm`/`fsMd` labels, where the tracking is only there to say CAPS |
-| `LS_BTN` | 0.04 | a verb on a button |
-| `LS_TITLE` | 0.02 | an uppercase word at display size — a screen's own name |
-| `LS_TIGHT` | −0.02 | the NUMBERS: a score, a tile's value, a jersey plate, the footer's block, and the club headline |
+| `LS_CAPS` | 0.06 | the abbreviations, which are the only capitals left — OPP, and anything else set solid |
+| `LS_MICRO` | 0.015 | the smallest captions, where a hair of air still helps |
+| `LS_LABEL` | 0.005 | an ordinary label |
+| `LS_BTN` | 0 | a verb on a button: it is a word like any other |
+| `LS_TITLE` | −0.01 | a screen's own name at display size |
+| `LS_TIGHT` | −0.02 | the NUMBERS: a score, a tile's value, a jersey plate, the footer's block |
 
-**Caps never go negative and numerals never go positive**, and both halves have a reason.
-`LS_TITLE` is half of `LS_BTN` rather than tighter still because at `fsXl` the counters are
-already wide and 4% reads as a word coming apart — but caps at `LS_TIGHT` collide. A figure at
-`LS_TIGHT` reads as ONE object rather than as digits standing beside each other, and the
-tabular figures keep their column whatever the tracking does. **`LS_TIGHT` is not new, it is
-promoted**: `ScoreCell` was already writing `-0.02 * size` by hand for our score and — the
-tell — NOT for the opponent's beside it, which is exactly the drift a token stops.
+**Numerals never go positive**, and the reason survives the change: a figure at `LS_TIGHT` reads
+as ONE object rather than as digits standing beside each other, and the tabular figures keep
+their column whatever the tracking does. **`LS_TIGHT` is not new, it is promoted**: `ScoreCell`
+was already writing `-0.02 * size` by hand for our score and — the tell — NOT for the opponent's
+beside it, which is exactly the drift a token stops.
 
-**ONE CAPTION KEEPS `LS_LABEL`, and it is the BOARD TILE'S.** A third of the smallest court is
-ten characters of caption and `SUBSTITUTE` is exactly ten, so at `LS_MICRO` the last of them
-ellipsises away. Every other `fsXs` caption has room to be set wide; a board tile does not, and
-it truncates rather than wraps, so the tracking is what gives. It is the only exception.
+**`LS_CAPS` IS NOT THE OLD `LS_MICRO` UNDER A NEW NAME.** It is 0.06 rather than 0.12 and it has
+a handful of callers rather than every caption on every screen — it exists for the strings that
+are capitals because they are CODES, and it is the one place the "caps need air" argument still
+applies. Do not spend it on a word.
+
+**AND THE WHOLE SIZE RAMP CAME DOWN WITH IT.** Every step in `theme/metrics.ts` is smaller than
+it was, and the big steps came down hardest: `fs4xl` was 42–96 and is 34–72, `fs2xl` was 28–55
+and is 23–44, while `fsXs` moved 12–15 to 11–13 because it is already near the floor of what is
+read at arm's length in a gym. A screen full of headline type is a screen with no hierarchy in
+it — the sizes had drifted up until a card was three headlines arguing.
 
 **A VALUE AND ITS CAPTION ARE TWO WEIGHTS APART, not one.** The number is `fNum(700)` in `ink`;
 the caption under it is `fUi(400)` — Regular, not Medium — in `ink2`, set at `LS_MICRO`. It is
-the WEIGHT that had to move rather than the ink: on iOS `fUi(500)` and `fUi(600)` are the same
-Medium face, so a caption "lightened" from 600 to 500 would have changed nothing at all on the
-platform the board is read on. The ink stays at `ink2` and does not fall to `ink3`, because
+the WEIGHT that had to move rather than the ink. (Under Helvetica Neue this was also a trap:
+that family shipped no SemiBold, so `fUi(500)` and `fUi(600)` were the SAME face and a caption
+"lightened" from 600 to 500 changed nothing at all on the platform the board is read on. SF has
+every weight, so the ramp is real on both platforms now — but Regular against Bold is still the
+step this pair wants.) The ink stays at `ink2` and does not fall to `ink3`, because
 these cells are drawn on the light palette as well — `ink3` there is a warm grey on white and
 a caption in it is a caption nobody reads in a gym.
 
@@ -1445,8 +1479,10 @@ renders as a broken square exactly where the monogram would have rendered as a c
 `onRehydrateStorage` nulls it if the file is gone.
 
 **The monogram is set in `fDisplay`**, the wordmark's own face: two initials in the body face
-is a label in a circle, and in the display face it is a badge. It is the third and last thing
-that face is spent on.
+is a label in a circle, and in the display face it is a badge. **It is now the SECOND and last
+thing that face is spent on**, and the only one that is not the wordmark itself — the club's own
+name in the lobby header used to be a third and is body type now, because a name a scorer typed
+is not a logotype. Initials are not a name in that sense: they are a mark, and they stay caps.
 
 **`components/ui/Crest.tsx` is one component for the crest AND the monogram**, because they
 are one thing — the round mark that says whose board this is — and every screen showing it
@@ -1752,8 +1788,9 @@ where the fallback is actually spent, so no reader of a saved game can forget it
 **`lib/format.ts` OWNS WHAT A PERIOD IS CALLED, in two forms, and it had THREE hardcoded
 copies.** `periodLabel(p, regulation)` is the two-character form the split strips, the clock
 panel's header and the PDF print — `Q3`, `H1`, `OT`, `OT2` — and `periodName(p, regulation)` is
-the spoken one the quarter panel's header and every announcement use: `1ST QUARTER`, `1ST
-HALF`, `OVERTIME`. The regulation count is always the GAME's, never the live setting's. It also
+the spoken one the quarter panel's header and every announcement use: `1st quarter`, `1st
+half`, `Overtime`. (`periodWord` on its own is capitalised — `Quarter`, `Half` — because its
+other caller is a tile caption under END; `periodName` lowercases it into the phrase.) The regulation count is always the GAME's, never the live setting's. It also
 fixes something that was wrong before any of this: period 5 of a four-quarter game printed as
 `5TH QUARTER`, which nobody has ever called an overtime.
 
@@ -1771,7 +1808,7 @@ at a computed alpha, and it is a bucket's percentage rather than a mark. The def
 exactly what the chart drew before any of it was settable.
 
 **`labels` is what a stat is CALLED once the panel is open — SHORT (`DF`), WORD
-(`DEFENSIVE`) or BOTH — and the default is the WORD.** The abbreviations are the
+(`Defensive`) or BOTH — and the default is the WORD.** The abbreviations are the
 scorebook's, not the scorer's, and a board that answers "which foul was that" with two
 letters is asking a question of its own; BOTH is the tile the board drew before the option
 existed, and SHORT is for the scorer who has learnt them and wants the biggest target.
@@ -1787,10 +1824,12 @@ reader always hears the full word, whatever is drawn: an abbreviation is a thing
 not a thing to say.
 
 **A WORD IN THE BIG SLOT IS NOT AN ABBREVIATION IN IT**, which is what `Tile`'s `word` prop
-carries. `DEFENSIVE` at `fs3xl` runs off a tile a third of a 320pt phone's court wide, so
-the word drops to `fsXl` (`fs2xl` when `big`), takes two lines, and keeps
-`adjustsFontSizeToFit` under it as the floor for the one that still will not fit. Only
-`tileWords` sets it.
+carries — and it now switches the FACE as well as the size. `Defensive` at `fs3xl` runs off a
+tile a third of a 320pt phone's court wide, so the word drops to `fsXl` (`fs2xl` when `big`),
+takes two lines, keeps `adjustsFontSizeToFit` under it as the floor for the one that still will
+not fit, and is set in `fUi` rather than `fNum`: `+1s`, `DEL`, `OK` and the two-letter shorts
+are codes and take the number's weight, where a word takes the body's. Only `tileWords` sets
+it.
 
 The team NAME is no longer hardcoded — it is `DEFAULT_TEAM.name` in `lib/team.ts`, which is
 what a fresh install starts on and what the editor overwrites. **Neither is the period length

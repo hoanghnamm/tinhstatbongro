@@ -27,16 +27,16 @@ export function RemoveGamePanel({ gameId }: { gameId: string }) {
 
   return (
     <>
-      <PTitle title="DELETE THIS GAME?" kind={score || undefined} tone="ink" />
+      <PTitle title="Delete this game?" kind={score || undefined} tone="ink" />
       <Note>
         {summary
           ? `The ${resultOf(summary) === 'W' ? 'win' : 'loss'} at ${score}, its box score and its play by play are removed for good. Undo does not reach saved games, and the season totals drop it too.`
           : 'This game is no longer on the shelf.'}
       </Note>
       <Row mt>
-        <Btn label="KEEP IT" onPress={reset} />
+        <Btn label="Keep it" onPress={reset} />
         <Btn
-          label="DELETE"
+          label="Delete"
           variant="danger"
           onPress={() => {
             removeGame(gameId);

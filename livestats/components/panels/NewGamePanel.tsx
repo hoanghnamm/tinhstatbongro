@@ -20,12 +20,12 @@ export function NewGamePanel() {
 
   return (
     <>
-      <PTitle title="START A NEW GAME?" />
+      <PTitle title="Start a new game?" />
       <Note>The game in progress will be discarded.</Note>
       <Row mt>
-        <Btn label="KEEP PLAYING" onPress={reset} />
+        <Btn label="Keep playing" onPress={reset} />
         <Btn
-          label="NEW GAME"
+          label="New game"
           variant="danger"
           onPress={() => {
             reset();

@@ -57,18 +57,21 @@ import { useTheme } from '../../theme/useTheme';
  * detail, which is what the six-number strips were standing in for.
  *
  * THE TAGLINE IS ONE SMALL LINE UNDER THE MARK, AND THE CLUB HAS ITS SLOT.
- * BALL DON'T LIE. STATS NEITHER. sits hard against `HOOPLOG` at `fs2xs`, which
+ * Ball don't lie. Stats neither. sits hard against `HOOPLOG` at `fs2xs`, which
  * is what a tagline is — the lockup's small print — and the slot it used to
  * take two lines of air over is the CREST AND THE NAME. It is a readout and
  * NOT the identity block coming back: nothing here opens the team editor, and
  * the accent on the tagline's second half is still the LOCKUP'S rather than
  * the screen's, so it spends nothing against the budget below.
  *
- * SO `fDisplay` LANDS ON TWO NAMES HERE AND THEY ARE A STEP APART. The MVP's
- * is at `fs2xl`, the wordmark's own size, and the club's at `fsXl` under it:
- * the face's rule is a NAME at headline size, and the two sizes are which name
- * the screen is ABOUT. Set level they would be two headlines arguing. The
- * crest's monogram is the third and is unchanged.
+ * `fDisplay` IS THE WORDMARK'S ALONE ON THIS SCREEN. It used to land on two
+ * NAMES as well — the MVP's and the club's — and both are text a scorer typed:
+ * a player set in the app's own logotype reads as a poster shouting a surname,
+ * and a club name a hair under the wordmark's size reads as a second logotype
+ * stacked on the first. Both are the BODY face now, and SIZE is what says which
+ * name the screen is about: the MVP at `fsXl`, the club a step under it at
+ * `fsLg`. The crest's monogram is the one other place the face survives, and it
+ * is a mark rather than a label.
  *
  * ACCENT IS THE PRIMARY VERB AND THE ONE NUMBER EACH BLOCK IS ABOUT — the MVP's
  * jersey and the league's points — and nothing else. Not the record, not the
@@ -121,12 +124,14 @@ const TWO_UP = 700;
  *
  * Anton has one weight, no italic, and nothing to synthesise from on iOS, so
  * `fontStyle: 'italic'` is a rule one platform honours and the other ignores.
- * Nine degrees is inside the range a real oblique of a condensed grotesque sits
- * at; past about twelve the counters start to close and a condensed face goes
- * to mush. It is a raw value like a hex and it is a lockup's, not a layout's —
- * nothing else in the app leans, and nothing else should.
+ * TWELVE DEGREES IS THE TOP OF THE RANGE and it is where this sits: it was nine
+ * for one revision and nine on a face this condensed reads as a mark set very
+ * slightly crooked rather than as a mark that LEANS. Past twelve the counters
+ * start to close and Anton goes to mush, so this is the last stop before the
+ * lean costs the letterforms. It is a raw value like a hex and it is a lockup's,
+ * not a layout's — nothing else in the app leans, and nothing else should.
  */
-const WORDMARK_SLANT = '-9deg';
+const WORDMARK_SLANT = '-12deg';
 
 /** The ball, as a share of the window. Wide enough to run off the right edge —
  *  a photograph that ends inside the screen is a picture pasted onto it. */
@@ -210,10 +215,11 @@ function HeaderArt() {
  * mark's leading costs the mark nothing.
  *
  * TWO TONES ON THE ONE LINE, which is the construction the two lines had and
- * the same reason: the weight lands on the half that is the point. It is set in
+ * the same reason: the colour lands on the half that is the point. It is set in
  * the BODY face and not in `fDisplay` — the wordmark above it is the mark, and
  * a tagline in the same face at half the size reads as the mark repeating
- * itself rather than as a line under it.
+ * itself rather than as a line under it. It is SENTENCE CASE, like everything
+ * else that is a sentence.
  *
  * The accent on the second half is the LOCKUP'S, not the screen's: it names no
  * control and opens nothing, exactly as `LOG` in the wordmark does, so it does
@@ -224,7 +230,7 @@ function Tagline() {
   const t = useTheme();
 
   const line = {
-    fontFamily: fUi(500),
+    ...fUi(500),
     fontSize: m.fs2xs,
     lineHeight: m.fs2xs * 1.2,
     letterSpacing: ls(m.fs2xs, LS_MICRO),
@@ -232,7 +238,7 @@ function Tagline() {
 
   return (
     <Text numberOfLines={1} style={{ ...line, color: t.ink2, marginTop: -m.s1 }}>
-      BALL DON&apos;T LIE. <Text style={{ color: t.accent }}>STATS NEITHER.</Text>
+      Ball don&apos;t lie. <Text style={{ color: t.accent }}>Stats neither.</Text>
     </Text>
   );
 }
@@ -246,11 +252,13 @@ function Tagline() {
  * away, and a crest that opened an editor here is exactly the route that was
  * cut when the identity block went.
  *
- * THE NAME IS IN `fDisplay` BUT A STEP BELOW THE WORDMARK, at `fsXl` against
- * the mark's `fs2xl` and the MVP's. A club name is a NAME at headline size,
- * which is the whole of that face's rule — but set at the wordmark's own size
- * it would be a second wordmark, and set at the MVP's it would take the
- * headline slot back off the player the screen is about.
+ * THE NAME IS THE BODY FACE, AND A STEP BELOW THE MVP'S. It was `fDisplay` at
+ * `fsXl` — the wordmark's own face at a size a hair under the wordmark's own —
+ * which made the club read as a SECOND LOGOTYPE stacked under the first rather
+ * than as the answer to whose board this is. A club name is text a scorer
+ * typed; it is set the way every other name in the app is set, and it is not
+ * shouted back in capitals either. `fsLg` keeps it under the MVP, who is the
+ * name this screen is about.
  */
 function Identity() {
   const m = useMetrics();
@@ -259,20 +267,25 @@ function Identity() {
 
   return (
     <Row gap={m.s3} style={{ marginTop: m.s4 }}>
-      <Crest name={club.name} uri={club.logoUri} size={Math.round(m.fsXl * 1.5)} />
+      <Crest name={club.name} uri={club.logoUri} size={Math.round(m.fsLg * 1.6)} />
       <Text
         numberOfLines={1}
         style={{
           flexShrink: 1,
-          fontFamily: fDisplay(),
-          fontSize: m.fsXl,
-          // the display face's floor — see the wordmark
-          lineHeight: m.fsXl * 1.2,
-          letterSpacing: ls(m.fsXl, LS_TITLE),
+          // THE BODY FACE, BECAUSE THE CLUB'S NAME IS TEXT A SCORER TYPED.
+          // It was `fDisplay` at a size a hair off the wordmark's, which made
+          // the club read as a SECOND LOGOTYPE stacked under the first rather
+          // than as the answer to whose board this is. The mark is the app's
+          // and is set in the app's face; a name out of the roster is set in
+          // the face every other name in the app is set in.
+          ...fUi(600),
+          fontSize: m.fsLg,
+          lineHeight: m.fsLg * 1.25,
+          letterSpacing: ls(m.fsLg, LS_LABEL),
           color: t.ink,
         }}
       >
-        {club.name.toUpperCase()}
+        {club.name}
       </Text>
     </Row>
   );
@@ -285,7 +298,7 @@ function Label({ children, tone }: { children: ReactNode; tone?: string }) {
     <Text
       numberOfLines={1}
       style={{
-        fontFamily: fNum(500),
+        ...fUi(500),
         fontSize: m.fsXs,
         letterSpacing: ls(m.fsXs, LS_MICRO),
         color: tone ?? t.ink2,
@@ -318,7 +331,7 @@ function Stat({ value, label, tone }: { value: string | number; label: string; t
       <Text
         numberOfLines={1}
         style={{
-          fontFamily: fNum(700),
+          ...fNum(700),
           fontSize: m.fsXl,
           letterSpacing: ls(m.fsXl, LS_TIGHT),
           lineHeight: m.fsXl * 1.1,
@@ -335,7 +348,7 @@ function Stat({ value, label, tone }: { value: string | number; label: string; t
           // tight; this is Regular, set wide and dim. Two weights apart is
           // what makes the figure the thing you read and the word under it a
           // legend — at the same weight the cell reads as two lines of prose.
-          fontFamily: fUi(400),
+          ...fUi(400),
           fontSize: m.fsXs,
           letterSpacing: ls(m.fsXs, LS_MICRO),
           color: t.ink2,
@@ -431,7 +444,7 @@ function MvpCard({
               <Row gap={1} align="center" style={{ flexGrow: 0, flexShrink: 1, minWidth: 0 }}>
                 <Text
                   style={{
-                    fontFamily: fNum(700),
+                    ...fNum(700),
                     fontSize: m.fsMd,
                     color: t.accent,
                   }}
@@ -441,7 +454,7 @@ function MvpCard({
                 <Text
                   numberOfLines={1}
                   style={{
-                    fontFamily: fNum(700),
+                    ...fNum(700),
                     fontSize: m.fs3xl,
                     letterSpacing: ls(m.fs3xl, LS_TIGHT),
                     lineHeight: m.fs3xl * 1.06,
@@ -470,17 +483,17 @@ function MvpCard({
                 numberOfLines={1}
                 adjustsFontSizeToFit
                 style={{
-                  // THE MARK'S FACE, in caps, and the biggest name on the
-                  // screen. Anton is condensed, so a long name still lands on
-                  // one line at this size; `adjustsFontSizeToFit` is the floor
-                  // under the one that will not. The 1.2 is the same floor the
-                  // wordmark keeps — under about 1.15 this face is CLIPPED
-                  // rather than merely tight.
-                  fontFamily: fDisplay(),
-                  fontSize: m.fs2xl,
-                  lineHeight: m.fs2xl * 1.2,
-                  textTransform: 'uppercase',
-                  letterSpacing: ls(m.fs2xl, LS_TITLE),
+                  // THE BODY FACE AND MIXED CASE, like every other name in the
+                  // app. It was `fDisplay` in caps — a player's own name set in
+                  // the wordmark's face, which made the card read as a poster
+                  // shouting a surname rather than as the answer to who is
+                  // carrying the season. It is still the biggest name on the
+                  // screen; SIZE is what says that, not the face.
+                  // `adjustsFontSizeToFit` is the floor under a long one.
+                  ...fUi(700),
+                  fontSize: m.fsXl,
+                  lineHeight: m.fsXl * 1.2,
+                  letterSpacing: ls(m.fsXl, LS_TITLE),
                   color: t.ink,
                 }}
               >
@@ -497,9 +510,9 @@ function MvpCard({
           </Seam>
 
           <Seam>
-            <Stat value={ppg} label="POINTS" />
-            <Stat value={apg} label="ASSISTS" />
-            <Stat value={rpg} label="REBOUNDS" />
+            <Stat value={ppg} label="Points" />
+            <Stat value={apg} label="Assists" />
+            <Stat value={rpg} label="Rebounds" />
           </Seam>
         </Col>
       </Card>
@@ -552,7 +565,7 @@ function LeagueCard({
       pressedStyle={{ opacity: 0.6 }}
     >
       <Card glass>
-        <Band label="LEAGUE STATS" tone={t.accent} note={<Label>{name}</Label>} />
+        <Band label="League" tone={t.accent} note={<Label>{name}</Label>} />
         <Seam>
           <Col
             align="center"
@@ -572,7 +585,7 @@ function LeagueCard({
               numberOfLines={1}
               adjustsFontSizeToFit
               style={{
-                fontFamily: fNum(700),
+                ...fNum(700),
                 fontSize: m.fs4xl,
                 letterSpacing: ls(m.fs4xl, LS_TIGHT),
                 lineHeight: m.fs4xl * 1.04,
@@ -585,13 +598,13 @@ function LeagueCard({
             <Text
               numberOfLines={1}
               style={{
-                fontFamily: fUi(400),
+                ...fUi(400),
                 fontSize: m.fsXs,
                 letterSpacing: ls(m.fsXs, LS_MICRO),
                 color: t.ink2,
               }}
             >
-              POINTS
+              Points
             </Text>
           </Col>
 
@@ -606,8 +619,8 @@ function LeagueCard({
             }}
           >
             <Seam>
-              <Stat value={record} label="RECORD" />
-              <Stat value={games} label="GAMES" />
+              <Stat value={record} label="Record" />
+              <Stat value={games} label="Games" />
             </Seam>
             <Row
               align="center"
@@ -749,25 +762,25 @@ function LobbyScreen() {
         nothing but practices on it. -- */
   const empty = !leagueBlock && !mvpBlock && (
     <Card glass>
-      <Band label={nothingYet ? 'NO GAME YET' : 'NO OFFICIAL GAME YET'} />
+      <Band label={nothingYet ? 'No game yet' : 'No official game yet'} />
       <Col align="center" gap={m.s2} style={{ paddingVertical: m.s6, paddingHorizontal: m.s4 }}>
         <Text
           numberOfLines={2}
           style={{
             textAlign: 'center',
-            fontFamily: fNum(700),
-            fontSize: m.fsXl,
-            lineHeight: m.fsXl * 1.2,
-            letterSpacing: ls(m.fsXl, LS_TITLE),
+            ...fUi(600),
+            fontSize: m.fsLg,
+            lineHeight: m.fsLg * 1.25,
+            letterSpacing: ls(m.fsLg, LS_TITLE),
             color: t.ink,
           }}
         >
-          {nothingYet ? 'START YOUR FIRST GAME' : 'A PRACTICE IS NOT A SEASON'}
+          {nothingYet ? 'Start your first game' : 'A practice is not a season'}
         </Text>
         <Label>
           {nothingYet ?
-            `${roster.length}/${ROSTER_CAP} PLAYERS`
-          : 'MARK A GAME OFFICIAL AT THE DOOR'}
+            `${roster.length}/${ROSTER_CAP} players`
+          : 'Mark a game official at the door'}
         </Label>
       </Col>
     </Card>
@@ -789,7 +802,7 @@ function LobbyScreen() {
               with the bloom's own gradient, on the bloom's own axis, so the one
               button that puts you on the board belongs to the screen behind it
               rather than sitting on it as a slab. */}
-          <Btn label="CONTINUE GAME" variant="bloom" onPress={() => router.push('/game')} />
+          <Btn label="Continue game" variant="bloom" onPress={() => router.push('/game')} />
         </Row>
       )}
       {/* ONE ROW, SPLIT FOUR TO ONE: the verb and the way to the settings page.
@@ -808,7 +821,7 @@ function LobbyScreen() {
       <Row align="stretch" gap={m.s2}>
         <View style={{ flex: 4, flexDirection: 'row' }}>
           <Btn
-            label="NEW GAME"
+            label="New game"
             variant={inProgress ? 'surface' : 'bloom'}
             disabled={!enough}
             onPress={newGame}
@@ -816,7 +829,7 @@ function LobbyScreen() {
         </View>
         <View style={{ flex: 1, flexDirection: 'row' }}>
           <Btn
-            label="GAME SETTINGS"
+            label="Game settings"
             icon="cog"
             variant="plain"
             onPress={() => router.push('/settings')}
@@ -830,14 +843,14 @@ function LobbyScreen() {
           accessibilityLiveRegion="polite"
           style={{
             textAlign: 'center',
-            fontFamily: fNum(500),
+            ...fUi(500),
             fontSize: m.fsSm,
             letterSpacing: ls(m.fsSm, LS_LABEL),
             color: t.danger,
             fontVariant: ['tabular-nums'],
           }}
         >
-          NEED AT LEAST {STARTERS} AVAILABLE PLAYERS
+          Need at least {STARTERS} available players
         </Text>
       )}
     </Col>
@@ -868,7 +881,11 @@ function LobbyScreen() {
           the crest and the name, as a READOUT. It is not the identity block
           coming back — there is no route into the team editor from here. The
           club is edited on the TEAM tab, which is one tap away.             */}
-      <View style={{ flexGrow: 0, flexShrink: 0 }}>
+      {/* CAPPED AND CENTRED ON THE SAME LINE THE BLOCKS ARE, which is what
+          makes this a column rather than a header floating over one: run full
+          width, the lockup sat hard against the left edge of a tablet while
+          every card under it was centred at 700. One measure, top to bottom. */}
+      <View style={{ flexGrow: 0, flexShrink: 0, width: '100%', maxWidth: TWO_UP, alignSelf: 'center' }}>
         <Row>
           {/* THE WORDMARK, AND IT IS SPLIT — `HOOP` in ink, `LOG` in accent.
               A logotype is the one place in this app a colour is allowed to
@@ -886,7 +903,7 @@ function LobbyScreen() {
           <Text
             numberOfLines={1}
             style={{
-              fontFamily: fDisplay(),
+              ...fDisplay(),
               fontSize: m.fs2xl,
               // 1.2, AND IT MAY NOT GO TIGHTER. Anton is a tall condensed face
               // with almost no descender, which makes a tight `lineHeight`

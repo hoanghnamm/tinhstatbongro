@@ -28,30 +28,30 @@ export const PERIOD_LEN = 600; // 10:00
  * flipping that one flag switches ruleset.
  */
 export const FOUL_KINDS = {
-  personal: { label: 'DEFENSIVE', short: 'DF', dq: true },
-  shooting: { label: 'SHOOTING', short: 'SF', dq: true },
-  offensive: { label: 'OFFENSIVE', short: 'OF', dq: true },
-  flagrant: { label: 'FLAGRANT', short: 'FL', dq: true },
-  technical: { label: 'TECHNICAL', short: 'TF', dq: false },
+  personal: { label: 'Defensive', short: 'DF', dq: true },
+  shooting: { label: 'Shooting', short: 'SF', dq: true },
+  offensive: { label: 'Offensive', short: 'OF', dq: true },
+  flagrant: { label: 'Flagrant', short: 'FL', dq: true },
+  technical: { label: 'Technical', short: 'TF', dq: false },
 } as const satisfies Record<FoulKindKey, { label: string; short: string; dq: boolean }>;
 
 /** The four the sidebar offers, in the order they are tapped most. */
 export const FOUL_MENU: FoulKindKey[] = ['offensive', 'personal', 'technical', 'flagrant'];
 
 /** Optional note on a shot: never required, never blocks the entry. */
-export const SHOT_NOTES = ['LAYUP', 'JUMPER', 'DUNK', 'HOOK', 'FLOATER'] as const;
+export const SHOT_NOTES = ['Layup', 'Jumper', 'Dunk', 'Hook', 'Floater'] as const;
 
 export const ZONES: Zone[] = ['paint', 'corner2', 'wing2', 'top2', 'corner3', 'wing3', 'top3'];
 export const THREES = { corner3: true, wing3: true, top3: true } as const;
 
 export const ZONE_LABEL: Record<Zone, string> = {
-  paint: 'PAINT',
-  corner2: 'CORNER 2',
-  wing2: 'WING 2',
-  top2: 'TOP 2',
-  corner3: 'CORNER 3',
-  wing3: 'WING 3',
-  top3: 'TOP 3',
+  paint: 'Paint',
+  corner2: 'Corner 2',
+  wing2: 'Wing 2',
+  top2: 'Top 2',
+  corner3: 'Corner 3',
+  wing3: 'Wing 3',
+  top3: 'Top 3',
 };
 
 export const TALLY: Record<TallyType, keyof PlayerStats> = {
@@ -63,10 +63,10 @@ export const TALLY: Record<TallyType, keyof PlayerStats> = {
 
 /** [type, abbreviation, word, the stat key its badge counts] */
 export const TALLY_TILES = [
-  ['block', 'BL', 'BLOCK', 'blocks'],
-  ['steal', 'ST', 'STEAL', 'steals'],
-  ['turnover', 'TO', 'TURNOVER', 'turnovers'],
-  ['foulDrawn', 'FD', 'FOUL DRAWN', 'foulsDrawn'],
+  ['block', 'BL', 'Block', 'blocks'],
+  ['steal', 'ST', 'Steal', 'steals'],
+  ['turnover', 'TO', 'Turnover', 'turnovers'],
+  ['foulDrawn', 'FD', 'Foul drawn', 'foulsDrawn'],
 ] as const satisfies readonly (readonly [TallyType, string, string, keyof PlayerStats])[];
 
 /** The two rebound kinds, in the order the panel offers them. DR leads: it is

@@ -93,7 +93,7 @@ export function SetClockPanel() {
           numberOfLines={1}
           style={{
             flexGrow: 0, flexShrink: 0,
-            fontFamily: fNum(700),
+            ...fNum(700),
             fontSize: m.fsLg,
             color: typed ? t.ink : t.ink3,
             fontVariant: ['tabular-nums'],
@@ -110,7 +110,7 @@ export function SetClockPanel() {
             <Tile
               key="del"
               code="<"
-              caption="DEL"
+              caption="Del"
               disabled={!typed}
               onPress={() => setDigits((s) => s.slice(0, -1))}
             />],
@@ -120,7 +120,7 @@ export function SetClockPanel() {
             <Tile
               key="set"
               code="OK"
-              caption="SET"
+              caption="Set"
               tone="accent"
               disabled={!clockReady(digits)}
               onPress={apply}

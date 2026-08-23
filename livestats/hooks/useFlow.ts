@@ -61,7 +61,7 @@ export function useFlow() {
       const p = game.getState().players.find((x) => x.id === playerId);
       const who = `#${p?.number} ${p?.name}`;
       u.say(
-        outcome === 'out' ? `${kind.short} foul · ${who} · FOULED OUT` : `${kind.short} foul · ${who}`,
+        outcome === 'out' ? `${kind.short} foul · ${who} · fouled out` : `${kind.short} foul · ${who}`,
         outcome === 'out',
       );
       void Haptics.notificationAsync(

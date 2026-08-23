@@ -4,7 +4,7 @@ import { litControl } from '../../lib/lit';
 import { useLitRect } from '../../store/layoutStore';
 import { useUiStore } from '../../store/uiStore';
 import { useMetrics } from '../../theme/metrics';
-import { LS_MICRO, fNum, fUi, ls } from '../../theme/tokens';
+import { LS_CAPS, fNum, fUi, ls } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 import { Press } from '../ui/Press';
 
@@ -80,7 +80,7 @@ export function SBtn({
             <Text
               numberOfLines={1}
               style={{
-                fontFamily: fNum(700),
+                ...fNum(700),
                 fontSize: portrait ? m.fsLg : m.fs2xl,
                 textAlign: 'center',
                 color: ink,
@@ -93,9 +93,11 @@ export function SBtn({
               <Text
                 numberOfLines={1}
                 style={{
-                  fontFamily: fUi(600),
+                  ...fUi(600),
                   fontSize: m.fsXs,
-                  letterSpacing: ls(m.fsXs, LS_MICRO),
+                  // OPP is an abbreviation, and abbreviations are the one
+                  // thing left in caps — so they keep the air caps need.
+                  letterSpacing: ls(m.fsXs, LS_CAPS),
                   textAlign: 'center',
                   color: pressed && opp ? t.accentInk : t.ink2,
                 }}

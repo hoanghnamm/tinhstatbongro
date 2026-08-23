@@ -97,7 +97,7 @@ export function ZonesTab({
           a made shot, a miss, and ONE dot on the line for the free throws
           however many were taken, since every one is logged at the same
           coordinate. The colours are the scorer's — see `useDots`. */}
-      <Section title="THE FLOOR">
+      <Section title="The floor">
         <View
           onLayout={(e) => setBoxW(e.nativeEvent.layout.width)}
           style={{ alignItems: 'center', padding: m.s2 }}
@@ -136,7 +136,7 @@ export function ZonesTab({
               </View>
             </View>
           )}
-          {shots.length === 0 && ft.a === 0 && <Empty>NO SHOTS IN THIS SLICE</Empty>}
+          {shots.length === 0 && ft.a === 0 && <Empty>No shots in this slice</Empty>}
         </View>
 
         <Row
@@ -144,9 +144,9 @@ export function ZonesTab({
           justify="center"
           style={{ paddingVertical: m.s2, borderTopWidth: 1, borderTopColor: t.rule }}
         >
-          <Key color={dots.made} label="MADE" />
-          <Key color={dots.miss} label="MISS" ring />
-          <Key color={dots.ft} label={`FREE THROWS ${ft.m}-${ft.a}`} />
+          <Key color={dots.made} label="Made" />
+          <Key color={dots.miss} label="Miss" ring />
+          <Key color={dots.ft} label={`Free throws ${ft.m}-${ft.a}`} />
         </Row>
       </Section>
 
@@ -163,7 +163,7 @@ export function ZonesTab({
       </Card>
 
       {/* ── The heat ── the same marks as above, bucketed ── */}
-      <Section title="BY ZONE">
+      <Section title="By zone">
         <View style={{ alignItems: 'center', padding: m.s2 }}>
           {w > 0 && (
             <View style={{ width: w, height: h, borderRadius: m.rSm, overflow: 'hidden' }}>
@@ -179,7 +179,7 @@ export function ZonesTab({
         >
           <Text
             style={{
-              fontFamily: fUi(500),
+              ...fUi(500),
               fontSize: m.fsXs,
               letterSpacing: ls(m.fsXs, LS_MICRO),
               color: t.ink2,
@@ -202,7 +202,7 @@ export function ZonesTab({
           ))}
           <Text
             style={{
-              fontFamily: fUi(500),
+              ...fUi(500),
               fontSize: m.fsXs,
               letterSpacing: ls(m.fsXs, LS_MICRO),
               color: t.ink2,
@@ -214,7 +214,7 @@ export function ZonesTab({
       </Section>
 
       <Card>
-        <Line head label="ZONE" value="M-A" sub="PCT" />
+        <Line head label="Zone" value="M-A" sub="Pct" />
         {rows.map((r) => (
           <Line
             key={r.zone}

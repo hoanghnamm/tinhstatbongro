@@ -95,7 +95,10 @@ export function Tile({
         adjustsFontSizeToFit={word}
         minimumFontScale={0.6}
         style={{
-          fontFamily: fNum(700),
+          // A WORD IS A WORD AND A CODE IS A CODE. `+1s`, `DEL`, `OK` and the
+          // scorebook's two-letter shorts are set in the number's weight; a
+          // word in the big slot is a word, so it takes the body's.
+          ...(word ? fUi(600) : fNum(700)),
           fontSize: size,
           lineHeight: size * 1.1,
           letterSpacing: word ? ls(size, LS_BTN) : 0,
@@ -114,14 +117,14 @@ export function Tile({
           style={{
             maxWidth: '100%',
             textAlign: 'center',
-            fontFamily: fUi(600),
+            ...fUi(600),
             fontSize: m.fsXs,
-            // THE ONE `fsXs` CAPTION THAT KEEPS `LS_LABEL`, and the width is
-            // why. A third of the smallest court is ten characters of caption
-            // and `SUBSTITUTE` is exactly ten: at `LS_MICRO` the last of them
-            // ellipsises away. Everywhere else a caption has room to be set
-            // wide; a board tile does not, and this one truncates rather than
-            // wraps, so the tracking is what has to give.
+            // A BOARD TILE'S CAPTION HAS THE LEAST ROOM ON ANY SCREEN — a
+            // third of the smallest court is about ten characters, and
+            // `Substitute` is exactly ten — so it is the one caption that
+            // truncates rather than wraps and the one that can least afford
+            // tracking. `LS_LABEL` is now near zero, which is what it always
+            // wanted; the ramp came down to meet it.
             letterSpacing: ls(m.fsXs, LS_LABEL),
             // both lines or neither: a red code over a grey word reads as two
             // different things stacked, not as one red button

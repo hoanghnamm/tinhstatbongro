@@ -49,16 +49,16 @@ export function EndGamePanel() {
   return (
     <>
       <PHead>
-        <PTitleText>END GAME?</PTitleText>
+        <PTitleText>End game?</PTitleText>
         <Pts>{`${score} : ${oppScore}`}</Pts>
         <CancelX />
       </PHead>
       <PGrid columns={2}>
-        <Tile key="keep" code="KEEP" caption="PLAYING" big onPress={reset} />
+        <Tile key="keep" code="Keep" caption="Playing" big onPress={reset} />
         <Tile
           key="end"
-          code="END"
-          caption="SAVE + STATS"
+          code="End"
+          caption="Save + stats"
           big
           tone="danger"
           onPress={() => {

@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { useUiStore } from '../store/uiStore';
 import { useMetrics } from '../theme/metrics';
-import { LS_BTN, fNum, ls } from '../theme/tokens';
+import { LS_BTN, fUi, ls } from '../theme/tokens';
 import { useTheme } from '../theme/useTheme';
 
 const LIFE_MS = 2600;
@@ -59,7 +59,7 @@ export function Toast() {
           overflow: 'hidden',
           backgroundColor: toast.bad ? t.danger : t.ink,
           color: toast.bad ? t.dangerInk : t.surface,
-          fontFamily: fNum(700),
+          ...fUi(600),
           fontSize: m.fsSm,
           letterSpacing: ls(m.fsSm, LS_BTN),
         }}

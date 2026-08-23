@@ -28,7 +28,7 @@ export function FouledOutPanel({ playerId }: { playerId: string }) {
 
   return (
     <>
-      <PTitle title={`#${p.number} has fouled out`} kind={`${FOULS} FOULS`} tone="bad" />
+      <PTitle title={`#${p.number} has fouled out`} kind={`${FOULS} fouls`} tone="bad" />
       <Note>{p.name} is off the court and cannot come back on. Pick a replacement.</Note>
       <Stack>
         <View style={{ height: m.sp }} />
@@ -57,7 +57,7 @@ export function FouledOutPanel({ playerId }: { playerId: string }) {
               <Text
                 style={{
                   flexGrow: 0, flexShrink: 0,
-                  fontFamily: fNum(700), fontSize: m.fsXl, color: t.ink,
+                  ...fNum(700), fontSize: m.fsXl, color: t.ink,
                   fontVariant: ['tabular-nums'],
                 }}
               >
@@ -68,7 +68,7 @@ export function FouledOutPanel({ playerId }: { playerId: string }) {
                 ellipsizeMode="tail"
                 style={{
                   flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0,
-                  fontFamily: fNum(500), fontSize: m.fsMd, color: t.ink,
+                  ...fNum(500), fontSize: m.fsMd, color: t.ink,
                 }}
               >
                 {q.name}
@@ -79,7 +79,7 @@ export function FouledOutPanel({ playerId }: { playerId: string }) {
           <Empty>The bench is empty. You are playing short.</Empty>
         )}
         <Row>
-          <Btn label={pool.length ? 'PLAY SHORT' : 'CLOSE'} variant="solid" onPress={reset} />
+          <Btn label={pool.length ? 'Play short' : 'Close'} variant="solid" onPress={reset} />
         </Row>
       </Stack>
     </>

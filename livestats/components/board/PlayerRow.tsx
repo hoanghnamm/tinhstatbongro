@@ -125,19 +125,19 @@ export function PlayerRow({
           <Text
             numberOfLines={1}
             style={{
-              fontFamily: fNum(700),
+              ...fNum(700),
               fontSize: m.fsMd,
               color: selected ? t.accentInk : t.ink,
               fontVariant: ['tabular-nums'],
             }}
           >
-            {dq ? 'OUT' : player.stats.points}
+            {dq ? 'Out' : player.stats.points}
           </Text>
           {!dq && (
             <Text
               numberOfLines={1}
               style={{
-                fontFamily: fUi(400),
+                ...fUi(400),
                 fontSize: m.fsSm * 0.75,
                 color: t.ink2,
               }}

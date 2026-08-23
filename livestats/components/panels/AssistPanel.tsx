@@ -25,8 +25,8 @@ export function AssistPanel() {
   return (
     <>
       <PHead>
-        <PTitleText>ASSIST</PTitleText>
-        <Pts>{`#${p?.number ?? ''} ${shotType} MADE`}</Pts>
+        <PTitleText>Assist</PTitleText>
+        <Pts>{`#${p?.number ?? ''} ${shotType} made`}</Pts>
         <CancelX />
       </PHead>
       {mates.length ? (
@@ -34,7 +34,7 @@ export function AssistPanel() {
       ) : (
         <PEmpty />
       )}
-      <PSub label="NO ASSIST" onPress={() => pickAssist(null)} />
+      <PSub label="No assist" onPress={() => pickAssist(null)} />
     </>
   );
 }

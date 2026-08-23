@@ -24,7 +24,7 @@ export function FoulDeniedPanel({ playerId }: { playerId: string }) {
         different player.
       </Note>
       <Row mt>
-        <Btn label="CLOSE" variant="solid" onPress={reset} />
+        <Btn label="Close" variant="solid" onPress={reset} />
       </Row>
     </>
   );

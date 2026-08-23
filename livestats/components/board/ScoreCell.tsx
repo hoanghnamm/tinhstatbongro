@@ -77,7 +77,7 @@ export function ScoreCell({ grow }: { grow: number }) {
         <Text
           numberOfLines={1}
           style={{
-            fontFamily: fNum(700),
+            ...fNum(700),
             fontSize: size,
             lineHeight: line,
             letterSpacing: ls(size, LS_TIGHT),
@@ -88,14 +88,14 @@ export function ScoreCell({ grow }: { grow: number }) {
           {score}
         </Text>
         <Text
-          style={{ fontFamily: fNum(500), fontSize: size * 0.7, lineHeight: line, color: t.ink3 }}
+          style={{ ...fNum(500), fontSize: size * 0.7, lineHeight: line, color: t.ink3 }}
         >
           :
         </Text>
         <Text
           numberOfLines={1}
           style={{
-            fontFamily: fNum(700),
+            ...fNum(700),
             fontSize: size,
             lineHeight: line,
             letterSpacing: ls(size, LS_TIGHT),

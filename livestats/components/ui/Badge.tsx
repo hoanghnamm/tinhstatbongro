@@ -61,7 +61,7 @@ export function Badge({
     >
       <Text
         style={{
-          fontFamily: fNum(700),
+          ...fNum(700),
           fontSize: m.fsSm,
           lineHeight: m.fsSm * 1.25,
           color: fg,

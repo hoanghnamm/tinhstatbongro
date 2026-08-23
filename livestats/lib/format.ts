@@ -60,7 +60,7 @@ export const periodLabel = (p: number, regulation: number): string => {
 };
 
 /**
- * THE SAME ANSWER IN WORDS — `1ST QUARTER`, `1ST HALF`, `OVERTIME`, `OVERTIME 2`.
+ * THE SAME ANSWER IN WORDS — `1st quarter`, `1st half`, `Overtime`, `Overtime 2`.
  *
  * `periodLabel` is what a two-character cell prints; this is what a panel's
  * header says and what the screen reader hears. It exists because the board
@@ -69,13 +69,13 @@ export const periodLabel = (p: number, regulation: number): string => {
  * called an overtime, at any setting.
  */
 export const periodName = (p: number, regulation: number): string => {
-  if (p > regulation) return p === regulation + 1 ? 'OVERTIME' : `OVERTIME ${p - regulation}`;
-  return `${ord(p).toUpperCase()} ${periodWord(p, regulation)}`;
+  if (p > regulation) return p === regulation + 1 ? 'Overtime' : `Overtime ${p - regulation}`;
+  return `${ord(p)} ${periodWord(p, regulation).toLowerCase()}`;
 };
 
 /** Just the noun, for a tile caption that has ten characters to spend. */
 export const periodWord = (p: number, regulation: number): string =>
-  p > regulation ? 'OVERTIME' : regulation === 2 ? 'HALF' : 'QUARTER';
+  p > regulation ? 'Overtime' : regulation === 2 ? 'Half' : 'Quarter';
 
 export const ord = (n: number): string =>
   n + ['th', 'st', 'nd', 'rd'][(n % 100 > 10 && n % 100 < 14) || n % 10 > 3 ? 0 : n % 10];

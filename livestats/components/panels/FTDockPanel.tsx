@@ -5,7 +5,7 @@ import { useGameStore } from '../../store/gameStore';
 import { usePlayer } from '../../store/selectors';
 import { useUiStore } from '../../store/uiStore';
 import { useMetrics } from '../../theme/metrics';
-import { LS_TITLE, fNum, ls } from '../../theme/tokens';
+import { LS_TITLE, fUi, ls } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 import { Press } from '../ui/Press';
 import { CancelX, PHead, PTitleText } from './shell';
@@ -62,9 +62,9 @@ export function FTDockPanel() {
       <Text
         numberOfLines={1}
         style={{
-          fontFamily: fNum(700),
-          fontSize: m.fs2xl,
-          letterSpacing: ls(m.fs2xl, LS_TITLE),
+          ...fUi(600),
+          fontSize: m.fsXl,
+          letterSpacing: ls(m.fsXl, LS_TITLE),
           textAlign: 'center',
           color: made ? t.accentInk : t.ink,
         }}
@@ -93,8 +93,8 @@ export function FTDockPanel() {
           backgroundColor: t.rule,
         }}
       >
-        {tile('MADE', true)}
-        {tile('MISS', false)}
+        {tile('Made', true)}
+        {tile('Miss', false)}
       </View>
     </>
   );

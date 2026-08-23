@@ -157,7 +157,7 @@ export function computeMetrics(
    * over the clock reads `07:2…` rather than throwing.
    */
   const ftrw = portrait ? w - safeX - 2 * sp : w - safeX - rail - sp;
-  const fsNav = clamp(15, 2.6 * vh, 28);
+  const fsNav = clamp(13, 2.25 * vh, 24);
   const fsFtr = Math.max(18, Math.min(fsNav * 1.5, (ftrw / 2 - 34) / 7.76));
 
   let court: { w: number; h: number };
@@ -181,17 +181,17 @@ export function computeMetrics(
     compact,
     win: { w, h },
     safe,
-    fs2xs: clamp(10, 1.15 * vh, 12),
-    fsXs: clamp(12, 1.45 * vh, 15),
-    fsSm: clamp(13, 1.9 * vh, 19),
-    fsMd: clamp(16, 2.45 * vh, 24),
-    fsLg: clamp(17, 2.9 * vh, 31),
-    fsXl: clamp(21, 3.8 * vh, 42),
-    fs2xl: clamp(28, 5.1 * vh, 55),
-    fs3xl: clamp(31, 7 * vh, 75),
-    fs4xl: clamp(42, 9.5 * vh, 96),
+    fs2xs: clamp(9, 1.02 * vh, 11),
+    fsXs: clamp(11, 1.28 * vh, 13),
+    fsSm: clamp(12, 1.68 * vh, 17),
+    fsMd: clamp(14, 2.15 * vh, 21),
+    fsLg: clamp(15, 2.5 * vh, 26),
+    fsXl: clamp(18, 3.2 * vh, 34),
+    fs2xl: clamp(23, 4.2 * vh, 44),
+    fs3xl: clamp(26, 5.7 * vh, 58),
+    fs4xl: clamp(34, 7.5 * vh, 72),
     fsNav,
-    fsNavLg: clamp(19, 3.4 * vh, 38),
+    fsNavLg: clamp(16, 2.9 * vh, 31),
     fsFtr,
     sp,
     spLg: clamp(12, 2 * vh, 24),

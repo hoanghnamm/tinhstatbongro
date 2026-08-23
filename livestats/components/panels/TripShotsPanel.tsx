@@ -6,7 +6,7 @@ import { useGameStore } from '../../store/gameStore';
 import { usePlayer } from '../../store/selectors';
 import { useUiStore } from '../../store/uiStore';
 import { useMetrics } from '../../theme/metrics';
-import { fNum } from '../../theme/tokens';
+import { fUi } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 import { Press } from '../ui/Press';
 import { Btn, PTitle, Row, Stack } from './shell';
@@ -64,7 +64,7 @@ export function TripShotsPanel() {
       >
         <Text
           numberOfLines={1}
-          style={{ fontFamily: fNum(700), fontSize: m.fsMd, textAlign: 'center', color: ink }}
+          style={{ ...fUi(600), fontSize: m.fsMd, textAlign: 'center', color: ink }}
         >
           {label}
         </Text>
@@ -94,21 +94,21 @@ export function TripShotsPanel() {
               numberOfLines={1}
               style={{
                 flexGrow: 0, flexShrink: 0,
-                fontFamily: fNum(700), fontSize: m.fsMd, color: t.ink2,
+                ...fUi(600), fontSize: m.fsMd, color: t.ink2,
                 minWidth: Math.min(90, Math.max(48, m.win.h * 0.09)),
               }}
             >
-              {trip.andOne ? 'AND-1' : 'SHOT ' + (i + 1)}
+              {trip.andOne ? 'And-1' : 'Shot ' + (i + 1)}
             </Text>
-            {tbtn('MADE', r === true, false, set(i, true))}
-            {tbtn('MISS', r === false, true, set(i, false))}
+            {tbtn('Made', r === true, false, set(i, true))}
+            {tbtn('Miss', r === false, true, set(i, false))}
           </View>
         ))}
       </Stack>
       <Row mt>
-        <Btn label="BACK" onPress={back} />
+        <Btn label="Back" onPress={back} />
         <Btn
-          label={done ? 'SAVE' : 'TAP EACH SHOT'}
+          label={done ? 'Save' : 'Tap each shot'}
           variant="accent"
           disabled={!done}
           onPress={() => {

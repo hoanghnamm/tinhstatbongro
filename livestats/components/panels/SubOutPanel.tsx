@@ -29,7 +29,7 @@ export function SubOutPanel({ outId }: { outId: string }) {
   return (
     <>
       <PHead>
-        <Chip label={`OFF #${out.number} ${out.name}`} />
+        <Chip label={`Off #${out.number} ${out.name}`} />
         <CancelX />
       </PHead>
       {bench.length ? (
@@ -44,7 +44,7 @@ export function SubOutPanel({ outId }: { outId: string }) {
       ) : (
         <PEmpty>
           <Empty>Nobody on the bench — the whole roster is already on the court.</Empty>
-          <Btn label="CLOSE" variant="solid" onPress={reset} />
+          <Btn label="Close" variant="solid" onPress={reset} />
         </PEmpty>
       )}
     </>

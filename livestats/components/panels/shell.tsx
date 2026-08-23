@@ -63,7 +63,7 @@ export function PTitleText({ children }: { children: ReactNode }) {
       ellipsizeMode="tail"
       style={{
         flexShrink: 1, minWidth: 0,
-        fontFamily: fNum(700), fontSize: m.fsLg, color: t.ink,
+        ...fUi(600), fontSize: m.fsLg, color: t.ink,
       }}
     >
       {children}
@@ -83,7 +83,7 @@ export function Pts({ children }: { children: ReactNode }) {
       numberOfLines={1}
       style={{
         flexGrow: 0, flexShrink: 0,
-        fontFamily: fNum(500), fontSize: m.fsMd, color: t.ink2,
+        ...fNum(500), fontSize: m.fsMd, color: t.ink2,
         fontVariant: ['tabular-nums'],
       }}
     >
@@ -106,7 +106,7 @@ export function Chip({ label, onPress }: { label: string; onPress?: () => void }
       numberOfLines={1}
       ellipsizeMode="tail"
       style={{
-        fontFamily: fNum(700), fontSize: m.fsMd,
+        ...fUi(600), fontSize: m.fsMd,
         letterSpacing: ls(m.fsMd, LS_LABEL), color: t.ink,
       }}
     >
@@ -142,7 +142,7 @@ export function Chip({ label, onPress }: { label: string; onPress?: () => void }
 }
 
 /** The word is dropped on the docked panel, which is one column wide. */
-export function CancelX({ label = 'CANCEL' }: { label?: string }) {
+export function CancelX({ label = 'Cancel' }: { label?: string }) {
   const m = useMetrics();
   const t = useTheme();
   const reset = useUiStore((s) => s.reset);
@@ -171,7 +171,7 @@ export function CancelX({ label = 'CANCEL' }: { label?: string }) {
       {!!label && (
         <Text
           style={{
-            fontFamily: fUi(600), fontSize: m.fsXs,
+            ...fUi(600), fontSize: m.fsXs,
             letterSpacing: ls(m.fsXs, LS_MICRO), color: t.ink2,
           }}
         >
@@ -288,7 +288,7 @@ export function PlayerTile({ player, onPress }: { player: Player; onPress(): voi
   return (
     <Tile
       code={player.number}
-      caption={out ? 'OUT · ' + player.name : player.name}
+      caption={out ? 'Out · ' + player.name : player.name}
       badge={player.stats.fouls}
       disabled={out}
       onPress={onPress}
@@ -342,8 +342,8 @@ export function PSub({ label, onPress }: { label: string; onPress(): void }) {
     >
       <Text
         style={{
-          fontFamily: fNum(700), fontSize: m.fsLg,
-          letterSpacing: ls(m.fsLg, LS_BTN), color: t.surface,
+          ...fUi(600), fontSize: m.fsMd,
+          letterSpacing: ls(m.fsMd, LS_BTN), color: t.surface,
         }}
       >
         {label}
@@ -374,7 +374,7 @@ export function PTitle({
     <UIRow gap={m.sp} align="center" style={{ marginBottom: m.spLg }}>
       <Text
         numberOfLines={2}
-        style={{ flexShrink: 1, fontFamily: fNum(700), fontSize: m.fsXl, color: t.ink }}
+        style={{ flexShrink: 1, ...fUi(600), fontSize: m.fsLg, color: t.ink }}
       >
         {title}
       </Text>
@@ -388,7 +388,7 @@ export function PTitle({
             backgroundColor: bg,
           }}
         >
-          <Text style={{ fontFamily: fNum(700), fontSize: m.fsMd, color: fg }}>{kind}</Text>
+          <Text style={{ ...fUi(600), fontSize: m.fsSm, color: fg }}>{kind}</Text>
         </View>
       )}
     </UIRow>
@@ -521,8 +521,8 @@ export function Btn({
           : <Text
               numberOfLines={1}
               style={{
-                fontFamily: fNum(700), fontSize: m.fsLg,
-                letterSpacing: ls(m.fsLg, LS_BTN), color: fg, textAlign: 'center',
+                ...fUi(600), fontSize: m.fsMd,
+                letterSpacing: ls(m.fsMd, LS_BTN), color: fg, textAlign: 'center',
               }}
             >
               {label}
@@ -571,14 +571,14 @@ export function Act({
     >
       <Text
         numberOfLines={1}
-        style={{ fontFamily: fNum(700), fontSize: m.fsXl, color: go ? t.accentInk : t.ink }}
+        style={{ ...fUi(600), fontSize: m.fsLg, color: go ? t.accentInk : t.ink }}
       >
         {code}
       </Text>
       <Text
         numberOfLines={1}
         style={{
-          fontFamily: fUi(600), fontSize: m.fsXs, textAlign: 'center',
+          ...fUi(600), fontSize: m.fsXs, textAlign: 'center',
           letterSpacing: ls(m.fsXs, LS_BTN),
           color: go ? t.accentInk : t.ink2, opacity: go ? 0.85 : 1,
         }}
@@ -610,7 +610,7 @@ export function Note({ children }: { children: ReactNode }) {
   return (
     <Text
       style={{
-        fontFamily: fUi(400), fontSize: m.fsSm, color: t.ink2,
+        ...fUi(400), fontSize: m.fsSm, color: t.ink2,
         marginTop: m.sp, lineHeight: m.fsSm * 1.5,
       }}
     >
@@ -626,7 +626,7 @@ export function Empty({ children }: { children: ReactNode }) {
     <Text
       style={{
         paddingVertical: m.spLg, textAlign: 'center',
-        fontFamily: fUi(400), fontSize: m.fsMd, color: t.ink2,
+        ...fUi(400), fontSize: m.fsMd, color: t.ink2,
       }}
     >
       {children}

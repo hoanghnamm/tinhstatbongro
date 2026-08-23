@@ -23,9 +23,9 @@ import type { GameState } from '../types';
 type Tab = 'team' | 'players' | 'zones';
 
 const TABS: SegItem<Tab>[] = [
-  { key: 'team', label: 'TEAM' },
-  { key: 'players', label: 'PLAYERS' },
-  { key: 'zones', label: 'ZONES' },
+  { key: 'team', label: 'Team' },
+  { key: 'players', label: 'Players' },
+  { key: 'zones', label: 'Zones' },
 ];
 
 /**
@@ -84,7 +84,7 @@ export default function StatsScreen() {
   const ft = useMemo(() => freeThrowsIn(g.events, split), [g.events, split]);
 
   const splits: SegItem<string>[] = [
-    { key: 'all', label: 'ALL' },
+    { key: 'all', label: 'All' },
     ...periodsOf(g).map((p) => ({ key: String(p), label: periodLabel(p, g.periods) })),
   ];
 
@@ -116,7 +116,7 @@ export default function StatsScreen() {
         >
           <Svg width={m.fsLg} height={m.fsLg} viewBox="0 0 24 24">
             <Path
-              d="M15 4L7 12l8 8"
+              d="M15 5l-7 7 7 7"
               stroke={t.ink}
               strokeWidth={2.2}
               strokeLinecap="round"
@@ -130,26 +130,26 @@ export default function StatsScreen() {
           <Text
             numberOfLines={1}
             style={{
-              fontFamily: fNum(700),
+              ...fUi(700),
               fontSize: m.fsXl,
               letterSpacing: ls(m.fsXl, LS_TITLE),
               color: t.ink,
             }}
           >
-            {g.ended ? 'FINAL' : 'GAME STATS'}
+            {g.ended ? 'Final' : 'Game stats'}
           </Text>
           <Text
             numberOfLines={1}
             style={{
-              fontFamily: fUi(500),
+              ...fUi(500),
               fontSize: m.fsXs,
               letterSpacing: ls(m.fsXs, LS_MICRO),
               color: t.ink2,
             }}
           >
-            {g.team.name.toUpperCase()}
-            {g.opponent ? ` VS ${opponentLabel(g.opponent)}` : ''}
-            {split === null ? ' · WHOLE GAME' : ` · ${periodLabel(split, g.periods)}`}
+            {g.team.name}
+            {g.opponent ? ` vs ${opponentLabel(g.opponent)}` : ''}
+            {split === null ? ' · Whole game' : ` · ${periodLabel(split, g.periods)}`}
           </Text>
           {/* the match note, if the scorer left one at tip-off. Quiet, one
               line, and absent entirely when empty — which is the common case. */}
@@ -157,7 +157,7 @@ export default function StatsScreen() {
             <Text
               numberOfLines={1}
               ellipsizeMode="tail"
-              style={{ fontFamily: fUi(400), fontSize: m.fsXs, color: t.ink3 }}
+              style={{ ...fUi(400), fontSize: m.fsXs, color: t.ink3 }}
             >
               {g.note}
             </Text>
@@ -167,7 +167,7 @@ export default function StatsScreen() {
         <Row gap={m.s2} style={{ marginLeft: 'auto', flexGrow: 0, flexShrink: 0 }}>
           <Text
             style={{
-              fontFamily: fNum(700),
+              ...fNum(700),
               fontSize: m.fsXl,
               letterSpacing: ls(m.fsXl, LS_TIGHT),
               color: margin > 0 ? t.accent : t.ink,
@@ -176,10 +176,10 @@ export default function StatsScreen() {
           >
             {rep.us}
           </Text>
-          <Text style={{ fontFamily: fNum(500), fontSize: m.fsMd, color: t.ink3 }}>:</Text>
+          <Text style={{ ...fNum(500), fontSize: m.fsMd, color: t.ink3 }}>:</Text>
           <Text
             style={{
-              fontFamily: fNum(700),
+              ...fNum(700),
               fontSize: m.fsXl,
               letterSpacing: ls(m.fsXl, LS_TIGHT),
               color: margin < 0 ? t.accent : t.ink,

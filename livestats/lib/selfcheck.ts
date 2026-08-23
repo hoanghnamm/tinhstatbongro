@@ -325,13 +325,13 @@ assert.equal(shotTypeFor(396 / 792, 100 / 521), '2PT');
   assert.equal(periodLabel(3, 2), 'OT', 'and OT starts one period earlier in halves');
 
   // …and the same answer in words, which is what the two clock panels print
-  assert.equal(periodName(1, 4), '1ST QUARTER');
-  assert.equal(periodName(1, 2), '1ST HALF', 'a halves game is not playing a quarter');
-  assert.equal(periodName(5, 4), 'OVERTIME', 'and period 5 is not a 5TH QUARTER');
-  assert.equal(periodName(7, 4), 'OVERTIME 3');
-  assert.equal(periodWord(2, 4), 'QUARTER');
-  assert.equal(periodWord(2, 2), 'HALF');
-  assert.equal(periodWord(3, 2), 'OVERTIME');
+  assert.equal(periodName(1, 4), '1st quarter');
+  assert.equal(periodName(1, 2), '1st half', 'a halves game is not playing a quarter');
+  assert.equal(periodName(5, 4), 'Overtime', 'and period 5 is not a 5th quarter');
+  assert.equal(periodName(7, 4), 'Overtime 3');
+  assert.equal(periodWord(2, 4), 'Quarter');
+  assert.equal(periodWord(2, 2), 'Half');
+  assert.equal(periodWord(3, 2), 'Overtime');
   // the END tile's caption has ten characters to spend and must not truncate
   for (const reg of [2, 4]) {
     for (const p of [1, reg, reg + 1, reg + 2]) {
@@ -639,7 +639,7 @@ assert.equal(shotTypeFor(396 / 792, 100 / 521), '2PT');
   assert.equal(cleanCoach('  a  b '), 'a b');
 
   // the crest when there is no crest, and it is NEVER empty
-  assert.equal(initials('MY TEAM'), 'MT');
+  assert.equal(initials('My Team'), 'MT');
   assert.equal(initials('Hanoi'), 'H');
   assert.equal(initials('a b c d'), 'AB', 'two letters at most — the third is unreadable');
   assert.equal(initials('   '), '?', 'a blank name still gets a mark');
@@ -684,10 +684,14 @@ assert.equal(shotTypeFor(396 / 792, 100 / 521), '2PT');
   assert.equal(cleanOpponent('x'.repeat(99)).length, OPPONENT_MAX, 'and capped');
   assert.equal(cleanNote('x'.repeat(99)).length, NOTE_MAX, 'the note gets a line, not a name');
 
-  assert.equal(opponentLabel('Hanoi Rockets'), 'HANOI ROCKETS');
-  assert.equal(opponentLabel(''), 'OPPONENT', 'a game started in a hurry still says something');
-  assert.equal(opponentLabel('   '), 'OPPONENT');
-  assert.equal(opponentLabel(undefined), 'OPPONENT', 'a summary from before opponents existed');
+  assert.equal(
+    opponentLabel('Hanoi Rockets'),
+    'Hanoi Rockets',
+    'a name a scorer typed is printed the way they typed it, never shouted back',
+  );
+  assert.equal(opponentLabel(''), 'Opponent', 'a game started in a hurry still says something');
+  assert.equal(opponentLabel('   '), 'Opponent');
+  assert.equal(opponentLabel(undefined), 'Opponent', 'a summary from before opponents existed');
 
   // THE COMPETITION is the third of the three, and the only one two games are
   // ever MATCHED on — so it is the only one with a folded key beside it
@@ -703,9 +707,9 @@ assert.equal(shotTypeFor(396 / 792, 100 / 521), '2PT');
     competitionKey('VBA 2026'),
     'and nothing else is: two seasons of one league are two competitions',
   );
-  assert.equal(competitionLabel('vba 2026'), 'VBA 2026');
-  assert.equal(competitionLabel(''), 'UNFILED', 'an official game saved before competitions');
-  assert.equal(competitionLabel(undefined), 'UNFILED');
+  assert.equal(competitionLabel('vba 2026'), 'vba 2026', 'the spelling is the scorer’s');
+  assert.equal(competitionLabel(''), 'Unfiled', 'an official game saved before competitions');
+  assert.equal(competitionLabel(undefined), 'Unfiled');
 }
 
 /* ---- the shelf ----------------------------------------------------- */
@@ -890,18 +894,18 @@ assert.equal(shotTypeFor(396 / 792, 100 / 521), '2PT');
   assert.equal(DEFAULT_OPTIONS.labels, 'full', 'a fresh install spells the word out');
 
   assert.deepEqual(
-    tileWords('full', 'DF', 'DEFENSIVE'),
-    { code: 'DEFENSIVE', word: true },
+    tileWords('full', 'DF', 'Defensive'),
+    { code: 'Defensive', word: true },
     'the word takes the big slot, and says so — a word cannot wear DF’s type size',
   );
   assert.deepEqual(
-    tileWords('short', 'DF', 'DEFENSIVE'),
+    tileWords('short', 'DF', 'Defensive'),
     { code: 'DF', word: false },
     'the abbreviation alone, with nothing under it',
   );
   assert.deepEqual(
-    tileWords('both', 'DF', 'DEFENSIVE'),
-    { code: 'DF', caption: 'DEFENSIVE', word: false },
+    tileWords('both', 'DF', 'Defensive'),
+    { code: 'DF', caption: 'Defensive', word: false },
     'and BOTH is the tile the board has always drawn',
   );
 
@@ -910,8 +914,8 @@ assert.equal(shotTypeFor(396 / 792, 100 / 521), '2PT');
   const pairs: [string, string][] = [
     ...FOUL_MENU.map((k) => [FOUL_KINDS[k].short, FOUL_KINDS[k].label] as [string, string]),
     ...TALLY_TILES.map(([, abbr, word]) => [abbr, word] as [string, string]),
-    ['DR', 'DEFENSIVE'],
-    ['OR', 'OFFENSIVE'],
+    ['DR', 'Defensive'],
+    ['OR', 'Offensive'],
   ];
   for (const [short, full] of pairs) {
     assert.ok(short.length && full.length, `${short}/${full}: both halves are written`);
@@ -1157,13 +1161,13 @@ assert.equal(ord(11), '11th');
   assert.ok(html.includes('KHÁNH HÒA &lt;b&gt;'), 'a typed name is escaped, never injected');
   assert.ok(!html.includes('KHÁNH HÒA <b>'), 'and the raw markup does not survive anywhere');
   assert.equal(reportTitle(g), 'VBA 2026', 'an official game is filed under its competition');
-  assert.equal(reportTitle({ ...g, kind: 'practice' }), 'PRACTICE', 'a practice is filed as one');
+  assert.equal(reportTitle({ ...g, kind: 'practice' }), 'Practice', 'a practice is filed as one');
 
   // the numbers are the screen's, not a second derivation
   const rep = report(g, null);
   assert.ok(html.includes(`>${rep.us}</span>`), 'the headline score is the report’s own');
-  assert.ok(html.includes('PAINT'), 'every zone is named in the table');
-  assert.ok(html.includes('TOP 3'), 'the empty ones included — 0/0 is a fact');
+  assert.ok(html.includes('Paint'), 'every zone is named in the table');
+  assert.ok(html.includes('Top 3'), 'the empty ones included — 0/0 is a fact');
   assert.ok(html.includes('DNP'), 'a player who never took the floor says so');
   // THE SHEET DRAWS NO FLOOR AND CARRIES NO PLAY LOG. Both were on it: two
   // courts and every play in the order it happened. They are things you READ,

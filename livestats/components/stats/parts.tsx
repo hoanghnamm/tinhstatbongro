@@ -98,7 +98,7 @@ export function Seg<T extends string | number>({
             <Text
               numberOfLines={1}
               style={{
-                fontFamily: fNum(on ? 700 : 500),
+                ...fUi(on ? 600 : 500),
                 fontSize: m.fsSm,
                 letterSpacing: ls(m.fsSm, LS_LABEL),
                 color: on ? t.accentInk : t.ink2,
@@ -130,7 +130,7 @@ export function Section({
       <Row gap={m.s2}>
         <Text
           style={{
-            fontFamily: fNum(700),
+            ...fUi(600),
             fontSize: m.fsSm,
             letterSpacing: ls(m.fsSm, LS_LABEL),
             color: t.ink2,
@@ -144,7 +144,7 @@ export function Section({
             style={{
               marginLeft: 'auto',
               flexShrink: 1,
-              fontFamily: fUi(500),
+              ...fUi(500),
               fontSize: m.fsXs,
               color: t.ink3,
             }}
@@ -191,7 +191,7 @@ export function Band({
       <Text
         numberOfLines={1}
         style={{
-          fontFamily: fNum(tone ? 700 : 500),
+          ...fUi(tone ? 600 : 500),
           fontSize: m.fsXs,
           letterSpacing: ls(m.fsXs, LS_MICRO),
           color: tone ?? t.ink2,
@@ -311,7 +311,7 @@ export function Line({
         style={{
           flex: 1,
           minWidth: 0,
-          fontFamily: head ? fNum(500) : fUi(strong ? 700 : 500),
+          ...(head ? fUi(500) : fUi(strong ? 600 : 400)),
           fontSize: head ? m.fsXs : m.fsSm,
           letterSpacing: head ? ls(m.fsXs, LS_MICRO) : 0,
           color: head ? t.ink2 : t.ink,
@@ -326,7 +326,7 @@ export function Line({
           flexShrink: 0,
           minWidth: m.fsSm * 4.4,
           textAlign: 'right',
-          fontFamily: head ? fNum(500) : fNum(700),
+          ...(head ? fNum(500) : fNum(700)),
           fontSize: head ? m.fsXs : m.fsMd,
           letterSpacing: head ? ls(m.fsXs, LS_MICRO) : 0,
           color: head ? t.ink2 : (tone ?? t.ink),
@@ -342,7 +342,7 @@ export function Line({
           flexShrink: 0,
           width: m.fsSm * 3.6,
           textAlign: 'right',
-          fontFamily: fNum(500),
+          ...fNum(500),
           fontSize: head ? m.fsXs : m.fsSm,
           letterSpacing: head ? ls(m.fsXs, LS_MICRO) : 0,
           color: t.ink2,
@@ -393,7 +393,7 @@ export function Tile({
       <Text
         numberOfLines={1}
         style={{
-          fontFamily: fNum(700),
+          ...fNum(700),
           fontSize: m.fsXl,
           letterSpacing: ls(m.fsXl, LS_TIGHT),
           lineHeight: m.fsXl * 1.1,
@@ -407,7 +407,7 @@ export function Tile({
         numberOfLines={1}
         style={{
           // the light half of the pair — see the lobby's own `Stat` cell
-          fontFamily: fUi(400),
+          ...fUi(400),
           fontSize: m.fsXs,
           letterSpacing: ls(m.fsXs, LS_MICRO),
           color: t.ink2,
@@ -433,7 +433,7 @@ export function Empty({ children }: { children: string }) {
       style={{
         paddingVertical: m.s6,
         textAlign: 'center',
-        fontFamily: fNum(500),
+        ...fUi(500),
         fontSize: m.fsMd,
         letterSpacing: ls(m.fsMd, LS_BTN),
         color: t.ink3,
@@ -465,7 +465,7 @@ export function Key({ color, label, ring = false }: { color: string; label: stri
       />
       <Text
         style={{
-          fontFamily: fUi(500),
+          ...fUi(500),
           fontSize: m.fsXs,
           letterSpacing: ls(m.fsXs, LS_MICRO),
           color: t.ink2,

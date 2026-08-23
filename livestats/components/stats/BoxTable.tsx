@@ -41,7 +41,7 @@ interface Col {
 const BASE: Col[] = [
   { key: 'GS', w: 30 },
   { key: '#', w: 34 },
-  { key: 'PLAYER', w: 118, left: true },
+  { key: 'Player', w: 118, left: true },
 ];
 
 const REST: Col[] = [
@@ -143,7 +143,7 @@ export function BoxTable({
             paddingVertical: m.s2,
             paddingHorizontal: 4,
             textAlign: cols[i].left ? 'left' : 'right',
-            fontFamily: cols[i].left ? fUi(opts.total ? 700 : 600) : fNum(opts.total ? 700 : 500),
+            ...(cols[i].left ? fUi(opts.total ? 700 : 600) : fNum(opts.total ? 700 : 500)),
             fontSize: m.fsSm,
             color: opts.dq ? t.danger : i === 0 ? t.ink2 : t.ink,
             fontVariant: ['tabular-nums'],
@@ -220,7 +220,7 @@ export function BoxTable({
         backgroundColor: t.surface2,
       }}
     >
-      {rowCells(['', '', 'TEAM', ...(gamesFor ? [''] : []), ...totalCells(team)], { total: true })}
+      {rowCells(['', '', 'Team', ...(gamesFor ? [''] : []), ...totalCells(team)], { total: true })}
     </View>
   );
 
@@ -238,7 +238,7 @@ export function BoxTable({
                   paddingVertical: m.s2,
                   paddingHorizontal: 4,
                   textAlign: c.left ? 'left' : 'right',
-                  fontFamily: fNum(500),
+                  ...fUi(500),
                   fontSize: m.fsXs,
                   letterSpacing: ls(m.fsXs, LS_MICRO),
                   color: t.ink2,

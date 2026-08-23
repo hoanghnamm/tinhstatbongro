@@ -36,8 +36,8 @@ export function TeamTab({ report, split }: { report: Report; split: Split }) {
   const marginTone = margin > 0 ? t.accent : margin < 0 ? t.danger : undefined;
 
   const shooting = (
-    <Section title="SHOOTING">
-      <Line head label="" value="M-A" sub="PCT" />
+    <Section title="Shooting">
+      <Line head label="" value="M-A" sub="Pct" />
       <Line label="Field goals" value={`${T.fgm}-${T.fga}`} sub={pct(T.fgm, T.fga)} />
       <Line label="2 points" value={`${T.twom}-${T.twoa}`} sub={pct(T.twom, T.twoa)} />
       <Line label="3 points" value={`${T.tpm}-${T.tpa}`} sub={pct(T.tpm, T.tpa)} />
@@ -48,8 +48,8 @@ export function TeamTab({ report, split }: { report: Report; split: Split }) {
   );
 
   const ball = (
-    <Section title="REBOUNDS AND BALL">
-      <Line head label="" value="TOTAL" sub="" />
+    <Section title="Rebounds and ball">
+      <Line head label="" value="Total" sub="" />
       <Line label="Offensive rebounds" value={T.oreb} />
       <Line label="Defensive rebounds" value={T.dreb} />
       <Line label="Total rebounds" value={T.reb} strong />
@@ -65,8 +65,8 @@ export function TeamTab({ report, split }: { report: Report; split: Split }) {
   );
 
   const scoring = (
-    <Section title="WHERE THE POINTS CAME FROM">
-      <Line head label="" value="PTS" sub="OF" />
+    <Section title="Where the points came from">
+      <Line head label="" value="PTS" sub="Of" />
       <Line label="Points" value={report.us} strong />
       <Line label="Points in the paint" value={a.paint} sub={pct(a.paint, report.us)} />
       <Line label="Second chance points" value={a.secondChance} sub={pct(a.secondChance, report.us)} />
@@ -77,8 +77,8 @@ export function TeamTab({ report, split }: { report: Report; split: Split }) {
   );
 
   const board = (
-    <Section title="THE SCOREBOARD">
-      <Line head label="" value="US" sub="THEM" />
+    <Section title="The scoreboard">
+      <Line head label="" value="Us" sub="Them" />
       <Line label="Biggest lead" value={a.biggestLead} sub={String(a.oppBiggestLead)} />
       <Line label="Biggest scoring run" value={a.biggestRun} sub={String(a.oppBiggestRun)} />
       <Line label="Lead changes" value={a.leadChanges} />
@@ -97,7 +97,7 @@ export function TeamTab({ report, split }: { report: Report; split: Split }) {
     <View>
       <View style={{ marginBottom: m.spLg }}>
         <Seam>
-          <Tile value={report.us} label="POINTS" tone={margin > 0 ? t.accent : undefined} />
+          <Tile value={report.us} label="Points" tone={margin > 0 ? t.accent : undefined} />
           <Tile value={pct(T.fgm, T.fga)} label="FG%" />
           <Tile value={pct(T.tpm, T.tpa)} label="3P%" />
           <Tile value={pct(T.ftm, T.fta)} label="FT%" />

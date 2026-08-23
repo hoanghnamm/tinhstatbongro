@@ -6,7 +6,7 @@ import { useGameStore } from '../../store/gameStore';
 import { dockFooterOverlap, useLitRect, useMeasure, useRects } from '../../store/layoutStore';
 import { useUiStore } from '../../store/uiStore';
 import { useMetrics } from '../../theme/metrics';
-import { LS_BTN, LS_TIGHT, LS_TITLE, fNum, ls } from '../../theme/tokens';
+import { LS_BTN, LS_TIGHT, LS_TITLE, fNum, fUi, ls } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 import { isDocked } from '../panels/placement';
 import { Press } from '../ui/Press';
@@ -106,8 +106,11 @@ export function Footer() {
     paddingHorizontal: m.s1,
   };
 
+  // A VERB IN THE CORNER IS A WORD, so it is the body face and it is not
+  // shouted. It was `fNum` in caps, which is what every label in this app used
+  // to be — a number's face on a word, set as if the row were an alarm.
   const navText = {
-    fontFamily: fNum(600),
+    ...fUi(600),
     fontSize: m.fsNav,
     letterSpacing: ls(m.fsNav, LS_BTN),
   };
@@ -138,7 +141,7 @@ export function Footer() {
           pressedStyle={{ backgroundColor: t.press }}
         >
           <Text numberOfLines={1} style={{ ...navText, color: t.ink }}>
-            UNDO
+            Undo
           </Text>
         </Press>
 
@@ -170,7 +173,7 @@ export function Footer() {
             <Text
               numberOfLines={1}
               style={{
-                fontFamily: fNum(700),
+                ...fNum(700),
                 fontSize: m.fsFtr,
                 letterSpacing: ls(m.fsFtr, LS_TIGHT),
                 // the clock's state, in ink rather than in a fill — and the ink
@@ -214,7 +217,7 @@ export function Footer() {
             <Text
               numberOfLines={1}
               style={{
-                fontFamily: fNum(600),
+                ...fUi(600),
                 // the same step as the score and the clock: the three numbers
                 // in the middle read as one row, and the quarter no longer
                 // looks like a caption for the two beside it. The weight is
@@ -226,7 +229,7 @@ export function Footer() {
                 fontVariant: ['tabular-nums'],
               }}
             >
-              {ord(period).toUpperCase()}
+              {ord(period)}
             </Text>
           </Press>
         </View>
@@ -249,14 +252,14 @@ export function Footer() {
             ellipsizeMode="clip"
             style={{ ...navText, flexShrink: 1, minWidth: 0, color: t.ink }}
           >
-            POSS
+            Poss
           </Text>
           <Text
             numberOfLines={1}
             style={{
               flexGrow: 0,
               flexShrink: 0,
-              fontFamily: fNum(700),
+              ...fNum(700),
               fontSize: m.fsNavLg,
               color: t.accent,
               fontVariant: ['tabular-nums'],

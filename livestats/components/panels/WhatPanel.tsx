@@ -3,7 +3,7 @@ import { Text, View } from 'react-native';
 import { useAnnounce } from '../../hooks/useAnnounce';
 import { useUiStore } from '../../store/uiStore';
 import { useMetrics } from '../../theme/metrics';
-import { LS_TITLE, fNum, ls } from '../../theme/tokens';
+import { LS_TITLE, fUi, ls } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 import { Press } from '../ui/Press';
 import { CancelX, PHead, PTitleText } from './shell';
@@ -60,9 +60,9 @@ export function WhatPanel() {
       <Text
         numberOfLines={1}
         style={{
-          fontFamily: fNum(700),
-          fontSize: m.fs2xl,
-          letterSpacing: ls(m.fs2xl, LS_TITLE),
+          ...fUi(600),
+          fontSize: m.fsXl,
+          letterSpacing: ls(m.fsXl, LS_TITLE),
           textAlign: 'center',
           color: made ? t.accentInk : t.ink,
         }}
@@ -75,7 +75,7 @@ export function WhatPanel() {
   return (
     <>
       <PHead>
-        <PTitleText>{shotType} SHOT</PTitleText>
+        <PTitleText>{shotType} shot</PTitleText>
         <CancelX label="" />
       </PHead>
       {/* 1px seams over the rule colour, exactly like the tile grid */}
@@ -88,8 +88,8 @@ export function WhatPanel() {
           backgroundColor: t.rule,
         }}
       >
-        {tile('MADE', true)}
-        {tile('MISS', false)}
+        {tile('Made', true)}
+        {tile('Miss', false)}
       </View>
     </>
   );

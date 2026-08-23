@@ -21,7 +21,7 @@ export function FoulKindPanel() {
   return (
     <>
       <PHead>
-        <PTitleText>PERSONAL FOUL</PTitleText>
+        <PTitleText>Personal foul</PTitleText>
         <CancelX />
       </PHead>
       <PGrid columns={2}>

@@ -16,7 +16,7 @@ export function RemovePlayerPanel({ playerId }: { playerId: string }) {
   const remove = useRosterStore((s) => s.remove);
   const reset = useUiStore((s) => s.reset);
 
-  const title = player ? `REMOVE #${player.number} ${player.name}?` : 'REMOVE PLAYER?';
+  const title = player ? `Remove #${player.number} ${player.name}?` : 'Remove player?';
   useAnnounce(title);
 
   return (
@@ -24,9 +24,9 @@ export function RemovePlayerPanel({ playerId }: { playerId: string }) {
       <PTitle title={title} />
       <Note>A game already in progress keeps them. This only changes the team.</Note>
       <Row mt>
-        <Btn label="CANCEL" onPress={reset} />
+        <Btn label="Cancel" onPress={reset} />
         <Btn
-          label="REMOVE"
+          label="Remove"
           variant="danger"
           onPress={() => {
             remove(playerId);

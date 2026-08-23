@@ -5,8 +5,8 @@
  * to fill them from the same pair of strings:
  *
  *   short  DF
- *   full   DEFENSIVE
- *   both   DF over DEFENSIVE
+ *   full   Defensive
+ *   both   DF over Defensive
  *
  * FULL is the default and the reason this exists: the abbreviations are the
  * scorebook's, not the scorer's, and a board that answers "which foul was it"

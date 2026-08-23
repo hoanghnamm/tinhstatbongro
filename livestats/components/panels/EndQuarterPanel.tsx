@@ -51,19 +51,19 @@ export function EndQuarterPanel() {
       <PRows
         rows={[
           [
-            <Tile key="dn" code="−1s" caption="SECOND" onPress={() => adjustClock(-1)} />,
-            <Tile key="up" code="+1s" caption="SECOND" onPress={() => adjustClock(1)} />,
+            <Tile key="dn" code="−1s" caption="Second" onPress={() => adjustClock(-1)} />,
+            <Tile key="up" code="+1s" caption="Second" onPress={() => adjustClock(1)} />,
             <Tile
               key="set"
-              code="SET"
-              caption="THE TIME"
+              code="Set"
+              caption="The time"
               onPress={() => open({ kind: 'setClock' })}
             />,
           ],
           [
             <Tile
               key="qt"
-              code="END"
+              code="End"
               caption={periodWord(period, periods)}
               onPress={() => {
                 nextQuarter();
@@ -74,8 +74,8 @@ export function EndQuarterPanel() {
             // red, and still only an opener: END GAME keeps its confirm panel
             <Tile
               key="gm"
-              code="END"
-              caption="GAME"
+              code="End"
+              caption="Game"
               tone="danger"
               onPress={() => open({ kind: 'endGame' })}
             />,

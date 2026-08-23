@@ -27,7 +27,6 @@ import {
   LS_LABEL,
   LS_MICRO,
   LS_TITLE,
-  fNum,
   fUi,
   isTranslucent,
   ls,
@@ -35,11 +34,11 @@ import {
 import { useTheme } from '../../theme/useTheme';
 
 const MODES: SegItem<SeasonMode>[] = [
-  { key: 'totals', label: 'TOTALS' },
-  { key: 'perGame', label: 'PER GAME' },
+  { key: 'totals', label: 'Totals' },
+  { key: 'perGame', label: 'Per game' },
 ];
 
-const gamesLabel = (n: number): string => `${n} GAME${n === 1 ? '' : 'S'}`;
+const gamesLabel = (n: number): string => `${n} game${n === 1 ? '' : 's'}`;
 
 /** `4-2` win-loss record. */
 const record = (s: Season): string => `${s.wins}-${s.losses}`;
@@ -119,7 +118,7 @@ function CompCard({ comp, onPress }: { comp: CompetitionSeason; onPress(): void 
             <Text
               numberOfLines={1}
               style={{
-                fontFamily: fNum(700),
+                ...fUi(600),
                 fontSize: m.fsXs,
                 letterSpacing: ls(m.fsXs, LS_MICRO),
                 color: t.ink,
@@ -130,9 +129,9 @@ function CompCard({ comp, onPress }: { comp: CompetitionSeason; onPress(): void 
           }
         />
         <Seam>
-          <Tile value={avg(S.team.pts, S.games)} label="POINTS" />
-          <Tile value={avg(S.team.reb, S.games)} label="REBOUNDS" />
-          <Tile value={avg(S.team.ast, S.games)} label="ASSISTS" />
+          <Tile value={avg(S.team.pts, S.games)} label="Points" />
+          <Tile value={avg(S.team.reb, S.games)} label="Rebounds" />
+          <Tile value={avg(S.team.ast, S.games)} label="Assists" />
         </Seam>
       </Press>
     </View>
@@ -224,13 +223,13 @@ export default function SeasonScreen() {
           numberOfLines={1}
           style={{
             flexShrink: 1,
-            fontFamily: fNum(700),
+            ...fUi(700),
             fontSize: m.fsXl,
             letterSpacing: ls(m.fsXl, LS_TITLE),
             color: t.ink,
           }}
         >
-          SEASON
+          Season
         </Text>
       </Row>
 
@@ -238,26 +237,26 @@ export default function SeasonScreen() {
         <Col align="center" justify="center" gap={m.s2} style={{ flex: 1 }}>
           <Text
             style={{
-              fontFamily: fNum(500),
+              ...fUi(500),
               fontSize: m.fsMd,
               letterSpacing: ls(m.fsMd, LS_LABEL),
               color: t.ink3,
             }}
           >
-            {empty ? 'NO GAMES YET' : 'NO OFFICIAL GAMES YET'}
+            {empty ? 'No games yet' : 'No official games yet'}
           </Text>
           <Text
             style={{
               paddingHorizontal: m.s4,
               textAlign: 'center',
-              fontFamily: fUi(400),
+              ...fUi(400),
               fontSize: m.fsSm,
               color: t.ink3,
             }}
           >
             {empty
               ? 'End a game and its line is added here.'
-              : 'A practice keeps its own box score and stays off the season. Start a game as OFFICIAL and it lands here.'}
+              : 'A practice keeps its own box score and stays off the season. Start a game as official and it lands here.'}
           </Text>
         </Col>
       ) : (
@@ -300,13 +299,13 @@ export default function SeasonScreen() {
               style={{
                 paddingVertical: m.s6,
                 textAlign: 'center',
-                fontFamily: fNum(500),
+                ...fUi(500),
                 fontSize: m.fsMd,
                 letterSpacing: ls(m.fsMd, LS_LABEL),
                 color: t.ink3,
               }}
             >
-              READING {index.length} GAME{index.length === 1 ? '' : 'S'}…
+              Reading {index.length} game{index.length === 1 ? '' : 's'}…
             </Text>
           )}
         </ScrollView>

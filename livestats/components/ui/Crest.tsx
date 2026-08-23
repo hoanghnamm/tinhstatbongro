@@ -72,7 +72,7 @@ export function Crest({
           // Anton the wordmark and the club headline are set in, and the third
           // and last thing `fDisplay` is spent on. Two initials in the body
           // face is a label in a circle; in the display face it is a badge.
-          fontFamily: fDisplay(),
+          ...fDisplay(),
           fontSize: fs,
           lineHeight: fs * 1.2,
           letterSpacing: ls(fs, LS_BTN),

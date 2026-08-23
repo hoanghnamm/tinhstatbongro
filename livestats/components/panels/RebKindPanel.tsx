@@ -23,12 +23,12 @@ export function RebKindPanel() {
   return (
     <>
       <PHead>
-        <PTitleText>REBOUND</PTitleText>
+        <PTitleText>Rebound</PTitleText>
         <CancelX />
       </PHead>
       <PGrid columns={2}>
-        <StatTile short="DR" full="DEFENSIVE" big selected={what === 'dreb'} onPress={pick('dreb')} />
-        <StatTile short="OR" full="OFFENSIVE" big selected={what === 'oreb'} onPress={pick('oreb')} />
+        <StatTile short="DR" full="Defensive" big selected={what === 'dreb'} onPress={pick('dreb')} />
+        <StatTile short="OR" full="Offensive" big selected={what === 'oreb'} onPress={pick('oreb')} />
       </PGrid>
     </>
   );

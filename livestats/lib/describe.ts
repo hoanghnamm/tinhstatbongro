@@ -5,28 +5,29 @@ import type { GameEvent, Player } from '../types';
 export function describe(ev: GameEvent, byId: (id: string) => Player | undefined): string {
   switch (ev.type) {
     case 'oppPoint':
-      return 'OPPONENT +' + (ev.value || 1);
+      return 'Opponent +' + (ev.value || 1);
     case 'foulDrawn':
-      return 'FOUL DRAWN';
+      return 'Foul drawn';
     case 'shot':
       return (
         ev.shotType +
-        (ev.result === 'made' ? ' MADE' : ' MISSED') +
+        (ev.result === 'made' ? ' made' : ' missed') +
         (ev.shotNote ? ' (' + ev.shotNote + ')' : '')
       );
     case 'freeThrow':
-      return (ev.andOne ? 'AND-1 FT ' : 'FT ') + (ev.result === 'made' ? 'MADE' : 'MISSED');
+      return (ev.andOne ? 'And-1 FT ' : 'FT ') + (ev.result === 'made' ? 'made' : 'missed');
     case 'assist':
-      return 'ASSIST';
+      return 'Assist';
     case 'rebound':
-      return ev.reboundType === 'offensive' ? 'OFF REB' : 'DEF REB';
+      return ev.reboundType === 'offensive' ? 'Off reb' : 'Def reb';
     case 'foul':
-      return (FOUL_KINDS[ev.foulKind] ?? FOUL_KINDS.personal).label + ' FOUL';
+      return (FOUL_KINDS[ev.foulKind] ?? FOUL_KINDS.personal).label + ' foul';
     case 'foulOut':
-      return 'FOULED OUT';
+      return 'Fouled out';
     case 'substitution':
-      return 'SUB IN for #' + (byId(ev.outPlayerId)?.number ?? '?');
+      return 'Sub in for #' + (byId(ev.outPlayerId)?.number ?? '?');
     default:
-      return ev.type.toUpperCase(); // turnover / steal / block
+      // turnover / steal / block — a word, capitalised like every other one
+      return ev.type.charAt(0).toUpperCase() + ev.type.slice(1);
   }
 }

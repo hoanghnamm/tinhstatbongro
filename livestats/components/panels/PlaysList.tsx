@@ -2,7 +2,7 @@ import { Text, View } from 'react-native';
 
 import { describe } from '../../lib/describe';
 import { useMetrics } from '../../theme/metrics';
-import { fNum } from '../../theme/tokens';
+import { fNum, fUi } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 import { Empty } from './shell';
 import type { GameEvent, Player } from '../../types';
@@ -44,7 +44,7 @@ export function PlaysList({ events, players }: { events: GameEvent[]; players: P
           >
             <Text
               style={{
-                width: tcol, paddingLeft: 4, fontFamily: fNum(500),
+                width: tcol, paddingLeft: 4, ...fNum(500),
                 fontSize: m.fsMd, color: t.ink2, fontVariant: ['tabular-nums'],
               }}
             >
@@ -55,16 +55,16 @@ export function PlaysList({ events, players }: { events: GameEvent[]; players: P
                 minWidth: ncol, textAlign: 'center', borderRadius: 99,
                 paddingVertical: 2, paddingHorizontal: m.sp * 0.9,
                 backgroundColor: t.ink, color: t.surface,
-                fontFamily: fNum(700), fontSize: m.fsSm, overflow: 'hidden',
+                ...fNum(700), fontSize: m.fsSm, overflow: 'hidden',
               }}
             >
-              {p ? p.number : 'OPP'}
+              {p ? p.number : 'Opp'}
             </Text>
-            <Text style={{ flex: 1, fontFamily: fNum(600), fontSize: m.fsMd, color: t.ink }}>
+            <Text style={{ flex: 1, ...fUi(500), fontSize: m.fsSm, color: t.ink }}>
               {describe(ev, byId)}
             </Text>
             <Text
-              style={{ paddingRight: 4, fontFamily: fNum(700), fontSize: m.fsMd, color: t.accent }}
+              style={{ paddingRight: 4, ...fNum(700), fontSize: m.fsMd, color: t.accent }}
             >
               {value ? '+' + value : ''}
             </Text>

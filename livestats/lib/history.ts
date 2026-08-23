@@ -142,7 +142,7 @@ export function reviveGame(raw: unknown): GameState | null {
   const g = raw as Partial<GameState>;
   if (!Array.isArray(g.players) || !Array.isArray(g.events)) return null;
   return {
-    team: g.team ?? { name: 'MY TEAM' },
+    team: g.team ?? { name: 'My Team' },
     // A GAME FROM BEFORE THE TWO KINDS IS OFFICIAL, deliberately: the season
     // counted it when it was saved, and a migration that quietly dropped a
     // month of games out of the season line would be the worse surprise.

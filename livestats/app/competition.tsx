@@ -15,12 +15,12 @@ import { efg, ts } from '../lib/stats';
 import { competitionLabel } from '../lib/team';
 import { useRosterStore } from '../store/rosterStore';
 import { useMetrics } from '../theme/metrics';
-import { LS_LABEL, LS_MICRO, LS_TITLE, fNum, fUi, ls } from '../theme/tokens';
+import { LS_LABEL, LS_MICRO, LS_TITLE, fUi, ls } from '../theme/tokens';
 import { useTheme } from '../theme/useTheme';
 
 const MODES: SegItem<SeasonMode>[] = [
-  { key: 'totals', label: 'TOTALS' },
-  { key: 'perGame', label: 'PER GAME' },
+  { key: 'totals', label: 'Totals' },
+  { key: 'perGame', label: 'Per game' },
 ];
 
 /**
@@ -98,7 +98,7 @@ export default function CompetitionScreen() {
           <Svg width={m.fsLg} height={m.fsLg} viewBox="0 0 24 24">
             <Path
               d="M15 5l-7 7 7 7"
-              stroke={t.ink2}
+              stroke={t.ink}
               strokeWidth={2.2}
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -111,7 +111,7 @@ export default function CompetitionScreen() {
           <Text
             numberOfLines={1}
             style={{
-              fontFamily: fNum(700),
+              ...fUi(700),
               fontSize: m.fsXl,
               letterSpacing: ls(m.fsXl, LS_TITLE),
               color: t.ink,
@@ -122,17 +122,17 @@ export default function CompetitionScreen() {
           <Text
             numberOfLines={1}
             style={{
-              fontFamily: fUi(500),
+              ...fUi(500),
               fontSize: m.fsXs,
               letterSpacing: ls(m.fsXs, LS_MICRO),
               color: t.ink2,
             }}
           >
             {whole
-              ? `${whole.games} GAME${whole.games === 1 ? '' : 'S'} · ${whole.wins}-${whole.losses}`
+              ? `${whole.games} game${whole.games === 1 ? '' : 's'} · ${whole.wins}-${whole.losses}`
               : reading
-                ? 'READING THE SHELF'
-                : 'NOTHING FILED UNDER THIS'}
+                ? 'Reading the shelf'
+                : 'Nothing filed under this'}
           </Text>
         </Col>
       </Row>
@@ -145,23 +145,23 @@ export default function CompetitionScreen() {
         >
           <Col gap={m.s3}>
             <Card>
-              <Band label="THE COMPETITION" />
+              <Band label="The competition" />
               <Col gap={1} style={{ backgroundColor: t.rule }}>
                 <Seam>
-                  <Tile value={whole.games} label="GAMES" />
+                  <Tile value={whole.games} label="Games" />
                   <Tile
                     value={`${whole.wins}-${whole.losses}`}
-                    label="RECORD"
+                    label="Record"
                   />
                   <Tile
                     value={whole.games ? Math.round(whole.team.pts / whole.games) : 0}
-                    label="POINTS / GAME"
+                    label="Points / game"
                   />
                 </Seam>
                 <Seam>
                   <Tile value={pct(whole.team.fgm, whole.team.fga)} label="FG%" />
-                  <Tile value={efg(whole.team)} label="EFFECTIVE FG" />
-                  <Tile value={ts(whole.team)} label="TRUE SHOOTING" />
+                  <Tile value={efg(whole.team)} label="Effective FG" />
+                  <Tile value={ts(whole.team)} label="True shooting" />
                 </Seam>
               </Col>
             </Card>
@@ -175,16 +175,16 @@ export default function CompetitionScreen() {
         <Col align="center" justify="center" gap={m.s2} style={{ flex: 1 }}>
           <Text
             style={{
-              fontFamily: fNum(500),
+              ...fUi(500),
               fontSize: m.fsMd,
               letterSpacing: ls(m.fsMd, LS_LABEL),
               color: t.ink3,
             }}
           >
-            {reading ? 'READING THE SHELF…' : 'NO GAMES HERE'}
+            {reading ? 'Reading the shelf…' : 'No games here'}
           </Text>
           {!reading && (
-            <Text style={{ fontFamily: fUi(400), fontSize: m.fsSm, color: t.ink3 }}>
+            <Text style={{ ...fUi(400), fontSize: m.fsSm, color: t.ink3 }}>
               Every game filed under this competition has been deleted.
             </Text>
           )}

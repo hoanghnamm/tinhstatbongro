@@ -86,8 +86,8 @@ import type { GameKind, RosterPlayer } from '../types';
  * PRACTICE. One tap either way, once a night.
  */
 const KINDS: SegItem<GameKind>[] = [
-  { key: 'practice', label: 'PRACTICE' },
-  { key: 'official', label: 'OFFICIAL' },
+  { key: 'practice', label: 'Practice' },
+  { key: 'official', label: 'Official' },
 ];
 
 /** Two columns start here. The same line `team.tsx` and `RotateGate` draw. */
@@ -104,7 +104,7 @@ function Label({ children, tone }: { children: string; tone?: string }) {
     <Text
       numberOfLines={1}
       style={{
-        fontFamily: fNum(500),
+        ...fUi(500),
         fontSize: m.fsXs,
         letterSpacing: ls(m.fsXs, LS_MICRO),
         color: tone ?? t.ink2,
@@ -198,7 +198,7 @@ function PlayerRow({
           style={{
             flexShrink: 1,
             minWidth: 0,
-            fontFamily: fUi(600),
+            ...fUi(600),
             fontSize: m.fsMd,
             color: t.ink,
           }}
@@ -207,7 +207,7 @@ function PlayerRow({
         </Text>
         {starting && (
           <View style={{ marginLeft: 'auto', flexGrow: 0, flexShrink: 0 }}>
-            <Label tone={t.accent}>STARTER</Label>
+            <Label tone={t.accent}>Starter</Label>
           </View>
         )}
       </Press>
@@ -274,13 +274,13 @@ function Chip({ label, onPress }: { label: string; onPress(): void }) {
       <Text
         numberOfLines={1}
         style={{
-          fontFamily: fNum(500),
+          ...fUi(500),
           fontSize: m.fsXs,
           letterSpacing: ls(m.fsXs, LS_MICRO),
           color: t.ink2,
         }}
       >
-        {label.toUpperCase()}
+        {label}
       </Text>
     </Press>
   );
@@ -334,7 +334,7 @@ function Field({
           minHeight: m.tap,
           padding: 0,
           color: t.ink,
-          fontFamily: fUi(600),
+          ...fUi(600),
           fontSize: m.fsMd,
         }}
       />
@@ -471,7 +471,7 @@ function StartScreen() {
             <Svg width={m.fsLg} height={m.fsLg} viewBox="0 0 24 24">
               <Path
                 d="M15 5l-7 7 7 7"
-                stroke={t.ink2}
+                stroke={t.ink}
                 strokeWidth={2.2}
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -484,13 +484,13 @@ function StartScreen() {
             numberOfLines={1}
             style={{
               flexShrink: 1,
-              fontFamily: fNum(700),
+              ...fUi(700),
               fontSize: m.fsXl,
               letterSpacing: ls(m.fsXl, LS_TITLE),
               color: t.ink,
             }}
           >
-            NEW GAME
+            New game
           </Text>
         </Row>
 
@@ -508,13 +508,13 @@ function StartScreen() {
               numberOfLines={1}
               style={{
                 flexShrink: 1,
-                fontFamily: fNum(700),
+                ...fUi(600),
                 fontSize: m.fsMd,
                 letterSpacing: ls(m.fsMd, LS_LABEL),
                 color: t.ink2,
               }}
             >
-              STARTING FIVE
+              Starting five
             </Text>
 
             <Text
@@ -522,7 +522,7 @@ function StartScreen() {
                 marginLeft: 'auto',
                 flexGrow: 0,
                 flexShrink: 0,
-                fontFamily: fNum(500),
+                ...fNum(500),
                 fontSize: m.fsMd,
                 color: ready ? t.accent : t.ink2,
                 fontVariant: ['tabular-nums'],
@@ -555,15 +555,15 @@ function StartScreen() {
             <Col align="center" gap={m.s2} style={{ paddingVertical: m.s6 }}>
               <Text
                 style={{
-                  fontFamily: fNum(500),
+                  ...fUi(500),
                   fontSize: m.fsMd,
                   letterSpacing: ls(m.fsMd, LS_LABEL),
                   color: t.ink3,
                 }}
               >
-                NO PLAYERS YET
+                No players yet
               </Text>
-              <Label tone={t.ink3}>ADD THEM ON THE TEAM TAB</Label>
+              <Label tone={t.ink3}>Add them on the team tab</Label>
             </Col>
           )}
 
@@ -577,7 +577,7 @@ function StartScreen() {
               <Seg items={KINDS} value={kind} onChange={(k) => setKind(k)} />
 
               <Card>
-                <Band label="THE MATCH" />
+                <Band label="The match" />
 
                 {/* the competition field is DRAWN ONLY FOR AN OFFICIAL GAME,
                     not merely disabled: a practice is not filed under anything,
@@ -585,7 +585,7 @@ function StartScreen() {
                 {kind === 'official' && (
                   <>
                     <Field
-                      label="LEAGUE"
+                      label="League"
                       value={competition}
                       onChangeText={setCompetition}
                       placeholder="which competition"
@@ -612,14 +612,14 @@ function StartScreen() {
                 )}
 
                 <Field
-                  label="OPPONENT"
+                  label="Opponent"
                   value={opponent}
                   onChangeText={setOpponent}
                   placeholder="who you are playing"
                   maxLength={OPPONENT_MAX}
                 />
                 <Field
-                  label="NOTE"
+                  label="Note"
                   value={note}
                   onChangeText={setNote}
                   placeholder="round, venue, anything"
@@ -641,20 +641,20 @@ function StartScreen() {
             style={{
               marginTop: m.s2,
               textAlign: 'center',
-              fontFamily: fNum(500),
-              fontSize: m.fsXs,
-              letterSpacing: ls(m.fsXs, LS_MICRO),
+              ...fUi(500),
+              fontSize: m.fsSm,
+              letterSpacing: ls(m.fsSm, LS_LABEL),
               color: t.danger,
             }}
           >
-            NAME THE COMPETITION, OR MARK IT A PRACTICE
+            Name the competition, or mark it a practice
           </Text>
         )}
 
         <BtnRow mt>
           {/* the same lit fill the lobby's NEW GAME wears — one verb, two
               screens, and this is the second half of it */}
-          <Btn label="START GAME" variant="bloom" disabled={!ready} onPress={start} />
+          <Btn label="Start game" variant="bloom" disabled={!ready} onPress={start} />
         </BtnRow>
       </View>
 

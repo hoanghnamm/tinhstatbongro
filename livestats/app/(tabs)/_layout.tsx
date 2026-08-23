@@ -5,7 +5,7 @@ import { Tabs } from 'expo-router';
 import { Icon, Label, NativeTabs, VectorIcon } from '../../components/nav/nativeTabs';
 import { DarkRoom } from '../../components/ui/DarkRoom';
 import { useMetrics } from '../../theme/metrics';
-import { LS_LABEL, LS_MICRO, fNum, ls } from '../../theme/tokens';
+import { LS_LABEL, fUi, ls } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 
 /**
@@ -90,17 +90,17 @@ type Route = keyof typeof ICON;
 
 /** The route table both bars are built from, so the two cannot drift. */
 const TABS: { name: Route; title: string }[] = [
-  { name: 'index', title: 'LOBBY' },
-  { name: 'matches', title: 'MATCHES' },
-  { name: 'season', title: 'STATS' },
-  { name: 'team', title: 'TEAM' },
+  { name: 'index', title: 'Lobby' },
+  { name: 'matches', title: 'Matches' },
+  { name: 'season', title: 'Stats' },
+  { name: 'team', title: 'Team' },
 ];
 
 function GlassTabs() {
   const m = useMetrics();
   const t = useTheme();
 
-  const label = { fontFamily: fNum(600), fontSize: m.fsXs };
+  const label = { ...fUi(500), fontSize: m.fsXs };
 
   return (
     <NativeTabs
@@ -152,9 +152,9 @@ function JsTabs() {
           borderTopColor: t.rule,
         },
         tabBarLabelStyle: {
-          fontFamily: fNum(600),
+          ...fUi(500),
           fontSize: m.fsXs,
-          letterSpacing: ls(m.fsXs, LS_MICRO),
+          letterSpacing: ls(m.fsXs, LS_LABEL),
         },
         // THE SCENE IS PAINTED HERE NOW, and it has to be: the shell in
         // `app/_layout.tsx` paints the LIGHT canvas, which is right for the

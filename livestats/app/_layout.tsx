@@ -47,18 +47,18 @@ function Root() {
 
 export default function RootLayout() {
   /**
-   * ANTON ON BOTH, INTER ON ANDROID ONLY. The BODY type is Helvetica Neue,
-   * which is an Apple system face: it needs no loading and cannot be bundled.
-   * Inter is what Android draws instead — see `fUi`/`fNum` — so those four are
-   * loaded on both platforms rather than behind a branch, because a
-   * conditional hook is worse than four unused faces on a phone that has them
-   * cached anyway. ANTON is the exception in both directions: it is bundled,
-   * and it is drawn on iOS too, because a wordmark that changes shape between
-   * two phones is not a wordmark. See `fDisplay`.
+   * ANTON ON BOTH, INTER ON ANDROID ONLY. The BODY type is the SYSTEM face —
+   * San Francisco on iOS, which needs no loading and cannot be bundled. Inter
+   * is what Android draws instead — see `fUi`/`fNum` — so those four are loaded
+   * on both platforms rather than behind a branch, because a conditional hook
+   * is worse than four unused faces on a phone that has them cached anyway.
+   * ANTON is the exception in both directions: it is bundled, and it is drawn
+   * on iOS too, because a wordmark that changes shape between two phones is not
+   * a wordmark. See `fDisplay`.
    */
   const [ready] = useFonts({
     // the one face that is loaded because it is USED on both platforms: the
-    // wordmark, the club headline and the crest's monogram — see `fDisplay`
+    // wordmark and the crest's monogram, and nothing else — see `fDisplay`
     Anton_400Regular,
     Inter_400Regular,
     Inter_500Medium,
