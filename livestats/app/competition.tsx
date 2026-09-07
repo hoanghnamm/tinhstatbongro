@@ -6,8 +6,12 @@ import Svg, { Path } from 'react-native-svg';
 
 import { SeasonTable } from '../components/stats/SeasonTable';
 import { Band, Card, Seam, Seg, Tile, type SegItem } from '../components/stats/parts';
+import { Bloom } from '../components/ui/Bloom';
+import { Locked } from '../components/ui/Locked';
+import { DarkRoom } from '../components/ui/DarkRoom';
 import { Press } from '../components/ui/Press';
 import { Col, Row } from '../components/ui/Row';
+import { useLocked } from '../hooks/useGate';
 import { useSavedGames } from '../hooks/useSavedGames';
 import { pct } from '../lib/format';
 import { competitions, season, type SeasonMode } from '../lib/season';
@@ -40,8 +44,15 @@ const MODES: SegItem<SeasonMode>[] = [
  *
  * It is outside the tab group for the reason `history/[id]` is: a place you go
  * INTO from a card and come back out of gets a back button, not a fifth tab.
+ *
+ * IT IS DARK, LIKE THE ROOM IT IS OPENED FROM. This is a SEASON card opened
+ * up, and a light page between two dark ones was the app blinking once on the
+ * way through — the same argument that took `start`, `settings` and a player's
+ * own page onto `DarkRoom`. It draws the `<Bloom />` those rooms draw, on the
+ * same ground, so a room and the page under it are one building. Nothing needed
+ * a colour changed: every value on it was already a token.
  */
-export default function CompetitionScreen() {
+function CompetitionScreen() {
   const m = useMetrics();
   const t = useTheme();
   const safe = useSafeAreaInsets();
@@ -49,6 +60,7 @@ export default function CompetitionScreen() {
   const { key = '' } = useLocalSearchParams<{ key?: string }>();
   const roster = useRosterStore((s) => s.players);
   const games = useSavedGames();
+  const gated = useLocked('season');
 
   const [mode, setMode] = useState<SeasonMode>('totals');
 
@@ -79,6 +91,8 @@ export default function CompetitionScreen() {
         paddingRight: safe.right + m.s4,
       }}
     >
+      <Bloom />
+
       <Row gap={m.s2} style={{ minHeight: m.tap, flexGrow: 0, flexShrink: 0 }}>
         <Press
           onPress={() => router.back()}
@@ -137,7 +151,17 @@ export default function CompetitionScreen() {
         </Col>
       </Row>
 
-      {S && whole ? (
+      {/* REACHED BY DEEP LINK, THIS PAGE GUARDS ITSELF. Both routes into it —
+          the lobby's LEAGUE block and the STATS tab's cards — already check
+          the gate, so this branch fires only for a link that skipped them. It
+          is here anyway: a page that trusts its callers is a page that is one
+          new caller away from being a hole in the wall. The HEADER above
+          stays drawn, so the back arrow is still there to leave by. */}
+      {gated ? (
+        <Col justify="center" style={{ flex: 1 }}>
+          <Locked gate="season" blurb="Every game in this competition added up, and each player's line across it." />
+        </Col>
+      ) : S && whole ? (
         <ScrollView
           style={{ flex: 1, marginTop: m.s3 }}
           showsVerticalScrollIndicator={false}
@@ -191,5 +215,14 @@ export default function CompetitionScreen() {
         </Col>
       )}
     </View>
+  );
+}
+
+/** The palette and the status bar, from the same wrapper the tab group uses. */
+export default function Competition() {
+  return (
+    <DarkRoom>
+      <CompetitionScreen />
+    </DarkRoom>
   );
 }

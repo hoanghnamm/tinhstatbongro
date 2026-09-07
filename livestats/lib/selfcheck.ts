@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
-import { FOULS, FOUL_KINDS, FOUL_MENU, PERIOD_LEN, REG_PERIODS, SEED_ROSTER, TALLY_TILES, seedRoster, zeroStats } from '../constants/game';
+import { FOULS, FOUL_KINDS, FOUL_MENU, PERIOD_LEN, REG_PERIODS, SEED_ROSTER, TALLY_TILES, zeroStats } from '../constants/game';
 import { DEFAULT_OPTIONS } from '../constants/options';
 import * as A from '../lib/actions';
 import { COURT_LINES, FT_SPOT, ZONE_PATHS, shotTypeFor, zoneFor, zoneSide } from './court';
@@ -29,6 +29,43 @@ import { gridFor } from './grid';
 import { advancedFor, linesFor, periodsOf, report, scoreline, shotsIn } from './box';
 import { gameReportHtml, periodScores, reportFileName, reportTitle } from './pdf';
 import { tileWords } from './labels';
+import { BENEFITS, DEFAULT_PLAN, GATE_PITCH, GATES, PLANS, locked, vnd } from './billing';
+import {
+  BOARD_STEPS,
+  INTRO_COPY,
+  INTRO_STEPS,
+  TRIAL_GIVES,
+} from '../constants/intro';
+import {
+  PANEL_TARGETS,
+  TARGETS,
+  TUTORIAL_BOARD,
+  TUTORIAL_COPY,
+  TUTORIAL_FOULED_OUT,
+  TUTORIAL_SQUAD,
+  TUTORIAL_STARTERS,
+  TUTORIAL_STEPS,
+  stepApplies,
+} from '../constants/tutorial';
+import {
+  isDone,
+  spotFor,
+  stepIndex,
+  targetFor,
+  tutorialGame,
+  visibleSteps,
+  wantsPanel,
+  type Watch,
+} from './tutorial';
+import { MODE } from '../components/panels/placement';
+import {
+  BOARD_CHOICES,
+  LABEL_CHOICES,
+  LENGTH_CHOICES,
+  PERIOD_CHOICES,
+  POSS_CHOICES,
+  shapeLabel,
+} from '../constants/options';
 import { DARK, DOT_HUES, DOT_LABEL, PALETTE, dotColor } from '../theme/tokens';
 import { litControl, litPlayerId } from './lit';
 import {
@@ -36,6 +73,9 @@ import {
   competitionsIn,
   pushSummary,
   resultOf,
+  outcomeOf,
+  dayMonthLabel,
+  filterIn,
   reviveGame,
   summarise,
   summaryKind,
@@ -71,7 +111,41 @@ import {
   migrateTeam,
 } from './team';
 import { efficiency, efg, plusMinus, ptsOffSteals, totals, zoneSplits } from './stats';
-import type { GameEvent, GameState, Position, RosterPlayer } from '../types';
+import {
+  AFTER_TIMEOUT,
+  AVG_WINDOW,
+  MIN_RATIO,
+  TEAM_STATS,
+  deltaLabel,
+  netLabel,
+  playerComparison,
+  ratioLabel,
+  teamComparison,
+  teamLine,
+  timeoutRun,
+} from './analysis';
+import type { GameEvent, GameState, Player, Position, RosterPlayer } from '../types';
+
+/**
+ * THE SQUAD EVERY TEST IS PLAYED WITH: eight shirts, five on, three sitting.
+ *
+ * It is NOT `seedRoster()` and that is deliberate. The first-run seed is five
+ * numbered shirts — the smallest roster that can start a game, chosen so the
+ * onboarding's roster step shows a stranger a clean team rather than somebody
+ * else's initials — and five players means no bench, which is half the rules
+ * in this file. What a substitution does is a fact about the RULEBOOK; what a
+ * fresh install happens to seed is a fact about the door. Pinning one to the
+ * other is how a copy change breaks a test about fouling out.
+ */
+const squad = (): Player[] =>
+  [1, 12, 13, 15, 16, 7, 9, 21].map((number, i) => ({
+    id: `p${number}`,
+    number,
+    name: `No. ${number}`,
+    status: i > 4 ? ('bench' as const) : ('active' as const),
+    starter: i <= 4,
+    stats: zeroStats(),
+  }));
 
 const game = (): GameState => ({
   team: { name: 'T' },
@@ -91,7 +165,8 @@ const game = (): GameState => ({
   running: false,
   ended: false,
   possessions: 0,
-  players: seedRoster(),
+  timeouts: 0,
+  players: squad(),
   events: [],
 });
 
@@ -253,9 +328,34 @@ assert.equal(shotTypeFor(396 / 792, 100 / 521), '2PT');
   assert.equal(A.onCourt(g).length, 4, 'out is off the floor');
   assert.equal(A.onBench(g).some((q) => q.id === p.id), false, 'and not on the bench either');
 
-  A.substitute(g, p.id, g.players[5].id);
+  // THE BOARD OWES A SUBSTITUTION the moment somebody is out and there is
+  // anybody to replace them: that is what makes the panel un-dismissible, so
+  // the predicate behind it is checked here rather than in a component.
+  assert.equal(A.owesSub(g), true, 'four on the floor and a bench to fill it from');
+
+  assert.equal(A.substitute(g, p.id, g.players[5].id), true, 'the replacement comes on');
   assert.equal(p.status, 'out', 'substituting a fouled-out player does not bench them');
   assert.equal(g.players[5].status, 'active', 'but the replacement comes on');
+  assert.equal(A.owesSub(g), false, 'and the debt is paid: five on the floor again');
+
+  // A PLAYER WHO IS OUT MAY NOT BE PUT BACK IN THE LINEUP, and that is a rule
+  // rather than a disabled tile: the refusal is total and it logs nothing.
+  const subs = g.events.filter((e) => e.type === 'substitution').length;
+  assert.equal(A.substitute(g, g.players[1].id, p.id), false, 'the disqualified cannot come on');
+  assert.equal(p.status, 'out', 'they are still out');
+  assert.equal(g.players[1].status, 'active', 'and nobody came off for them');
+  assert.equal(
+    g.events.filter((e) => e.type === 'substitution').length,
+    subs,
+    'a refused substitution logs nothing',
+  );
+
+  // the bench runs out, and then the team really is playing short: four on the
+  // floor, nobody who can come on, and a debt the board cannot pay is no debt
+  for (const q of A.onBench(g)) q.status = 'out';
+  A.onCourt(g)[0].status = 'out';
+  assert.equal(A.onCourt(g).length, STARTERS - 1, 'four on the floor');
+  assert.equal(A.owesSub(g), false, 'nobody left to bring on: no substitution is owed');
 }
 
 /* ---- the clock ---------------------------------------------------- */
@@ -392,7 +492,7 @@ assert.equal(shotTypeFor(396 / 792, 100 / 521), '2PT');
       score: 10,
       oppScore: 8,
       period: 4,
-      players: seedRoster(),
+      players: squad(),
       events: [],
     })!;
     assert.equal(old.periods, REG_PERIODS, 'an older saved game was played in quarters');
@@ -409,7 +509,12 @@ assert.equal(shotTypeFor(396 / 792, 100 / 521), '2PT');
 {
   assert.equal(dotColor('orange', PALETTE), PALETTE.accent, 'orange IS the accent');
   assert.equal(dotColor('red', PALETTE), PALETTE.danger);
-  assert.equal(dotColor('teal', PALETTE), PALETTE.live);
+  // TEAL IS RAW AND IS NO LONGER `live`. `live` is the hero photograph's
+  // infield blue since the skin was sampled off the track, so resolving the
+  // TEAL swatch through it would have drawn a blue beside BLUE in the same row
+  // of eight. A swatch is a promise about the dot it draws.
+  assert.notEqual(dotColor('teal', PALETTE), PALETTE.live, 'teal is not the live blue');
+  assert.equal(dotColor('teal', PALETTE), dotColor('teal', DARK), 'and it is one hue on both');
   assert.equal(dotColor('neutral', PALETTE), PALETTE.markMiss, 'white on the light court');
   assert.equal(dotColor('neutral', DARK), DARK.markMiss, 'and warm grey on the dark one');
   assert.notEqual(
@@ -432,6 +537,13 @@ assert.equal(shotTypeFor(396 / 792, 100 / 521), '2PT');
     assert.ok(/^#|^rgba/.test(dotColor(hue, DARK)), `${hue} resolves on the dark palette too`);
   }
   assert.equal(DOT_HUES.length, new Set(DOT_HUES).size, 'and no hue is offered twice');
+  // NOR TWICE UNDER TWO NAMES. Four of the eight resolve through the palette,
+  // so a palette move can quietly land two swatches on one colour — which is
+  // what putting the photograph's blue into `live` did to TEAL and BLUE.
+  for (const p of [PALETTE, DARK]) {
+    const drawn = DOT_HUES.map((h) => dotColor(h, p));
+    assert.equal(drawn.length, new Set(drawn).size, 'no two swatches draw one colour');
+  }
   for (const hue of DOT_HUES) assert.ok(DOT_LABEL[hue], `${hue} has a name to print`);
 }
 
@@ -442,7 +554,23 @@ assert.equal(shotTypeFor(396 / 792, 100 / 521), '2PT');
   A.addPossession(g);
   assert.equal(g.possessions, 2, 'the footer cell is a plain counter');
   assert.equal(g.events.length, 0, 'and it leaves NO event — a possession has no player');
+
+  // THE OTHER HALF OF THE SAME CELL, and ALMOST the same kind of number: a
+  // team counter with no player behind it — but it leaves a MARK, because the
+  // one question worth asking about a timeout is what happened after it, and
+  // that needs a time. See `timeoutRun`; the counter is still what the footer
+  // reads.
+  A.addTimeout(g);
+  assert.equal(g.timeouts, 1, 'the timeout half is a plain counter too');
+  assert.equal(g.events.length, 1, 'and, unlike a possession, it stamps the clock');
+  assert.equal(g.events[0].type, 'timeout');
+  assert.equal(g.events[0].playerId, null, 'a timeout belongs to nobody on the sheet');
+  assert.equal(g.events[0].gameClock, mmss(g.remaining), 'stamped where the clock stood');
+  A.addTimeout(g, -5);
+  assert.equal(g.timeouts, 0, 'and it never goes negative');
+  assert.equal(g.events.length, 1, 'a tap the clamp ate marks nothing');
   assert.equal(g.players[0].stats.points, 0, 'and touches no player stat');
+  assert.equal(totals(linesFor(g, 1)).pts, 0, 'and no box score anywhere hears about it');
 
   // it is in the undo snapshot, which is what makes a mis-tap next to UNDO cost
   // exactly one tap — see gameStore's Snapshot type, which must list it
@@ -521,7 +649,24 @@ assert.equal(shotTypeFor(396 / 792, 100 / 521), '2PT');
     'no two seeded players wear the same number',
   );
 
-  const roster: RosterPlayer[] = SEED_ROSTER.map((p) => ({ ...p }));
+  // THE SEED IS NAMELESS, and the door is why: `app/intro.tsx` shows this
+  // roster to every stranger on their first launch, so a shirt arrives with a
+  // number and nothing else. A blank name is not an error — the row draws
+  // `Player N` as a placeholder.
+  assert.ok(
+    SEED_ROSTER.every((p) => p.name === ''),
+    'the first-run team arrives already named',
+  );
+
+  // eight rather than the seed's five, because five cannot fill a bench and
+  // this block is about what `buildPlayers` does with one — see `squad`
+  const roster: RosterPlayer[] = squad().map((p) => ({
+    id: p.id,
+    number: p.number,
+    name: p.name,
+    available: true,
+  }));
+  const named = roster.map((p) => ({ ...p }));
   const starters = roster.slice(2, 7).map((p) => p.id); // deliberately NOT the first five
   const players = buildPlayers(roster, starters);
 
@@ -553,9 +698,9 @@ assert.equal(shotTypeFor(396 / 792, 100 / 521), '2PT');
   roster[2].number = 99;
   roster.splice(0, 1); // and removed from the team entirely
 
-  assert.equal(g.players[2].name, SEED_ROSTER[2].name, 'a roster edit does not rename a player');
-  assert.equal(g.players[2].number, SEED_ROSTER[2].number, 'nor renumber one');
-  assert.equal(g.players.length, SEED_ROSTER.length, 'nor take one off the floor');
+  assert.equal(g.players[2].name, named[2].name, 'a roster edit does not rename a player');
+  assert.equal(g.players[2].number, named[2].number, 'nor renumber one');
+  assert.equal(g.players.length, named.length, 'nor take one off the floor');
   assert.equal(g.players[2].stats.points, 2, 'and the box score is untouched');
 }
 
@@ -729,6 +874,17 @@ assert.equal(shotTypeFor(396 / 792, 100 / 521), '2PT');
   assert.equal(resultOf(s), 'W');
   assert.equal(resultOf({ ...s, score: 40 }), 'L');
 
+  // THE SHELF'S OWN RULE IS THREE-WAY, and that is why it is not `resultOf`.
+  // `resultOf` is `>=` and has to stay so — its caller is the delete confirm,
+  // which has only a win and a loss to print. The shelf has `0 — 0`, which is
+  // a game nobody finished scoring, and calling that a WIN is the one wrong
+  // thing a row can say. It said it on every practice.
+  assert.equal(outcomeOf(s), 'W');
+  assert.equal(outcomeOf({ ...s, score: 40 }), 'L');
+  assert.equal(outcomeOf({ ...s, score: 0, oppScore: 0 }), null, '0 - 0 is not a win');
+  assert.equal(outcomeOf({ ...s, score: 48 }), null, 'and neither is a tie');
+  assert.equal(resultOf({ ...s, score: 48 }), 'W', 'while the two-way rule is unmoved');
+
   // the cap drops the OLDEST, and hands it back so its key can go too
   let index: GameSummary[] = [];
   for (let i = 0; i < HISTORY_CAP + 3; i++) {
@@ -886,6 +1042,358 @@ assert.equal(shotTypeFor(396 / 792, 100 / 521), '2PT');
   );
 }
 
+/* ---- the last game against the run behind it -----------------------
+ * `lib/analysis.ts` is a plain module on the same side of the line as
+ * `box.ts`, `season.ts` and `billing.ts`, so the whole comparison — the
+ * window, the polarity, the two guards on "what changed" and the strings
+ * that get printed — is walked here with no React and no device.
+ *
+ * The one thing every assertion in this block is really protecting is the
+ * FIRST rule in that file: THE AVERAGE DOES NOT INCLUDE THE LAST GAME. It is
+ * the kind of off-by-one that produces plausible numbers for ever.
+ * ------------------------------------------------------------------ */
+{
+  /** A game whose whole team scored `pts`, with the rest of the line beside it. */
+  const night = (
+    pts: number,
+    reb: number,
+    ast: number,
+    stl: number,
+    to: number,
+    fgm: number,
+    fga: number,
+  ): GameState => ({
+    ...game(),
+    score: pts,
+    players: [
+      {
+        id: 'p1',
+        number: 1,
+        name: 'a.n',
+        status: 'active',
+        starter: true,
+        stats: {
+          ...zeroStats(),
+          points: pts,
+          defensiveRebounds: reb,
+          assists: ast,
+          steals: stl,
+          turnovers: to,
+          fgMade: fgm,
+          fgAttempted: fga,
+        },
+      },
+    ],
+  });
+
+  // the six rows are the six rows, and the polarity is on the table rather
+  // than in a screen — a rise in turnovers is the one that is not good news
+  assert.deepEqual(
+    TEAM_STATS.map((d) => d.key),
+    ['pts', 'reb', 'ast', 'stl', 'to', 'fg'],
+    'the comparison rows, in the order they are read',
+  );
+  assert.equal(
+    TEAM_STATS.filter((d) => !d.riseIsGood).length,
+    1,
+    'turnovers are the only row a rise is bad news on',
+  );
+  assert.equal(TEAM_STATS.find((d) => d.key === 'to')!.riseIsGood, false);
+  assert.equal(
+    TEAM_STATS.filter((d) => d.percent).length,
+    1,
+    'and the shooting row is the only percentage',
+  );
+
+  // the team line comes off the PLAYERS, not off `g.score`: a point logged
+  // against nobody would otherwise put the PTS row above the five under it
+  assert.equal(teamLine(night(20, 8, 4, 2, 3, 8, 20)).pts, 20);
+  assert.equal(
+    teamLine({ ...night(20, 8, 4, 2, 3, 8, 20), score: 99 }).pts,
+    20,
+    'the board score does not overrule the box score',
+  );
+
+  /* ---- THE WINDOW IS THE FIVE BEFORE IT, and never the last game ---- */
+  {
+    // newest first, as every caller hands them in. The last game scored 30;
+    // the six before it scored 10 each, and only FIVE of them may count.
+    const games = [
+      night(30, 10, 10, 6, 4, 10, 20),
+      ...Array.from({ length: 6 }, () => night(10, 10, 4, 2, 8, 5, 20)),
+    ];
+    const C = teamComparison(games)!;
+    assert.equal(C.window, AVG_WINDOW, 'five games, not six and not seven');
+
+    const pts = C.rows.find((r) => r.key === 'pts')!;
+    assert.equal(pts.last, 30);
+    assert.equal(pts.avg, 10, 'the average is the WINDOW, with the last game left out');
+    assert.equal(pts.delta, 20);
+    assert.equal(pts.ratio, 2, '+200%, off an average that never saw the 30');
+    assert.equal(pts.better, true);
+
+    // the same move on the other polarity: turnovers FELL, which is good news
+    const to = C.rows.find((r) => r.key === 'to')!;
+    assert.equal(to.delta, -4);
+    assert.equal(to.better, true, 'fewer turnovers is a better game, not a worse one');
+    assert.equal(deltaLabel(to), '-4');
+
+    // FG% is POOLED over the window — 25 of 100, not the mean of five 25%s,
+    // which happens to agree here and is asserted below where it does not
+    const fg = C.rows.find((r) => r.key === 'fg')!;
+    assert.equal(fg.last, 50);
+    assert.equal(fg.avg, 25);
+    assert.equal(deltaLabel(fg), '+25 pts', 'the shooting row carries its UNIT');
+    assert.equal(ratioLabel(fg), '+100%', 'and its relative move beside it');
+  }
+
+  /* ---- FG% IS POOLED, which is not the mean of the percentages ------ */
+  {
+    // one game 1-for-2 (50%) and one 1-for-18 (5.6%). Pooled that is 2 of 20,
+    // or 10%; the mean of the two percentages is 27.8%, and the gap between
+    // those two numbers is the whole reason the rule is written down.
+    const C = teamComparison([
+      night(0, 0, 0, 0, 0, 0, 0),
+      night(2, 0, 0, 0, 0, 1, 2),
+      night(2, 0, 0, 0, 0, 1, 18),
+    ])!;
+    const fg = C.rows.find((r) => r.key === 'fg')!;
+    assert.equal(fg.avg, 10, 'two makes over twenty attempts, not the mean of 50% and 5.6%');
+    assert.equal(fg.last, null, 'and a game with no attempt has no percentage at all');
+    assert.equal(fg.delta, null);
+    assert.equal(deltaLabel(fg), '—', 'which prints as a dash, never as a zero');
+  }
+
+  /* ---- ONE GAME IS NOT NOTHING -------------------------------------
+   * The STATS tab draws the way in whenever there is an official game, so a
+   * scorer one game into a season opens a page rather than finding a control
+   * missing. What they get is the last game's own figures with an empty
+   * window beside them — never a fabricated average.
+   * ------------------------------------------------------------------ */
+  {
+    const C = teamComparison([night(30, 10, 5, 3, 4, 10, 20)])!;
+    assert.equal(C.window, 0);
+    const pts = C.rows.find((r) => r.key === 'pts')!;
+    assert.equal(pts.last, 30, 'the last game is still printed');
+    assert.equal(pts.avg, null, 'and there is nothing to compare it with');
+    assert.equal(pts.delta, null);
+    assert.equal(pts.ratio, null);
+    assert.equal(pts.better, null, 'so it is neither good news nor bad');
+    assert.equal(deltaLabel(pts), '—');
+    assert.equal(ratioLabel(pts), '', 'an absent ratio prints NOTHING, not a dash');
+    assert.equal(C.highlights.length, 0, 'and nothing changed, because nothing was compared');
+    assert.equal(teamComparison([]), null, 'no games at all is the only null');
+  }
+
+  /* ---- AN AVERAGE OF ZERO HAS NO PERCENTAGE ------------------------- */
+  {
+    const C = teamComparison([
+      night(0, 0, 0, 5, 0, 0, 0),
+      night(0, 0, 0, 0, 0, 0, 0),
+      night(0, 0, 0, 0, 0, 0, 0),
+    ])!;
+    const stl = C.rows.find((r) => r.key === 'stl')!;
+    assert.equal(stl.avg, 0);
+    assert.equal(stl.delta, 5, 'the absolute move is the whole answer');
+    assert.equal(stl.ratio, null, 'five steals against none is not an infinite improvement');
+    assert.equal(ratioLabel(stl), '');
+    assert.ok(
+      C.highlights.every((h) => h.key !== 'stl'),
+      'and a row with no ratio cannot be ranked, so it is never a highlight',
+    );
+  }
+
+  /* ---- WHAT CHANGED — two guards, each catching what the other cannot
+   * `MIN_RATIO` throws out a big number that barely moved; the per-stat
+   * `floor` throws out a small number that moved a long way in percentage
+   * terms. Both have to pass, and the list is ranked on the RELATIVE move so
+   * a turnover and a rebound can be put beside each other.
+   * ------------------------------------------------------------------ */
+  {
+    // assists 4 → 5 is +25%, well over MIN_RATIO, and it is one assist. The
+    // floor is what keeps it off a list it would otherwise be near the top of.
+    const C = teamComparison([
+      night(62, 40, 5, 4, 12, 25, 60),
+      night(60, 40, 4, 4, 12, 25, 60),
+      night(60, 40, 4, 4, 12, 25, 60),
+    ])!;
+    const ast = C.rows.find((r) => r.key === 'ast')!;
+    assert.ok(Math.abs(ast.ratio!) > MIN_RATIO, 'it clears the relative guard');
+    assert.ok(
+      C.highlights.every((h) => h.key !== 'ast'),
+      'and is still not a change, because one assist is not news',
+    );
+    assert.equal(C.highlights.length, 0, 'two points on sixty is not news either');
+  }
+
+  {
+    // a night where several things moved a long way, and one of them is bad
+    const C = teamComparison([
+      night(90, 50, 20, 12, 20, 40, 60),
+      night(60, 40, 10, 4, 10, 24, 60),
+      night(60, 40, 10, 4, 10, 24, 60),
+    ])!;
+    assert.ok(
+      C.highlights.length > 0 && C.highlights.length <= 3,
+      'at most three, and at least one',
+    );
+
+    // ranked on the relative move, biggest first
+    const ratios = C.highlights.map(
+      (h) => Math.abs(C.rows.find((r) => r.key === h.key)!.ratio!),
+    );
+    assert.deepEqual(ratios, [...ratios].sort((a, b) => b - a), 'biggest relative move first');
+
+    const to = C.highlights.find((h) => h.key === 'to');
+    assert.ok(to, 'turnovers doubled and that is worth saying');
+    assert.equal(to!.better, false, 'and it is BAD news, which is what the polarity is for');
+    assert.equal(to!.rose, true, 'the arrow says the figure went UP');
+    assert.equal(to!.label, 'Turnovers increased');
+    assert.equal(to!.detail, '+10 TO');
+
+    // GOOD AND BAD ARE NOT BALANCED ON PURPOSE — whatever moved most is what
+    // is named, so a night where everything went right says so rather than
+    // inventing a complaint. Nothing here asserts one of each.
+    for (const h of C.highlights) {
+      const row = C.rows.find((r) => r.key === h.key)!;
+      assert.equal(h.better, row.better, 'a highlight cannot disagree with its own row');
+      assert.equal(h.rose, row.delta! > 0);
+    }
+  }
+
+  /* ---- A PLAYER'S WINDOW IS THE GAMES THEY APPEARED IN ---------------
+   * The same denominator `lib/season.ts` uses everywhere, and for the same
+   * reason: a player is not having a worse run because the team played a
+   * game without them. It also decides what "their last game" means — the
+   * last one THEY played, not the last one the team did.
+   * ------------------------------------------------------------------ */
+  {
+    const line = (pts: number) => ({ ...zeroStats(), points: pts, fgMade: 1, fgAttempted: 2 });
+    /** A zeroed line is on the sheet and did not play. */
+    const g = (pts: number | null): GameState => ({
+      ...game(),
+      players: [
+        {
+          id: 'p1',
+          number: 1,
+          name: 'a.n',
+          status: 'bench',
+          starter: false,
+          stats: pts === null ? zeroStats() : line(pts),
+        },
+      ],
+    });
+
+    // newest first: the team's last game is one this player sat out
+    const C = playerComparison([g(null), g(20), g(10), g(10), g(10), g(10), g(10)], 'p1')!;
+    const pts = C.rows.find((r) => r.key === 'pts')!;
+    assert.equal(pts.last, 20, 'their last game is the last one THEY played');
+    assert.equal(C.window, AVG_WINDOW, 'and the window skips the game they missed');
+    assert.equal(pts.avg, 10, 'a DNP is not averaged in as a zero line');
+    assert.equal(pts.delta, 10);
+
+    assert.equal(
+      playerComparison([g(null), g(null)], 'p1'),
+      null,
+      'a player who has never appeared has no card at all',
+    );
+    assert.equal(playerComparison([g(10)], 'nobody'), null, 'and neither does a stranger');
+
+    const one = playerComparison([g(14)], 'p1')!;
+    assert.equal(one.window, 0, 'one appearance is a comparison with an empty window');
+    assert.equal(one.rows.find((r) => r.key === 'pts')!.last, 14);
+  }
+}
+
+/* ---- after a timeout -----------------------------------------------
+ * The one thing on this page the last game is compared with ITSELF over. It
+ * is arithmetic on the log's own timeline, so all three of the ways that
+ * arithmetic goes wrong are walked here: the window that runs past a buzzer,
+ * the two timeouts whose windows overlap, and the basket that reads on the
+ * very second the timeout was called.
+ * ------------------------------------------------------------------ */
+{
+  const shot = (g: GameState, made: boolean) =>
+    A.recordShot(g, 'p1', at(396, 200), '2PT', made, null, null);
+
+  assert.equal(timeoutRun(game()), null, 'a game with no timeout has nothing to compare');
+  assert.equal(AFTER_TIMEOUT, 120, 'two minutes of game clock, and it is the file that says so');
+
+  /* ---- the two slices, and the rate over each ---------------------- */
+  {
+    const g = game();
+    A.recordOppPoint(g, 2); // 10:00 — before any timeout, so it is the REST
+    A.tickSeconds(g, 60);
+    A.addTimeout(g); // 9:00, and the window is 9:00 → 7:00
+    A.tickSeconds(g, 30);
+    shot(g, true); // 8:30, inside it
+    A.tickSeconds(g, 200);
+    A.recordOppPoint(g, 3); // 5:10, outside it
+
+    const r = timeoutRun(g)!;
+    assert.equal(r.count, 1);
+    assert.equal(r.afterSeconds, 120, 'the whole window fitted inside the quarter');
+    assert.equal(r.restSeconds, 170, 'and the rest is every other second played');
+    assert.equal(r.afterUs, 2);
+    assert.equal(r.afterThem, 0);
+    assert.equal(r.restUs, 0);
+    assert.equal(r.restThem, 5, 'both opponent baskets fell outside the window');
+    assert.equal(r.after, 1, 'two points in two minutes is +1.0 a minute');
+    assert.equal(Math.round(r.rest! * 100) / 100, -1.76);
+    assert.equal(r.better, true, 'and the team was better after the huddle');
+  }
+
+  /* ---- A WINDOW IS CUT SHORT BY ITS OWN BUZZER --------------------- */
+  {
+    const g = game();
+    A.tickSeconds(g, 540);
+    A.addTimeout(g); // 1:00 left in the first quarter
+    A.tickSeconds(g, 60); // which runs out
+    A.nextPeriod(g);
+    A.tickSeconds(g, 120);
+
+    const r = timeoutRun(g)!;
+    assert.equal(
+      r.afterSeconds,
+      60,
+      'a minute of window, not two: the huddle at the buzzer is a different huddle',
+    );
+    assert.equal(r.restSeconds, 660, 'and the second quarter belongs to the rest of the game');
+  }
+
+  /* ---- TWO TIMEOUTS CLOSE TOGETHER ARE ONE STRETCH ----------------- */
+  {
+    const g = game();
+    A.tickSeconds(g, 60);
+    A.addTimeout(g); // window 60 → 180
+    A.tickSeconds(g, 30);
+    A.addTimeout(g); // window 90 → 210, and the two overlap
+    A.tickSeconds(g, 400);
+
+    const r = timeoutRun(g)!;
+    assert.equal(r.count, 2, 'both were called');
+    assert.equal(r.afterSeconds, 150, 'and their shared minutes are counted once');
+  }
+
+  /* ---- THE BASKET THE TIMEOUT WAS CALLED OVER IS NOT ITS DOING ----- */
+  {
+    const g = game();
+    A.tickSeconds(g, 60);
+    A.recordOppPoint(g, 2); // 9:00 — the basket that emptied the bench
+    A.addTimeout(g); // called on the same second
+    A.tickSeconds(g, 300);
+
+    const r = timeoutRun(g)!;
+    assert.equal(r.afterThem, 0, 'the play the timeout answered belongs to the play before it');
+    assert.equal(r.restThem, 2);
+  }
+
+  /* ---- and the labels the screen prints ---------------------------- */
+  assert.equal(netLabel(null), '—', 'a rate that cannot be read is a dash, never a zero');
+  assert.equal(netLabel(2), '+2');
+  assert.equal(netLabel(-1.76), '-1.8', 'one decimal, the way it is drawn');
+}
+
 /* ---- what a stat is CALLED -----------------------------------------
  * One rule for the three panels that name one, so a foul kind and a tally can
  * never end up reading differently on the same board.
@@ -969,7 +1477,7 @@ assert.equal(ord(11), '11th');
   // the rail asks the other half of the question
   assert.equal(litPlayerId({ kind: 'playerActions', playerId: 'p3', bumped: null }), 'p3');
   assert.equal(litPlayerId({ kind: 'subOut', outId: 'p4' }), 'p4');
-  assert.equal(litPlayerId({ kind: 'fouledOut', playerId: 'p5' }), 'p5');
+  assert.equal(litPlayerId({ kind: 'fouledOut', playerId: 'p5', fresh: true }), 'p5');
   assert.equal(litPlayerId({ kind: 'who' }), null, 'step 2 is a grid, not a row');
   assert.equal(litPlayerId(null), null);
 }
@@ -1296,6 +1804,67 @@ assert.equal(ord(11), '11th');
     assert.ok(svg.includes(name), `CourtSvg should draw ${name}, not a second copy of it`);
 }
 
+/* ---- the shelf, filtered ---------------------------------------------
+ * MATCHES is a FLAT list again — no day headings, no groups, no practice run.
+ * The one derivation left is the strip at the top of it, and it is here rather
+ * than in the screen so this can exercise it without React.
+ * -------------------------------------------------------------------- */
+{
+  const at = (d: number): number => new Date(2026, 7, d, 19, 30).getTime();
+  const row = (id: string, d: number, kind: 'practice' | 'official'): GameSummary => ({
+    id,
+    endedAt: at(d),
+    score: kind === 'official' ? 64 : 0,
+    oppScore: kind === 'official' ? 16 : 0,
+    periods: 4,
+    kind,
+    competition: kind === 'official' ? 'HBL' : '',
+    opponent: kind === 'official' ? 'CCV' : '',
+  });
+
+  const index: GameSummary[] = [
+    row('a', 25, 'practice'),
+    row('b', 25, 'practice'),
+    row('c', 25, 'official'),
+    row('d', 21, 'official'),
+    row('e', 19, 'practice'),
+  ];
+
+  // ALL is the identity, and it is the identity by REFERENCE — the shelf's own
+  // order is the index's, and re-deriving it would be a second array to keep
+  // in step with a store that already guarantees newest-first
+  assert.equal(filterIn(index, 'all'), index, 'ALL hands the index straight back');
+
+  assert.deepEqual(
+    filterIn(index, 'official').map((g) => g.id),
+    ['c', 'd'],
+    'OFFICIAL keeps the matches, in shelf order',
+  );
+  assert.deepEqual(
+    filterIn(index, 'practice').map((g) => g.id),
+    ['a', 'b', 'e'],
+    'and PRACTICE keeps the rest, likewise',
+  );
+  assert.equal(
+    filterIn(index, 'official').length + filterIn(index, 'practice').length,
+    index.length,
+    'the two slices partition the shelf: nothing is dropped and nothing is counted twice',
+  );
+
+  // a row written before the two kinds existed is OFFICIAL, here as everywhere
+  const old: GameSummary = { id: 'f', endedAt: at(1), score: 50, oppScore: 40, periods: 4 };
+  assert.deepEqual(
+    filterIn([old], 'official').map((g) => g.id),
+    ['f'],
+    'a kindless row filters as the official game the season already counted it as',
+  );
+  assert.equal(filterIn([old], 'practice').length, 0);
+
+  // THE ROW'S DATE IS DIGITS, and it stayed digits: the spelled-month heading
+  // went with the grouping that was its only caller
+  assert.equal(dayMonthLabel(at(19)), '19/08');
+}
+
 /* ---- styling guards ------------------------------------------------
  * Three greps over the component tree. They are here rather than in a linter
  * because each one encodes a bug that shipped: the symptom was always "some of
@@ -1364,6 +1933,9 @@ assert.equal(ord(11), '11th');
     join('components', 'ui', 'Dot.tsx'), // the availability dot, likewise
     join('components', 'ui', 'Slug.tsx'), // the lobby's accent rule: a ground, not a mark
     join('app', 'player', '[id].tsx'), // shot dots on court
+    // the walkthrough's finger: a contact dot and a ripple ring, which are
+    // marks in the same sense a shot dot is — nothing is written inside either
+    join('components', 'tutorial', 'Finger.tsx'),
   ];
   for (const f of files) {
     if (NO_TEXT_INSIDE.includes(f.path)) continue;
@@ -1376,6 +1948,620 @@ assert.equal(ord(11), '11th');
       );
     }
   }
+}
+
+/* ------------------------------------------------------- the paywall ----- */
+{
+  /**
+   * THE GATE TABLE, WALKED RATHER THAN LISTED.
+   *
+   * `lib/billing.ts` is a plain module for exactly this: the rule that decides
+   * whether somebody can use what they paid for is the last one that should be
+   * testable only by installing the app and buying something.
+   */
+
+  // PAYING OPENS EVERYTHING. Walked over every gate, so a gate added later
+  // cannot quietly stay shut for a subscriber.
+  for (const g of GATES) {
+    assert.equal(locked(g, { entitled: true, trialUsed: false }), false, `paid but ${g} locked`);
+    assert.equal(locked(g, { entitled: true, trialUsed: true }), false, `paid but ${g} locked`);
+  }
+
+  // A FRESH INSTALL MAY START ITS ONE GAME, and may do nothing else.
+  const fresh = { entitled: false, trialUsed: false };
+  assert.equal(locked('newGame', fresh), false, 'the free game is not free');
+  assert.equal(locked('season', fresh), true);
+  assert.equal(locked('export', fresh), true);
+  assert.equal(locked('deepStats', fresh), true);
+
+  // ONCE THE FREE GAME IS FILED, EVERY GATE IS SHUT.
+  const spent = { entitled: false, trialUsed: true };
+  for (const g of GATES) assert.equal(locked(g, spent), true, `${g} open after the trial`);
+
+  // `newGame` IS THE ONLY GATE THE TRIAL MOVES. If a second one ever becomes
+  // conditional this fails, which is the point: the trial is one game, and a
+  // second thing that switches on it is a second rule nobody wrote down.
+  const moves = GATES.filter((g) => locked(g, fresh) !== locked(g, spent));
+  assert.deepEqual(moves, ['newGame'], 'the trial moves a gate it should not');
+
+  // EVERY GATE HAS A LINE TO SHOW, or the paywall opens with nothing to say
+  // about why it opened.
+  for (const g of GATES) {
+    assert.ok(GATE_PITCH[g] && GATE_PITCH[g].length > 0, `${g} has no pitch`);
+  }
+
+  // DONG, GROUPED FROM THE RIGHT. The bug this catches is grouping from the
+  // LEFT, which is correct for six digits and wrong for every other length.
+  assert.equal(vnd(99_000), '99.000₫');
+  assert.equal(vnd(999_000), '999.000₫');
+  assert.equal(vnd(0), '0₫');
+  assert.equal(vnd(1_000_000), '1.000.000₫');
+  assert.equal(vnd(83_250), '83.250₫');
+
+  // THE YEARLY CARD'S SECOND READING IS DERIVED, so it cannot drift from the
+  // price above it.
+  const yearly = PLANS.find((p) => p.key === 'yearly');
+  assert.ok(yearly && yearly.note === vnd(Math.round(yearly.price / 12)) + ' a month');
+
+  // ONE BADGE ON ONE CARD. Two would be two best offers.
+  assert.equal(PLANS.filter((p) => p.badge).length, 1, 'more than one plan is flagged');
+  assert.ok(PLANS.some((p) => p.key === DEFAULT_PLAN), 'the default plan is not on the screen');
+
+  // THE BENEFITS ARE THREE AND EACH HAS A BOLD NOUN — the device that makes
+  // three short lines scannable rather than three sentences.
+  assert.equal(BENEFITS.length, 3);
+  for (const b of BENEFITS) assert.ok(b.bold.length > 0 && b.icon.length > 0);
+}
+
+/* ------------------------------------------------------------ the door ----
+ * `constants/intro.ts` is a copy table and `constants/options.ts` is the four
+ * answer tables the settings page and the door now share. Both are plain data
+ * for exactly this: the steps a scorer walks once per install are the
+ * screens nobody re-opens to check, so what holds them is a script rather than
+ * somebody remembering to reinstall the app.
+ * -------------------------------------------------------------------- */
+{
+  // FOUR STEPS, AND EVERY ONE OF THEM HAS SOMETHING TO SAY. The dots are drawn
+  // off `INTRO_STEPS`, so a step added without copy is a blank screen with a
+  // live button on it — and a step REMOVED without its copy going too is a
+  // table with an orphan in it, which is how the rules step would have lingered.
+  assert.equal(INTRO_STEPS.length, 4, 'the door is four steps');
+  assert.equal(
+    Object.keys(INTRO_COPY).length,
+    INTRO_STEPS.length,
+    'the copy table and the door disagree about how many steps there are',
+  );
+  assert.equal(new Set(INTRO_STEPS).size, INTRO_STEPS.length, 'and each is named once');
+  for (const step of INTRO_STEPS) {
+    const c = INTRO_COPY[step];
+    assert.ok(c, `${step} has no copy`);
+    assert.ok(c.title.length > 0, `${step} has no title`);
+    assert.ok(c.blurb.length > 0, `${step} has no sentence under it`);
+  }
+
+  // THE LIT HALF IS THE TWO STEPS THAT ASK FOR NOTHING. `hi` is a second line
+  // of headline painted with `glowInk`; the three steps that carry a form
+  // underneath must not have one, or the question is competing with the answer.
+  const lit = INTRO_STEPS.filter((s) => INTRO_COPY[s].hi);
+  assert.deepEqual(lit, ['board', 'trial'], 'the wrong steps are shouting');
+
+  // FOUR WAYS INTO A STAT, NUMBERED 1..4, each drawn twice — once on the
+  // miniature board and once at the head of its own line. A gap in the numbers
+  // is a badge on the picture with no line under it to match.
+  assert.deepEqual(
+    BOARD_STEPS.map((b) => b.n),
+    [1, 2, 3, 4],
+    'the board tour lost a number',
+  );
+  for (const b of BOARD_STEPS) {
+    assert.ok(b.title.length > 0 && b.blurb.length > 0, `step ${b.n} is missing its words`);
+    // the COUNT is the claim the headline makes — `two taps. Three at most.` —
+    // so a line without one is the promise going unsupported. The plural has
+    // to agree with the digit: `1 TAPS` is the kind of thing nobody re-reads a
+    // walkthrough to catch.
+    const taps = /^([123]) (TAP|TAPS)$/.exec(b.taps);
+    assert.ok(taps, `step ${b.n} does not say how many taps it is`);
+    assert.equal(
+      taps[2],
+      taps[1] === '1' ? 'TAP' : 'TAPS',
+      `step ${b.n} counts taps in the wrong number`,
+    );
+    // AND IT HAS TO BE A CLAIM THE HEADLINE CAN CARRY: two taps, three at most.
+    assert.ok(Number(taps[1]) <= 3, `step ${b.n} takes more taps than the headline promises`);
+  }
+  // ONE BLUE BADGE, AND IT IS THE COURT'S. `live` is the tap mark's own hue —
+  // a tap not yet resolved into a make or a miss is not a made shot — so a
+  // second one would be that argument spent on something it is not about.
+  assert.equal(BOARD_STEPS.filter((b) => b.live).length, 1, 'more than one badge is live');
+  assert.equal(BOARD_STEPS.find((b) => b.live)?.n, 1, 'the live badge is not the one on the floor');
+
+  // THREE THINGS THE FREE GAME GIVES, each with a glyph and a line. Three
+  // because the paywall's own list is three: the two sit one tap apart on the
+  // last step and are read against each other.
+  assert.equal(TRIAL_GIVES.length, BENEFITS.length, 'the trial and the offer count differently');
+  for (const g of TRIAL_GIVES) {
+    assert.ok(g.icon.length > 0 && g.title.length > 0 && g.blurb.length > 0);
+  }
+  // AND THEY ARE NOT THE SAME THREE. One list says what is already yours and
+  // the other sells the subscription; saying one sentence twice one tap apart
+  // makes it mean less on both.
+  for (const g of TRIAL_GIVES) {
+    assert.ok(
+      !BENEFITS.some((b) => b.bold === g.title),
+      `the trial and the paywall both claim "${g.title}"`,
+    );
+  }
+
+  // THE FOUR ANSWER TABLES ARE THE OPTION'S OWN RANGE, WHOLE. `app/settings.tsx`
+  // is the only screen that reads them since the door's rules step was cut, and
+  // the failure they are here to catch is a length or a period count that
+  // exists in the type and is offered by nothing.
+  assert.deepEqual(PERIOD_CHOICES.map((c) => c.key), [2, 4], 'basketball has two shapes');
+  assert.deepEqual(
+    LENGTH_CHOICES.map((c) => c.key),
+    [360, 480, 600, 720],
+    'six to twelve minutes, youth to NBA',
+  );
+  assert.ok(PERIOD_CHOICES.some((c) => c.key === DEFAULT_OPTIONS.periods));
+  assert.ok(LENGTH_CHOICES.some((c) => c.key === DEFAULT_OPTIONS.periodLen));
+  assert.ok(LABEL_CHOICES.some((c) => c.key === DEFAULT_OPTIONS.labels));
+  assert.ok(BOARD_CHOICES.some((c) => c.key === DEFAULT_OPTIONS.board));
+  assert.ok(POSS_CHOICES.some((c) => c.key === DEFAULT_OPTIONS.poss));
+  // A FRESH BOARD COUNTS TIMEOUTS AND NOTHING ELSE on that cell. The footer is
+  // the one row where a setting adds a control rather than changing one, and
+  // the quieter board is the default — see `Options.poss`.
+  assert.equal(DEFAULT_OPTIONS.poss, 'off', 'the fourth cell opens whole');
+
+  // WHAT THE TWO STAMPED SWITCHES ADD UP TO, and it is DERIVED — the door
+  // prints it under the segments and again on the way past them, so a typed
+  // string would be two chances to disagree with the switches above it.
+  assert.equal(shapeLabel(4, 600), '4 × 10:00', 'the default night');
+  assert.equal(shapeLabel(2, 720), '2 × 12:00');
+  assert.equal(shapeLabel(4, 360), '4 × 6:00');
+}
+
+/* ----------------------------------------------------- the walkthrough ----
+ * `constants/tutorial.ts` is a script and `lib/tutorial.ts` is its rulebook,
+ * and both are plain data and plain functions for exactly this reason: the
+ * twenty steps a scorer walks over the real board are the screens NOBODY
+ * re-opens to check. A step that can never be finished, a ring pointing at a
+ * name nothing reports, or a caption that talks about the app's own insides is
+ * caught here rather than by somebody two minutes into a tour on a phone.
+ * -------------------------------------------------------------------- */
+{
+  /* -- the script itself -------------------------------------------- */
+
+  assert.ok(TUTORIAL_STEPS.length > 0, 'the tour has no steps');
+  assert.equal(
+    new Set(TUTORIAL_STEPS.map((s) => s.id)).size,
+    TUTORIAL_STEPS.length,
+    'two steps share an id — `lastStep` remembers one and lands on the other',
+  );
+
+  /**
+   * THE COPY RULES, ENFORCED. A STEP IS A TITLE AND NOTHING ELSE — the meaning
+   * line under it and the instruction that swapped in after six idle seconds
+   * are both gone — so the whole of what a card says has to sit on two lines of
+   * `fsLg` and carry NO IMPLEMENTATION VOCABULARY: a scorer does not know what
+   * a panel is and should never have to.
+   */
+  const BANNED = ['panel', 'state', 'store', 'render', 'component', 'props', 'array'];
+  for (const step of TUTORIAL_STEPS) {
+    assert.ok(step.title.length > 0, `${step.id} has no title`);
+    assert.ok(step.title.split(' ').length <= 5, `${step.id}: the title is a sentence`);
+    const said = step.title.toLowerCase();
+    for (const word of BANNED) {
+      assert.ok(!said.includes(word), `${step.id} says "${word}" — the app talking about itself`);
+    }
+  }
+
+  // AND NO TWO OF THEM SAY THE SAME THING. With the meaning line gone the title
+  // IS the card, so two steps sharing one are two identical screens and a
+  // scorer who has just been moved on cannot tell that anything happened. The
+  // branch pairs are held to it as well: only one of a pair is ever in a tour,
+  // but a pair allowed to agree is a pair nobody has to think about.
+  assert.equal(
+    new Set(TUTORIAL_STEPS.map((s) => s.title)).size,
+    TUTORIAL_STEPS.length,
+    'two steps carry the same title — the card is the title, so that is one card twice',
+  );
+
+  /* -- every ring points at something that can report a box ---------- */
+
+  const targetNames = new Set<string>(TARGETS);
+  for (const step of TUTORIAL_STEPS) {
+    if (step.target) {
+      assert.ok(targetNames.has(step.target), `${step.id} points at an unknown target`);
+    }
+    for (const v of step.via ?? []) {
+      assert.ok(targetNames.has(v.target), `${step.id} points at an unknown target via a panel`);
+      // A `via` KEYED ON A KIND THAT DOES NOT EXIST is a ring that never moves,
+      // and the type cannot catch it: the key is a string so the tour does not
+      // have to import the panel union. `MODE` is the one list of every kind.
+      assert.ok(v.panel in MODE, `${step.id} waits for something that cannot open: ${v.panel}`);
+    }
+  }
+
+  /* -- and only the floor says where inside itself to point ---------- */
+
+  // A SPOT ON ANYTHING BUT THE FLOOR IS A COORDINATE NOBODY READS: `spotFor`
+  // answers null for every other target, so a step carrying one would be a
+  // fact the tour has no way of showing to be wrong.
+  for (const step of TUTORIAL_STEPS) {
+    if (step.spot) {
+      assert.equal(step.target, 'court', `${step.id} carries a spot but is not about the floor`);
+    }
+  }
+
+  /* -- the branches, walked over every value they can take ----------- */
+
+  const OPTION_VALUES = {
+    ft: ['quick', 'trip'],
+    tap: ['stats', 'sub'],
+    assist: ['ask', 'skip'],
+    poss: ['on', 'off'],
+  } as const;
+
+  for (const [option, values] of Object.entries(OPTION_VALUES)) {
+    const group = TUTORIAL_STEPS.filter((s) => s.when?.option === option);
+    assert.ok(group.length > 0, `nothing branches on ${option}`);
+    for (const value of values) {
+      const hit = group.filter((s) => s.when?.is === value);
+      // EXACTLY ONE PER VALUE. Zero is a board the tour never explains; two is
+      // the same thing taught twice, one step after the other.
+      assert.equal(hit.length, 1, `${option}=${value} has ${hit.length} steps, not one`);
+    }
+  }
+
+  // THE TOUR IS THE SAME LENGTH WHATEVER THE SETTINGS SAY, because every branch
+  // drops exactly one of a pair. A scorer on a `trip` board is not handed a
+  // shorter walkthrough than a scorer on a `quick` one.
+  const lengths = new Set<number>();
+  for (const ft of OPTION_VALUES.ft) {
+    for (const tap of OPTION_VALUES.tap) {
+      for (const assist of OPTION_VALUES.assist) {
+        for (const poss of OPTION_VALUES.poss) {
+          const o = { ...DEFAULT_OPTIONS, ft, tap, assist, poss };
+          const walked = visibleSteps(o);
+          lengths.add(walked.length);
+          for (const step of walked) {
+            assert.ok(stepApplies(step, o), `${step.id} is in a tour it does not apply to`);
+          }
+          assert.equal(
+            new Set(walked.map((s) => s.id)).size,
+            walked.length,
+            'a tour has the same step twice',
+          );
+        }
+      }
+    }
+  }
+  assert.equal(lengths.size, 1, 'the tour is a different length depending on the settings');
+
+  /* -- where a remembered step lands --------------------------------- */
+
+  const tour = visibleSteps(DEFAULT_OPTIONS);
+  assert.equal(stepIndex(tour, null), 0, 'nothing remembered starts anywhere but the start');
+  assert.equal(stepIndex(tour, 'no-such-step'), 0, 'a step that is gone starts the tour again');
+  assert.equal(stepIndex(tour, tour[3].id), 3);
+  // A STEP DROPPED BY A SETTING CHANGE IS NOT A CRASH. A scorer who walked half
+  // the tour, went to the settings page and came back must land at the start
+  // rather than at an index that no longer exists.
+  assert.equal(
+    stepIndex(visibleSteps({ ...DEFAULT_OPTIONS, ft: 'trip' }), 'ft.quick'),
+    0,
+    'a dropped step must fall back to the start',
+  );
+
+
+  /* -- and the tour closes what the next step does not want ---------- */
+
+  /**
+   * WALKED PAIRWISE OVER THE WHOLE SCRIPT, because the failure it catches is a
+   * step nobody can finish and it is invisible in the step that causes it.
+   *
+   * A step whose flow ENDS on a sheet leaves one standing, and the two that
+   * light and close still take `LIT_MS` to go — longer than the tour takes to
+   * move on. The step after each points at a control on the BOARD, underneath
+   * that sheet — so if the tour did not close it, the scorer's tap would land
+   * on the sheet and dismiss it rather than on the control the ring is drawn
+   * around.
+   */
+  for (let i = 0; i < tour.length - 1; i += 1) {
+    const here = tour[i];
+    const next = tour[i + 1];
+    // whatever this step could plausibly leave open is whatever it pointed at
+    const leftOpen = (here.via ?? []).map((v) => v.panel);
+    for (const open of leftOpen) {
+      const keeps = wantsPanel(next, open);
+      const onBoard = !next.target || !PANEL_TARGETS.includes(next.target);
+      assert.ok(
+        keeps || onBoard,
+        `${next.id} points inside a sheet that ${here.id} may have closed`,
+      );
+    }
+  }
+
+  // A STEP THAT POINTS AT A SHEET WANTS THE SHEET, whatever is open.
+  for (const target of PANEL_TARGETS) {
+    const step = TUTORIAL_STEPS.find((s) => s.target === target);
+    if (step) assert.equal(wantsPanel(step, null), true, `${step.id} would close its own sheet`);
+  }
+  // AND A STEP THAT POINTS AT THE BOARD DOES NOT, which is the half that
+  // actually closes something.
+  const rb = TUTORIAL_STEPS.find((s) => s.id === 'rb');
+  assert.ok(rb);
+  assert.equal(
+    wantsPanel(rb, 'ftResult'),
+    false,
+    'the free-throw dock survives into the rebound step, which sits under it',
+  );
+  // BOTH HALVES OF THE FOURTH FOOTER CELL, because which of the two follows the
+  // tally step is `options.poss`'s answer and the sheet has to close either way.
+  for (const id of ['poss', 'timeout']) {
+    const step = TUTORIAL_STEPS.find((s) => s.id === id);
+    assert.ok(step, `${id} is not in the script`);
+    assert.equal(
+      wantsPanel(step, 'playerActions'),
+      false,
+      `a player's tiles survive into ${id}, which sits under them`,
+    );
+  }
+  // but a step mid-flow keeps the sheet its own `via` names
+  const pf = TUTORIAL_STEPS.find((s) => s.id === 'pf');
+  assert.ok(pf);
+  assert.equal(wantsPanel(pf, 'foulKind'), true, 'the foul step closes its own first question');
+
+  /* -- the completion rule, one shape at a time ---------------------- */
+
+  const w = (over: Partial<Watch> = {}): Watch => ({
+    panel: null,
+    opens: 0,
+    events: [],
+    possessions: 0,
+    timeouts: 0,
+    running: false,
+    ...over,
+  });
+  const shotAt = (made: boolean) => ({ type: 'shot', made });
+  const foul = { type: 'foul', made: null };
+
+  // A QUESTION HAS TO HAVE BEEN OPENED, not merely to be open. The same kind
+  // twice in a row — a player's own tiles reopening after every tally — leaves
+  // the kind exactly where it was, which is what `opens` is for.
+  assert.equal(isDone({ on: 'panel', kind: 'who' }, w(), w({ panel: 'who' })), false);
+  assert.equal(isDone({ on: 'panel', kind: 'who' }, w(), w({ panel: 'who', opens: 1 })), true);
+  assert.equal(
+    isDone({ on: 'panel', kind: 'who' }, w(), w({ panel: 'what', opens: 1 })),
+    false,
+    'the wrong question opening does not answer the right one',
+  );
+  assert.equal(
+    isDone(
+      { on: 'anyPanel' },
+      w({ panel: 'playerActions', opens: 3 }),
+      w({ panel: 'playerActions', opens: 4 }),
+    ),
+    true,
+    'the same thing opened again is still a tap that landed',
+  );
+
+  // ONLY WHAT HAPPENED SINCE THE STEP OPENED. A foul logged three steps ago
+  // must not finish the step that asks for one.
+  assert.equal(
+    isDone({ on: 'event', type: 'foul' }, w({ events: [foul] }), w({ events: [foul] })),
+    false,
+    'something from before the step finished it',
+  );
+  assert.equal(isDone({ on: 'event', type: 'foul' }, w(), w({ events: [foul] })), true);
+
+  // A MISS DOES NOT FINISH THE STEP THAT ASKS FOR A MAKE, which is the whole
+  // reason the tour teaches the two separately.
+  assert.equal(isDone({ on: 'shot', made: true }, w(), w({ events: [shotAt(false)] })), false);
+  assert.equal(isDone({ on: 'shot', made: true }, w(), w({ events: [shotAt(true)] })), true);
+
+  // THE FOUR TALLIES ARE ONE ANSWER, read off `constants/game.ts` rather than
+  // listed here — a fifth must not need this file edited to be recognised.
+  for (const [type] of TALLY_TILES) {
+    assert.equal(
+      isDone({ on: 'tally' }, w(), w({ events: [{ type, made: null }] })),
+      true,
+      `${type} does not finish the tally step`,
+    );
+  }
+  assert.equal(isDone({ on: 'tally' }, w(), w({ events: [shotAt(true)] })), false);
+
+  assert.equal(isDone({ on: 'poss' }, w({ possessions: 4 }), w({ possessions: 5 })), true);
+  assert.equal(isDone({ on: 'poss' }, w({ possessions: 4 }), w({ possessions: 4 })), false);
+  assert.equal(isDone({ on: 'timeout' }, w({ timeouts: 1 }), w({ timeouts: 2 })), true);
+  assert.equal(isDone({ on: 'timeout' }, w({ timeouts: 1 }), w({ timeouts: 1 })), false);
+  assert.equal(
+    isDone({ on: 'timeout' }, w({ possessions: 4 }), w({ possessions: 5 })),
+    false,
+    'the other half of the cell does not finish this one',
+  );
+  assert.equal(isDone({ on: 'clock' }, w(), w({ running: true })), true);
+  assert.equal(isDone({ on: 'clock' }, w({ running: true }), w()), true, 'stopping counts too');
+
+  /**
+   * UNDO IS WATCHED ON BOTH COUNTERS, and the second one is not decoration.
+   * The step before it in the script is POSSESSIONS, and undoing a possession
+   * moves a counter while leaving the log exactly as long as it was — so a rule
+   * that only watched the log would leave a scorer pressing UNDO at a step that
+   * never ends.
+   */
+  assert.equal(isDone({ on: 'undo' }, w({ events: [shotAt(true)] }), w({ events: [] })), true);
+  assert.equal(
+    isDone({ on: 'undo' }, w({ possessions: 10 }), w({ possessions: 9 })),
+    true,
+    'undoing a possession has to finish the undo step',
+  );
+  assert.equal(
+    isDone({ on: 'undo' }, w({ timeouts: 3 }), w({ timeouts: 2 })),
+    true,
+    'and so does undoing a timeout, which is the step before it on a whole cell',
+  );
+  assert.equal(isDone({ on: 'undo' }, w(), w({ events: [shotAt(true)] })), false);
+
+  // A STEP WITH NOTHING TO TAP IS NEVER FINISHED BY THE BOARD. Its caption's
+  // own button is the only way on, which is what `needsButton` is asked.
+  assert.equal(isDone({ on: 'next' }, w(), w({ events: [shotAt(true)], opens: 9 })), false);
+
+  /* -- where the ring goes ------------------------------------------- */
+
+  // A SHOT IS THREE STEPS AND THE RING DOES NOT WANDER INSIDE THEM: the spot
+  // is on the floor, the result is on its own tile, the shooter is on the
+  // sheet. The one place it still moves is the last tap of a three on a board
+  // that asks for the assist, because that board does not record the shot
+  // until the assist bar is answered.
+  const arc = TUTORIAL_STEPS.find((s) => s.id === 'three');
+  assert.ok(arc, 'the three-point step is gone');
+  assert.equal(targetFor(arc, null), 'court', 'a shot starts on the floor');
+  const made = TUTORIAL_STEPS.find((s) => s.id === 'three.made');
+  assert.ok(made, 'the step that asks for MADE is gone');
+  assert.equal(targetFor(made, 'what'), 'what.made', 'the result is a tile of its own');
+  const scored = TUTORIAL_STEPS.find((s) => s.id === 'three.who.ask');
+  assert.ok(scored, 'the assist board lost the last tap of its three');
+  assert.equal(targetFor(scored, null), 'panel', 'the shooter is picked on the sheet');
+  assert.equal(targetFor(scored, 'assist'), 'assist.none', 'and the ring follows onto the bar');
+  assert.equal(
+    targetFor(scored, 'endQuarter'),
+    'panel',
+    'something this step knows nothing about leaves the ring where it was',
+  );
+
+  /* -- and WHERE on it the finger lands ------------------------------ */
+
+  /**
+   * THE HAND HAS TO BE IN THE ZONE THE CAPTION IS TALKING ABOUT.
+   *
+   * A control is one thing and its middle is where a finger belongs; the FLOOR
+   * is seven zones, and its middle is a two. So a step about the floor carries
+   * its own `spot`, and this asserts the thing that makes that worth doing: the
+   * coordinate under *Tap outside the arc* really is a THREE — and the floor
+   * step before it really is a two, or the tour teaches the same shot twice.
+   */
+  for (const id of ['three']) {
+    const s = TUTORIAL_STEPS.find((x) => x.id === id);
+    assert.ok(s, `${id} is gone`);
+    const spot = spotFor(s, 'court');
+    assert.ok(spot, `${id} points at the floor with no spot on it`);
+    assert.equal(
+      shotTypeFor(spot.x, spot.y),
+      '3PT',
+      `${id} says "outside the arc" and points at a two`,
+    );
+    assert.equal(spotFor(s, 'panel'), null, 'a panel is pointed at in the middle');
+  }
+
+  const floor = TUTORIAL_STEPS.find((s) => s.id === 'court');
+  assert.ok(floor, 'the first floor step is gone');
+  const floorSpot = spotFor(floor, 'court');
+  assert.ok(floorSpot, 'the first floor step has no spot');
+  assert.equal(
+    shotTypeFor(floorSpot.x, floorSpot.y),
+    '2PT',
+    'the tour teaches a two and then a three, and this one is not the two',
+  );
+
+  // and the middle of the floor is exactly what the spot exists to avoid
+  assert.equal(shotTypeFor(0.5, 0.5), '2PT', 'the centre of the court stopped being a two');
+
+  /* -- every string the tour prints ---------------------------------- */
+
+  for (const [key, value] of Object.entries(TUTORIAL_COPY)) {
+    if (typeof value === 'string') assert.ok(value.length > 0, `TUTORIAL_COPY.${key} is empty`);
+  }
+  for (const [key, value] of Object.entries(TUTORIAL_COPY.regions)) {
+    assert.ok(value.length > 0, `the ${key} region has no label`);
+  }
+
+  /* -- the throwaway game -------------------------------------------- */
+
+  const tg = tutorialGame(DEFAULT_OPTIONS, 'Test FC');
+  assert.equal(tg.players.length, TUTORIAL_SQUAD.length, 'the tour lost a shirt');
+  /**
+   * FOUR ON THE FLOOR AND ONE SHOWING OUT, which is what a board looks like
+   * between a disqualification and the substitution that answers it.
+   *
+   * The disqualified one MUST be one of the five, and that is what this pair of
+   * assertions is really holding: `useRailPlayers` draws the actives and then
+   * the disqualified, sliced to five, so a bench player sent off is never
+   * reached by the slice — and the step that points at a fouled-out row would
+   * point at a row that is not on the screen.
+   */
+  assert.ok(
+    TUTORIAL_STARTERS.includes(TUTORIAL_FOULED_OUT),
+    'the disqualified player is not one of the five, so the rail never draws them',
+  );
+  assert.equal(
+    tg.players.filter((p) => p.status === 'active').length,
+    TUTORIAL_STARTERS.length - 1,
+    'the tour does not tip off with a full floor less the one who is off',
+  );
+  assert.equal(
+    tg.players.filter((p) => p.status === 'out').length,
+    1,
+    'the fouled-out step has nobody to point at',
+  );
+  assert.equal(tg.players.find((p) => p.status === 'out')?.id, TUTORIAL_FOULED_OUT);
+  assert.ok(tg.players.some((p) => p.status === 'bench'), 'nowhere to substitute from');
+
+  // THE LOG IS EMPTY AND SO IS THE SCOREBOARD. Every number the tour puts on
+  // the footer is one the scorer put there, which is the whole of what a
+  // walkthrough is for: a figure that started at eighteen cannot be seen to
+  // move. It also leaves UNDO nothing of the app's own making to take back.
+  assert.deepEqual(tg.events, [], 'the tour starts with something already logged');
+  assert.equal(tg.score, TUTORIAL_BOARD.score);
+  assert.equal(tg.oppScore, TUTORIAL_BOARD.oppScore);
+  assert.equal(tg.possessions, TUTORIAL_BOARD.possessions);
+  assert.equal(TUTORIAL_BOARD.score, 0, 'the tour opens on a board somebody has already played');
+  assert.equal(TUTORIAL_BOARD.oppScore, 0);
+  assert.equal(TUTORIAL_BOARD.possessions, 0);
+  assert.equal(tg.running, false, 'the clock step is about a board that is stopped');
+  assert.equal(tg.ended, false);
+
+  // IT IS PLAYED UNDER THE SCORER'S OWN RULES, stamped the way `startGame`
+  // stamps them, so the period cell says what their own board would say.
+  const halves = tutorialGame({ ...DEFAULT_OPTIONS, periods: 2, periodLen: 720 }, 'X');
+  assert.equal(halves.periods, 2);
+  assert.equal(halves.periodLen, 720);
+  assert.ok(halves.period <= halves.periods, 'a two-half board opened on a period it has not got');
+
+  // NOTHING FROM THE ROSTER CROSSES, exactly as `buildPlayers` guarantees for a
+  // real tip-off: the tour is built through the same door and no other.
+  for (const p of tg.players) {
+    assert.ok(!('available' in p), 'availability reached the tour');
+    assert.ok(!('position' in p), 'a position reached the tour');
+    assert.equal(p.stats.points, 0, 'a tour player started with points on them');
+  }
+  // and every one of them has their OWN counters — the bug `buildPlayers` is
+  // asserted against for a real game, asserted again for this one
+  assert.equal(
+    new Set(tg.players.map((p) => p.stats)).size,
+    tg.players.length,
+    'two tour players share one stat line',
+  );
+
+  // ITS IDS CANNOT COLLIDE WITH A REAL ROSTER'S. Nothing here is ever written
+  // to `rosterStore`, but a tour player wearing `p1` beside a seeded `p1` is
+  // the kind of coincidence only ever found the hard way.
+  const seeded = new Set(SEED_ROSTER.map((p) => p.id));
+  for (const p of TUTORIAL_SQUAD) {
+    assert.ok(!seeded.has(p.id), `the tour's ${p.id} collides with the seed roster`);
+  }
+  for (const id of TUTORIAL_STARTERS) {
+    assert.ok(TUTORIAL_SQUAD.some((p) => p.id === id), `${id} starts but is not on the squad`);
+  }
+  assert.ok(
+    TUTORIAL_SQUAD.some((p) => p.id === TUTORIAL_FOULED_OUT),
+    'the disqualified player is not on the squad',
+  );
+  assert.equal(
+    new Set(TUTORIAL_SQUAD.map((p) => p.number)).size,
+    TUTORIAL_SQUAD.length,
+    'two tour players wear one number',
+  );
 }
 
 console.log('selfcheck: all assertions passed');

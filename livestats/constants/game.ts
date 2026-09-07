@@ -105,20 +105,31 @@ export const zeroStats = (): PlayerStats => ({
 });
 
 /**
- * The first-run team. It is a ROSTER now, not a game: `rosterStore` seeds
- * itself from this and `startGame` turns whichever of them the scorer picks
- * into players. Ids stay `p${number}` so a game persisted before the split
- * still lines up with the roster it was built from.
+/**
+ * THE FIRST-RUN TEAM: FIVE SHIRTS, NUMBERED 1 TO 5, AND NOT ONE NAME.
+ *
+ * It seeds `rosterStore` and is never read again. It was EIGHT players carrying
+ * the developer's own team — `a.n`, `bd`, `No. 13` — which was fine while
+ * nothing ever showed it to a stranger. `app/intro.tsx` shows it to every
+ * stranger on their first launch, as the answer to "who's on the team?", and a
+ * roster of somebody else's initials is the worst possible answer.
+ *
+ * FIVE, BECAUSE FIVE IS `STARTERS` — the smallest roster that can actually
+ * start a game, so a scorer who skips the roster step still has a working
+ * board. A blank `name` is not an error state: the row draws `Player 1` as a
+ * placeholder and the rail falls back to the number, so an untouched seed is a
+ * team of five numbered shirts, which is what a team of five numbered shirts
+ * looks like.
+ *
+ * THE IDS STAY `p${number}`, which is not cosmetic: a game persisted before the
+ * store split lines up with the roster it was built from by exactly this.
  */
 export const SEED_ROSTER: RosterPlayer[] = [
-  { id: 'p1', number: 1, name: 'a.n', available: true },
-  { id: 'p12', number: 12, name: 'bd', available: true },
-  { id: 'p13', number: 13, name: 'No. 13', available: true },
-  { id: 'p15', number: 15, name: 'b.1', available: true },
-  { id: 'p16', number: 16, name: 'No. 16', available: true },
-  { id: 'p7', number: 7, name: 'No. 7', available: true },
-  { id: 'p9', number: 9, name: 'No. 9', available: true },
-  { id: 'p21', number: 21, name: 'No. 21', available: true },
+  { id: 'p1', number: 1, name: '', available: true },
+  { id: 'p2', number: 2, name: '', available: true },
+  { id: 'p3', number: 3, name: '', available: true },
+  { id: 'p4', number: 4, name: '', available: true },
+  { id: 'p5', number: 5, name: '', available: true },
 ];
 
 /**

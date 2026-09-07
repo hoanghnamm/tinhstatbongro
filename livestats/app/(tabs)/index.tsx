@@ -1,16 +1,23 @@
-import { useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, type ReactNode } from 'react';
 import { Image, ScrollView, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+
+import { Toast } from '../../components/Toast';
 import { PanelHost } from '../../components/panels/PanelHost';
 import { Btn } from '../../components/panels/shell';
 import { Band, Card, Seam } from '../../components/stats/parts';
 import { Bloom } from '../../components/ui/Bloom';
-import { Crest } from '../../components/ui/Crest';
+import { GlowText } from '../../components/ui/GlowText';
 import { Press } from '../../components/ui/Press';
+import { Wordmark } from '../../components/ui/Wordmark';
 import { Col, Row } from '../../components/ui/Row';
+import { TUTORIAL_COPY } from '../../constants/tutorial';
+import { useGate, useLaunchPaywall } from '../../hooks/useGate';
+import { useIntro } from '../../hooks/useIntro';
 import { useTabInset } from '../../hooks/useTabInset';
 import { useSavedGames } from '../../hooks/useSavedGames';
 import { pct } from '../../lib/format';
@@ -21,7 +28,7 @@ import { efficiency } from '../../lib/stats';
 import { useGameStore } from '../../store/gameStore';
 import { useHistoryStore } from '../../store/historyStore';
 import { useRosterStore } from '../../store/rosterStore';
-import { useTeamStore } from '../../store/teamStore';
+import { useTutorialStore } from '../../store/tutorialStore';
 import { useUiStore } from '../../store/uiStore';
 import { useMetrics } from '../../theme/metrics';
 import {
@@ -29,7 +36,6 @@ import {
   LS_MICRO,
   LS_TIGHT,
   LS_TITLE,
-  fDisplay,
   fNum,
   fUi,
   ls,
@@ -40,8 +46,8 @@ import { useTheme } from '../../theme/useTheme';
 /**
  * THE LOBBY — TWO BLOCKS AND THE VERBS.
  *
- * The lockup and its tagline over the ball, then the LEAGUE, then the MVP, then
- * one row carrying NEW GAME and the gear. That is the whole screen.
+ * The lockup over the track, then the LEAGUE, then the MVP, then one row
+ * carrying NEW GAME and the gear. That is the whole screen.
  *
  * THE LEAGUE IS THE UPPER BLOCK AND THE MVP IS THE LOWER ONE. They were the
  * other way round, and the order is an argument about what the screen is for:
@@ -56,13 +62,16 @@ import { useTheme } from '../../theme/useTheme';
  * and how the season is going. Both are one tap into the room that holds the
  * detail, which is what the six-number strips were standing in for.
  *
- * THE TAGLINE IS ONE SMALL LINE UNDER THE MARK, AND THE CLUB HAS ITS SLOT.
- * Ball don't lie. Stats neither. sits hard against `HOOPLOG` at `fs2xs`, which
- * is what a tagline is — the lockup's small print — and the slot it used to
- * take two lines of air over is the CREST AND THE NAME. It is a readout and
- * NOT the identity block coming back: nothing here opens the team editor, and
- * the accent on the tagline's second half is still the LOCKUP'S rather than
- * the screen's, so it spends nothing against the budget below.
+ * THERE IS NO TAGLINE, AND THERE IS NO CLUB EITHER. Ball don't lie. Stats
+ * neither. sat hard against the mark at `fs2xs` for a revision and is CUT: a
+ * lockup that has to explain itself in small print under the logotype is a
+ * logotype doing half its job, and the line was read once and never again on a
+ * screen a scorer opens every night. The CREST AND THE NAME took that slot
+ * next, first under the mark and then beside it, and they are cut from here
+ * too: this screen already has an identity, and a second one stacked on it is
+ * the app and the club competing to say whose screen this is. The club heads
+ * MATCHES and STATS instead — `components/team/ClubMark.tsx`, the mark's own
+ * position and the mark's own face — so each room carries exactly one lockup.
  *
  * `fDisplay` IS THE WORDMARK'S ALONE ON THIS SCREEN. It used to land on two
  * NAMES as well — the MVP's and the club's — and both are text a scorer typed:
@@ -73,12 +82,17 @@ import { useTheme } from '../../theme/useTheme';
  * `fsLg`. The crest's monogram is the one other place the face survives, and it
  * is a mark rather than a label.
  *
- * ACCENT IS THE PRIMARY VERB AND THE ONE NUMBER EACH BLOCK IS ABOUT — the MVP's
- * jersey and the league's points — and nothing else. Not the record, not the
- * FG, not the tiles, not the league band's note. The old rule said "the primary button
- * and our own score", and with the live score off the screen this is the same
- * rule over the same count: three marks, each of them the thing its block
- * exists to say.
+ * ACCENT WAS THE PRIMARY VERB AND THE ONE NUMBER EACH BLOCK IS ABOUT — the
+ * MVP's jersey and the league's points — and it is NONE OF THE THREE ANY MORE.
+ * All three wear the PLATE instead: the two figures take `courtLine`, which is
+ * the ink a jersey number is set in on the picker one tap later, and the `+`
+ * takes `Btn`'s `plate` variant, which is the plate's own three layers. The
+ * orange survives on this screen only where it never counted against the
+ * budget — the lockup's `log`, the two band labels, and the wash inside the
+ * plate itself, which names nothing and picks out no
+ * control. What it costs is stated plainly: `courtLine` on `surface` is a warm
+ * grey, so the hero figure of each block now reads by SIZE alone rather than by
+ * size and colour together. That was the trade, and it was made deliberately.
  *
  * THERE IS NO LIVE HERO, so the way back into a running game is the FOOT of the
  * screen: CONTINUE GAME takes the primary slot while a game is on and NEW GAME
@@ -89,8 +103,23 @@ import { useTheme } from '../../theme/useTheme';
  * GAME SETTINGS was a full-width named verb of its own directly under NEW GAME
  * — a page opened once a season wearing the same width as the one opened every
  * night. It is a glyph on the right of the verb's own row now, which is the
- * ratio said out loud, and it is the only icon-only control in the app outside
- * the tab bar.
+ * ratio said out loud.
+ *
+ * AND THE VERB ITSELF IS A GLYPH TOO — A PLUS. New game is the one thing on
+ * this screen that MAKES something, and `+` is what that reads as everywhere
+ * else on a phone; a word spelled out beside a `cog` was the row saying the
+ * same thing twice, once in letters and once in a mark. The RATIO is what says
+ * which of the two is the primary: four fifths of the row is the plus, so it
+ * is still the biggest target on the screen and still the only one wearing
+ * `plate`. IT WORE `bloom` — the room made into a button — and it wears the
+ * JERSEY now: the same fill, wash and left-hand rule the picker's plates wear,
+ * so the control that starts a game and the plates it hands you are one object
+ * two taps apart. CONTINUE GAME is `bloom`'s caller now, which keeps the two
+ * apart on the one screen that can show both: coming BACK to a game is the
+ * room lighting up, starting one is picking up a shirt.
+ * The `label` stays on both — it is what the screen reader says.
+ * CONTINUE GAME above it keeps its WORD, because coming back to a game already
+ * being played is not an act of creation and has no glyph anybody would read.
  *
  * The wordmark LEANS and carries no full stop. `HOOPLOG.` was set upright; the
  * lean comes from `WORDMARK_SLANT` rather than from `fontStyle`, for the reason
@@ -119,21 +148,7 @@ import { useTheme } from '../../theme/useTheme';
 /** The column's own cap. The same line `team.tsx` and `RotateGate` draw. */
 const TWO_UP = 700;
 
-/**
- * THE WORDMARK'S LEAN, as a skew rather than an italic face.
- *
- * Anton has one weight, no italic, and nothing to synthesise from on iOS, so
- * `fontStyle: 'italic'` is a rule one platform honours and the other ignores.
- * TWELVE DEGREES IS THE TOP OF THE RANGE and it is where this sits: it was nine
- * for one revision and nine on a face this condensed reads as a mark set very
- * slightly crooked rather than as a mark that LEANS. Past twelve the counters
- * start to close and Anton goes to mush, so this is the last stop before the
- * lean costs the letterforms. It is a raw value like a hex and it is a lockup's,
- * not a layout's — nothing else in the app leans, and nothing else should.
- */
-const WORDMARK_SLANT = '-12deg';
-
-/** The ball, as a share of the window. Wide enough to run off the right edge —
+/** The floor, as a share of the window. Wide enough to run off the right edge —
  *  a photograph that ends inside the screen is a picture pasted onto it. */
 const ART_W = 0.82;
 const ART_H = 0.24;
@@ -141,7 +156,14 @@ const ART_H = 0.24;
 /* ---- the pieces ---------------------------------------------------- */
 
 /**
- * THE BALL BEHIND THE LOCKUP.
+ * THE FLOOR BEHIND THE LOCKUP.
+ *
+ * A RUBBER TRACK, SHOT CLOSE: rust ground, a white lane line, a yellow chevron
+ * and the blue infield it corners into. It replaced a basketball, and the swap
+ * is what the skin is now sampled off — see `theme/tokens.ts`. It is cropped
+ * 2:1 and the marks sit RIGHT OF CENTRE, which is the half of the frame the
+ * two washes below leave at full contrast; a crop with its subject on the left
+ * would be a photograph faded out over the only part of it worth showing.
  *
  * It obeys the two rules `Bloom` obeys, for the same reasons: it is the first
  * thing in the screen and OUTSIDE the padded flow, so it runs under the status
@@ -149,10 +171,11 @@ const ART_H = 0.24;
  * top of it.
  *
  * IT IS FADED BY TWO GRADIENTS, NOT BY OPACITY. A flat `opacity` on the image
- * greys the whole photograph including the black it is mostly made of, which
- * reads as a grey rectangle over a near-black room. The two washes instead run
- * the room's own `bg` back OVER the picture — solid at the left edge and at the
- * bottom, clear at the top-right corner — so the ball emerges out of the room
+ * lifts the whole photograph toward the room's ground, which reads as a dull
+ * rectangle laid over it rather than as part of it — and this picture has no
+ * dark half to hide in: it is a rust surface edge to edge. The two washes
+ * instead run the room's own `bg` back OVER it — solid at the left edge and at the
+ * bottom, clear at the top-right corner — so the floor emerges out of the room
  * rather than being pasted onto it, and the corner keeps its full contrast.
  */
 function HeaderArt() {
@@ -173,7 +196,7 @@ function HeaderArt() {
       }}
     >
       <Image
-        source={require('../../assets/hero-ball.png')}
+        source={require('../../assets/hero-court.jpg')}
         resizeMode="cover"
         style={{ width: w, height: h }}
       />
@@ -194,100 +217,6 @@ function HeaderArt() {
         style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }}
       />
     </View>
-  );
-}
-
-/**
- * BALL DON'T LIE. STATS NEITHER.
- *
- * ONE LINE, TIGHT UNDER THE WORDMARK. It was two lines sitting in a slot of
- * their own with air above them, which made the tagline read as a second block
- * rather than as part of the mark — and it left the club with nowhere to go.
- * The slot it vacated is the club's; see `Identity`.
- *
- * IT IS SET AT `fs2xs`, WHICH IS THE RAMP'S NEW BOTTOM STEP AND ITS ONLY
- * CALLER. The ramp stopped at `fsXs` because that is the smallest thing on the
- * board a scorer has to read at arm's length in a gym; a tagline is read once
- * and never again, so it is the one string allowed under that floor. There is
- * a NEGATIVE `s1` above it, which is how it sits on the mark rather than a step
- * below it. Squeezing the wordmark's own `lineHeight` was the first attempt and
- * it CLIPPED the face — see the note there. Pulling the small print up into the
- * mark's leading costs the mark nothing.
- *
- * TWO TONES ON THE ONE LINE, which is the construction the two lines had and
- * the same reason: the colour lands on the half that is the point. It is set in
- * the BODY face and not in `fDisplay` — the wordmark above it is the mark, and
- * a tagline in the same face at half the size reads as the mark repeating
- * itself rather than as a line under it. It is SENTENCE CASE, like everything
- * else that is a sentence.
- *
- * The accent on the second half is the LOCKUP'S, not the screen's: it names no
- * control and opens nothing, exactly as `LOG` in the wordmark does, so it does
- * not count against the marks below.
- */
-function Tagline() {
-  const m = useMetrics();
-  const t = useTheme();
-
-  const line = {
-    ...fUi(500),
-    fontSize: m.fs2xs,
-    lineHeight: m.fs2xs * 1.2,
-    letterSpacing: ls(m.fs2xs, LS_MICRO),
-  };
-
-  return (
-    <Text numberOfLines={1} style={{ ...line, color: t.ink2, marginTop: -m.s1 }}>
-      Ball don&apos;t lie. <Text style={{ color: t.accent }}>Stats neither.</Text>
-    </Text>
-  );
-}
-
-/**
- * THE CLUB, IN THE SLOT THE TAGLINE GAVE UP — the crest and the name.
- *
- * The lockup says what the APP is; this says whose board it is, which is the
- * one thing about the club that belongs on a screen that no longer edits it.
- * It is a READOUT and not a way in: the club is edited on the TEAM tab, one tap
- * away, and a crest that opened an editor here is exactly the route that was
- * cut when the identity block went.
- *
- * THE NAME IS THE BODY FACE, AND A STEP BELOW THE MVP'S. It was `fDisplay` at
- * `fsXl` — the wordmark's own face at a size a hair under the wordmark's own —
- * which made the club read as a SECOND LOGOTYPE stacked under the first rather
- * than as the answer to whose board this is. A club name is text a scorer
- * typed; it is set the way every other name in the app is set, and it is not
- * shouted back in capitals either. `fsLg` keeps it under the MVP, who is the
- * name this screen is about.
- */
-function Identity() {
-  const m = useMetrics();
-  const t = useTheme();
-  const club = useTeamStore((s) => s.profile);
-
-  return (
-    <Row gap={m.s3} style={{ marginTop: m.s4 }}>
-      <Crest name={club.name} uri={club.logoUri} size={Math.round(m.fsLg * 1.6)} />
-      <Text
-        numberOfLines={1}
-        style={{
-          flexShrink: 1,
-          // THE BODY FACE, BECAUSE THE CLUB'S NAME IS TEXT A SCORER TYPED.
-          // It was `fDisplay` at a size a hair off the wordmark's, which made
-          // the club read as a SECOND LOGOTYPE stacked under the first rather
-          // than as the answer to whose board this is. The mark is the app's
-          // and is set in the app's face; a name out of the roster is set in
-          // the face every other name in the app is set in.
-          ...fUi(600),
-          fontSize: m.fsLg,
-          lineHeight: m.fsLg * 1.25,
-          letterSpacing: ls(m.fsLg, LS_LABEL),
-          color: t.ink,
-        }}
-      >
-        {club.name}
-      </Text>
-    </Row>
   );
 }
 
@@ -442,11 +371,16 @@ function MvpCard({
               }}
             >
               <Row gap={1} align="center" style={{ flexGrow: 0, flexShrink: 1, minWidth: 0 }}>
+                {/* THE PLATE'S INK, NOT THE ACCENT. This is a jersey number,
+                    and a jersey number in this app is `courtLine` on the floor
+                    — the pair the picker's plate wears one tap later. The hash
+                    goes with the figure: they are one number, and colouring
+                    half of it would be the drift a pair exists to stop. */}
                 <Text
                   style={{
                     ...fNum(700),
                     fontSize: m.fsMd,
-                    color: t.accent,
+                    color: t.courtLine,
                   }}
                 >
                   #
@@ -458,7 +392,7 @@ function MvpCard({
                     fontSize: m.fs3xl,
                     letterSpacing: ls(m.fs3xl, LS_TIGHT),
                     lineHeight: m.fs3xl * 1.06,
-                    color: t.accent,
+                    color: t.courtLine,
                     fontVariant: ['tabular-nums'],
                   }}
                 >
@@ -589,7 +523,7 @@ function LeagueCard({
                 fontSize: m.fs4xl,
                 letterSpacing: ls(m.fs4xl, LS_TIGHT),
                 lineHeight: m.fs4xl * 1.04,
-                color: t.accent,
+                color: t.courtLine,
                 fontVariant: ['tabular-nums'],
               }}
             >
@@ -664,6 +598,84 @@ function LeagueCard({
 /** Whole numbers stay whole; an average keeps its one decimal. */
 const avg = (n: number): string => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
+
+/**
+ * THE WAY INTO THE WALKTHROUGH, AND IT IS A ROW RATHER THAN A BLOCK.
+ *
+ * This screen is a poster and it is finished — two blocks and the verbs, and
+ * the note above the return says not to put a third block back. So the tour is
+ * not a card, not a first-run prompt and not something that can be dismissed:
+ * it is a quiet line under the verbs, permanently, because a scorer who wants
+ * to be shown the board a second time is a scorer the app has no business
+ * hiding it from.
+ *
+ * IT IS NOT A `Btn`. Three weights are already spoken for down here —
+ * `bloom` for the verb that puts you on the board, `plate` for the one that
+ * makes a game, `plain` for the gear — and a fourth control of button weight
+ * would make the foot of the poster a control panel. A glyph and a line of
+ * `ink2` is what a way in that nobody is being pushed towards looks like.
+ *
+ * IT IS DARK WHILE A GAME IS STANDING, with the reason printed under it — the
+ * same rule this screen already follows for NEW GAME and a roster of four. The
+ * tour runs on the real board against a throwaway game, and the board holds
+ * one game; rather than saving and restoring around a night somebody is in the
+ * middle of keeping, the door is simply shut until it is over. See
+ * `store/tutorialStore.ts`.
+ */
+function TutorialRow({ busy, onPress }: { busy: boolean; onPress(): void }) {
+  const m = useMetrics();
+  const t = useTheme();
+
+  return (
+    <Col gap={m.s1}>
+      <Press
+        onPress={busy ? undefined : onPress}
+        disabled={busy}
+        accessibilityLabel={TUTORIAL_COPY.entry}
+        style={{
+          minHeight: m.tapSm,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: m.s2,
+          borderRadius: m.rSm,
+          opacity: busy ? 0.4 : 1,
+        }}
+        pressedStyle={{ backgroundColor: t.surface }}
+      >
+        <MaterialCommunityIcons name="gesture-tap" size={m.fsMd} color={t.ink3} />
+        <Text
+          numberOfLines={1}
+          style={{
+            ...fUi(500),
+            fontSize: m.fsSm,
+            letterSpacing: ls(m.fsSm, LS_LABEL),
+            color: t.ink2,
+          }}
+        >
+          {TUTORIAL_COPY.entry}
+        </Text>
+      </Press>
+
+      {busy && (
+        <Text
+          accessibilityLiveRegion="polite"
+          style={{
+            textAlign: 'center',
+            ...fUi(400),
+            fontSize: m.fsXs,
+            letterSpacing: ls(m.fsXs, LS_MICRO),
+            color: t.ink3,
+          }}
+        >
+          {TUTORIAL_COPY.busy}
+        </Text>
+      )}
+    </Col>
+  );
+}
+
+
 function LobbyScreen() {
   const m = useMetrics();
   const t = useTheme();
@@ -712,25 +724,81 @@ function LobbyScreen() {
   );
 
   const inProgress = played && !ended;
+
+  /* -- THE WALKTHROUGH. It runs on the real board against a throwaway game,
+        so it needs the board free — `inProgress` is the same test the verbs
+        above use, and the row is dark with its reason printed while a game is
+        standing. Nothing about the tour is gated on having watched it, and
+        `outroPending` is the one-time pointer back to this row, said HERE
+        because this is the row it is pointing at. -- */
+  const beginTutorial = useTutorialStore((s) => s.begin);
+  const tutorialLastStep = useTutorialStore((s) => s.lastStep);
+  const outroPending = useTutorialStore((s) => s.outroPending);
+  const markOutroShown = useTutorialStore((s) => s.markOutroShown);
+  const say = useUiStore((s) => s.say);
+
+  useEffect(() => {
+    if (!outroPending) return;
+    say(TUTORIAL_COPY.outro);
+    markOutroShown();
+  }, [outroPending, say, markOutroShown]);
+
+  /**
+   * THE TWO GATES THIS SCREEN OWNS.
+   *
+   * `newGame` is the one the trial is measured in — open until the free game
+   * is filed. `season` covers BOTH blocks on this screen, because the MVP and
+   * the LEAGUE are the same act under two headings: reading across every
+   * official game. They are two `useGate` calls rather than one because they
+   * open at different times, and a single flag would have to pick one.
+   */
+  const { guard: guardNew } = useGate('newGame');
+  const { guard: guardSeason } = useGate('season');
+
+  // THE DOOR, AND THEN THE WALL — in that order, and the order is the whole
+  // of it. `useIntro` sends a scorer who has never been here to `/intro`;
+  // until that answer has landed off disk this screen is mounted but is not
+  // being looked at (the launch page is over it), so the wall is HELD. A
+  // paywall pushed in that window would sit UNDER the onboarding in the stack.
+  // Both live here rather than in the root layout for the same reason: the
+  // root holds the first frame until the fonts land and has no route mounted
+  // to push from — and a cold start arrives here.
+  const { pending } = useIntro();
+  useLaunchPaywall(pending);
   // a board with nothing on it and a shelf with nothing on it: the one state
   // that gets the onboarding copy, and it is true exactly once per install
   const nothingYet = !played && savedCount === 0;
   const available = roster.filter((p) => p.available);
   const enough = available.length >= STARTERS;
 
-  const newGame = () => {
+  /**
+   * THE PAYWALL IS CHECKED BEFORE THE CONFIRM, and the order is the point.
+   *
+   * Both guards protect the same tap and they answer different questions —
+   * `newGame` asks whether the scorer may start ANOTHER game, the confirm asks
+   * whether they meant to throw away the one that is running. Asking the
+   * confirm first would put 'this will discard your live game' in front of
+   * somebody who is not going to get a new game either way, which is a warning
+   * about a consequence that cannot happen.
+   */
+  const newGame = guardNew(() => {
     // losing a live game to a mis-tap is the worst thing this screen can do
     if (inProgress) open({ kind: 'newGame' });
     else router.push('/start');
-  };
+  });
 
   // the player page reads its games out of the route, the way the season tab
   // hands them over — one shape, and no second way in
+  // A PLAYER'S OWN SEASON IS AN AGGREGATE, so it is behind the same gate the
+  // STATS tab is: this reads across every official game, which is the thing
+  // the one free game does not buy.
   const openPlayer = (id: string) =>
-    router.push({
-      pathname: '/player/[id]',
-      params: { id, games: JSON.stringify(official ?? []) },
-    });
+    guardSeason(() =>
+      router.push({
+        pathname: '/player/[id]',
+        params: { id, games: JSON.stringify(official ?? []) },
+      }),
+    )();
 
   const mvpBlock = mvp && (
     <MvpCard
@@ -751,7 +819,9 @@ function LobbyScreen() {
       games={league.season.games}
       fgm={league.season.team.fgm}
       fga={league.season.team.fga}
-      onPress={() => router.push({ pathname: '/competition', params: { key: league.key } })}
+      onPress={guardSeason(() =>
+        router.push({ pathname: '/competition', params: { key: league.key } }),
+      )}
     />
   );
 
@@ -815,6 +885,11 @@ function LobbyScreen() {
           because a fifth of this row cannot hold a word — and it sits on the
           RIGHT, where nothing that starts a game has ever been.
 
+          BOTH CELLS ARE GLYPHS NOW: the verb is a PLUS. It is the one control
+          on this screen that makes something, and the WIDTH is what says it is
+          the primary — four fifths of the row, wearing `bloom`, against a
+          fifth of `plain`. Neither loses its `label`; that is what is spoken.
+
           The weights are on the WRAPPERS rather than on the buttons, because
           `Btn` is `flex:1` inside whatever it is handed and every caller in the
           app relies on that. */}
@@ -822,7 +897,8 @@ function LobbyScreen() {
         <View style={{ flex: 4, flexDirection: 'row' }}>
           <Btn
             label="New game"
-            variant={inProgress ? 'surface' : 'bloom'}
+            icon="plus"
+            variant={inProgress ? 'surface' : 'plate'}
             disabled={!enough}
             onPress={newGame}
           />
@@ -853,6 +929,24 @@ function LobbyScreen() {
           Need at least {STARTERS} available players
         </Text>
       )}
+
+      {/* UNDER THE VERBS, ALWAYS, AND NOT GATED ON ANYTHING. It is not a
+          first-run card and it cannot be dismissed — see `TutorialRow`. */}
+      <TutorialRow
+        busy={inProgress}
+        onPress={() => {
+          // A TOUR STOPPED PART WAY THROUGH IS ASKED ABOUT HERE, before
+          // anything is started: the panel replaces the board when it begins,
+          // so a question asked afterwards would be asked too late. A tour
+          // walked to the end clears what it remembered and never asks.
+          if (tutorialLastStep) {
+            open({ kind: 'resumeTutorial' });
+            return;
+          }
+          beginTutorial();
+          router.push('/game');
+        }}
+      />
     </Col>
   );
 
@@ -866,7 +960,7 @@ function LobbyScreen() {
         paddingRight: safe.right + m.s4,
       }}
     >
-      {/* THE BALL FIRST, THEN THE BLOOM OVER IT. Both are grounds and both are
+      {/* THE FLOOR FIRST, THEN THE BLOOM OVER IT. Both are grounds and both are
           outside the padded flow; the order is what makes the warm corner sit
           on the photograph rather than behind it, so the two read as one light
           rather than as a picture with a gradient beside it. */}
@@ -874,55 +968,30 @@ function LobbyScreen() {
       <Bloom />
 
       {/* ---- the lockup ---------------------------------------------- *
-          THE WORDMARK, ITS TAGLINE TIGHT UNDER IT, AND THEN THE CLUB.
+          THE WORDMARK, AND NOTHING BESIDE IT.
 
-          The tagline is one small line hard against the mark rather than two
-          lines in a slot of their own, and the slot it gave up is the club's:
-          the crest and the name, as a READOUT. It is not the identity block
-          coming back — there is no route into the team editor from here. The
-          club is edited on the TEAM tab, which is one tap away.             */}
+          There is no tagline under the mark and there is no club beside it
+          either. Both were tried in this slot and both are gone: the mark says
+          what the APP is, and that is the whole of what a header on the home
+          screen owes anybody. The CLUB now heads the two rooms that headed
+          nothing — MATCHES and STATS — out of `components/team/ClubMark.tsx`,
+          in this exact position and in this exact face, so the lockup a scorer
+          is looking at changes as they change rooms rather than doubling up
+          here.                                                              */}
       {/* CAPPED AND CENTRED ON THE SAME LINE THE BLOCKS ARE, which is what
           makes this a column rather than a header floating over one: run full
           width, the lockup sat hard against the left edge of a tablet while
           every card under it was centred at 700. One measure, top to bottom. */}
       <View style={{ flexGrow: 0, flexShrink: 0, width: '100%', maxWidth: TWO_UP, alignSelf: 'center' }}>
+        {/* THE LOCKUP COMES OUT OF `components/ui/Wordmark.tsx`. It was
+            written out here while this was the only screen that drew it; the
+            LAUNCH PAGE draws the same mark one moment earlier, and two copies
+            of a logotype is the pair that ends up leaning at two angles. Every
+            decision behind it — the lowercase, the skew, why it is on a
+            `View`, why `log` is a second node — is written there.            */}
         <Row>
-          {/* THE WORDMARK, AND IT IS SPLIT — `HOOP` in ink, `LOG` in accent.
-              A logotype is the one place in this app a colour is allowed to
-              mean nothing but ITSELF: it names no control, it opens nothing,
-              and it cannot compete with the marks lower down the screen.
-
-              IT LEANS, AND THE LEAN IS A SKEW RATHER THAN A `fontStyle`. Anton
-              ships ONE face and no italic, so `fontStyle: 'italic'` is a rule
-              the platform answers two different ways — Android fakes an oblique
-              and iOS, which has no face to swap to, draws it upright. A skew is
-              the same synthesis, stated once and identical on both. It is on
-              the OUTER `Text`, so the accent half leans with the ink half; two
-              skews would be two wordmarks standing at slightly different
-              angles. */}
-          <Text
-            numberOfLines={1}
-            style={{
-              ...fDisplay(),
-              fontSize: m.fs2xl,
-              // 1.2, AND IT MAY NOT GO TIGHTER. Anton is a tall condensed face
-              // with almost no descender, which makes a tight `lineHeight`
-              // look like free space right up until it CLIPS — the box is what
-              // the text is drawn into, so anything under about 1.15 shaves the
-              // caps off the top. It was 1.04 for one revision and it cut the
-              // wordmark in half. The tagline is pulled up by a margin instead.
-              lineHeight: m.fs2xl * 1.2,
-              letterSpacing: ls(m.fs2xl, LS_TITLE),
-              color: t.ink,
-              transform: [{ skewX: WORDMARK_SLANT }],
-            }}
-          >
-            HOOP<Text style={{ color: t.accent }}>LOG</Text>
-          </Text>
+          <Wordmark />
         </Row>
-
-        <Tagline />
-        <Identity />
       </View>
 
       <ScrollView
@@ -943,6 +1012,12 @@ function LobbyScreen() {
       </ScrollView>
 
       <PanelHost />
+      {/* THE SECOND PLACE THE TOAST IS MOUNTED, and it is mounted for one
+          line: the pointer back to the walkthrough's row, said as the scorer
+          arrives here off the board. `uiStore` has always been global — three
+          tabs mount their own `<PanelHost />` off it — so this is one more
+          reader of a store this room already uses, not a second toast system. */}
+      <Toast />
     </View>
   );
 }

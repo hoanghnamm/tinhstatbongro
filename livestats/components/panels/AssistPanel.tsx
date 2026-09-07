@@ -34,7 +34,9 @@ export function AssistPanel() {
       ) : (
         <PEmpty />
       )}
-      <PSub label="No assist" onPress={() => pickAssist(null)} />
+      {/* the walkthrough spotlights this bar by name: it is the way OUT of a
+          question the board only asks because a setting says to */}
+      <PSub label="No assist" targetId="assist.none" onPress={() => pickAssist(null)} />
     </>
   );
 }

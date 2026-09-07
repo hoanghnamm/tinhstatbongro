@@ -1,5 +1,6 @@
 import { Text, View } from 'react-native';
 
+import type { TargetId } from '../../constants/tutorial';
 import { litControl } from '../../lib/lit';
 import { useLitRect } from '../../store/layoutStore';
 import { useUiStore } from '../../store/uiStore';
@@ -31,6 +32,7 @@ export function SBtn({
   opp = false,
   lit = false,
   accessibilityLabel,
+  targetId,
 }: {
   code: string;
   label?: string;
@@ -39,6 +41,8 @@ export function SBtn({
   /** held while the panel this button opened is on screen */
   lit?: boolean;
   accessibilityLabel?: string;
+  /** the walkthrough's name for this key; see `Press`'s own note */
+  targetId?: TargetId;
 }) {
   const m = useMetrics();
   const t = useTheme();
@@ -51,6 +55,7 @@ export function SBtn({
       accessibilityLabel={accessibilityLabel ?? (label ? `${code} ${label}` : code)}
       innerRef={hole.ref}
       onLayout={hole.onLayout}
+      targetId={targetId}
       style={{
         flexGrow: 1,
         flexShrink: 1,
@@ -152,9 +157,9 @@ export function SideColumn({
             }
       }
     >
-      <SBtn code="PF" onPress={onPf} lit={lit === 'pf'} accessibilityLabel="record a foul" />
-      <SBtn code="FT" onPress={onFt} lit={lit === 'ft'} accessibilityLabel="record free throws" />
-      <SBtn code="RB" onPress={onRb} lit={lit === 'rb'} accessibilityLabel="record a rebound" />
+      <SBtn code="PF" onPress={onPf} lit={lit === 'pf'} targetId="pf" accessibilityLabel="record a foul" />
+      <SBtn code="FT" onPress={onFt} lit={lit === 'ft'} targetId="ft" accessibilityLabel="record free throws" />
+      <SBtn code="RB" onPress={onRb} lit={lit === 'rb'} targetId="rb" accessibilityLabel="record a rebound" />
     </View>
   );
 }

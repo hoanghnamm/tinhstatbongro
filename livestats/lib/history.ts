@@ -120,7 +120,18 @@ export function pushSummary(
   return { index: next.slice(0, cap), dropped: next.slice(cap) };
 }
 
-/** Won or lost — basketball has no draws. */
+/**
+ * Won or lost, on `>=` — and it has NO CALLER LEFT.
+ *
+ * It was the shelf's rule and the delete confirm's, and both moved to
+ * `outcomeOf` below when it turned out that `>=` calls `0 — 0` a WIN, which is
+ * what every unscored practice on the shelf is. It is left standing rather than
+ * deleted, the way `app/stats.tsx` is: the two-way answer is a real question
+ * somebody may ask again — a scoreline that must resolve one way or the other —
+ * and reviving it should be a decision rather than an archaeology exercise.
+ * `npm run check` still holds it to `>=` so it cannot quietly drift into being
+ * a second, disagreeing copy of `outcomeOf`.
+ */
 export const resultOf = (s: GameSummary): 'W' | 'L' =>
   s.score >= s.oppScore ? 'W' : 'L';
 
@@ -163,6 +174,9 @@ export function reviveGame(raw: unknown): GameState | null {
     running: false,
     ended: true,
     possessions: g.possessions ?? 0,
+    // A GAME FROM BEFORE THE FOOTER COUNTED TIMEOUTS TOOK NONE, which is the
+    // only honest reading: nothing counted them, so there is nothing to report
+    timeouts: g.timeouts ?? 0,
     players: g.players,
     events: g.events,
   };
@@ -194,3 +208,47 @@ export const dayMonthLabel = (ms: number): string => {
   const d = new Date(ms);
   return `${dd(d.getDate())}/${dd(d.getMonth() + 1)}`;
 };
+
+/**
+ * WON, LOST, OR NEITHER — and the third answer is why this is not `resultOf`.
+ *
+ * `resultOf` is a two-way split and it has to stay one: its caller is the
+ * delete confirm, which prints "the win at 64-16" or "the loss at 16-64" and
+ * has no third sentence to fall back on. The SHELF has a third case and must
+ * not lie about it — basketball has no draws, so a game whose two numbers are
+ * equal is a game that did not finish being scored, and the commonest one by
+ * far is `0 — 0`. Calling that a win because `>=` says so is the one wrong
+ * thing this row can print, and it printed it on every practice.
+ *
+ * A practice is not asked at all: the shelf never labels one, because a
+ * practice is not a result. See `MatchFilter`.
+ */
+export const outcomeOf = (s: GameSummary): 'W' | 'L' | null =>
+  s.score === s.oppScore ? null : s.score > s.oppScore ? 'W' : 'L';
+
+/**
+ * THE SHELF, FILTERED — and that is the whole of what the strip at the top of
+ * MATCHES does.
+ *
+ * IT WAS A DAY-GROUPER AND IT IS NOT ANY MORE. The shelf briefly carried date
+ * HEADINGS with the day's matches under them and its practices folded into a
+ * run of chips beside a label. It answered "which day was that" well and cost
+ * the thing the screen is actually for: a row was then a block inside a group
+ * inside a section, three levels of structure over a list whose whole content
+ * is a score, a name and a date. The list is FLAT again — one row per saved
+ * match, every row the same shape, the date printed on the row that owns it —
+ * and this is the one derivation left: it drops what the strip is not asking
+ * for and changes nothing else.
+ *
+ * `groupByDay`, `dayHeading` and `dayKey` went with it, and the spelled month
+ * they existed to justify went too. The two date labels below are the digits
+ * they always were.
+ */
+/** Which slice of the shelf the strip at the top of MATCHES is asking for. */
+export type MatchFilter = 'all' | 'official' | 'practice';
+
+export function filterIn(index: GameSummary[], filter: MatchFilter): GameSummary[] {
+  if (filter === 'all') return index;
+  const want: GameKind = filter === 'practice' ? 'practice' : 'official';
+  return index.filter((s) => summaryKind(s) === want);
+}

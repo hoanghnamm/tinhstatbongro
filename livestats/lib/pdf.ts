@@ -388,6 +388,7 @@ export function gameReportHtml(g: GameState, at: number = Date.now()): string {
         kv('Times tied', a.timesTied),
         kv('Time with the lead', mmss(a.timeAhead)),
         kv('Possessions', g.possessions || '&mdash;'),
+        kv('Timeouts', g.timeouts || '&mdash;'),
         kv('Points per possession', a.ppp === null ? '&mdash;' : a.ppp.toFixed(2)),
       ].join(''),
     )}

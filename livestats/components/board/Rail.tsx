@@ -35,6 +35,7 @@ export function Rail() {
 
   const squeeze = m.compact && !m.portrait;
   const pad = Math.max(0, 5 - players.length);
+  const firstOut = players.find((p) => p.status === 'out')?.id;
 
   const press = (id: string) =>
     tapMode === 'sub'
@@ -60,12 +61,25 @@ export function Rail() {
         justifyContent: 'flex-start',
       }}
     >
-      {players.map((p) => (
+      {/* TWO OF THE FIVE ARE NAMED FOR THE WALKTHROUGH, and which two is a
+          question about the column rather than about a player: the FIRST row
+          on the floor, and the first row that is OUT. Both are read off the
+          same order the column is drawn in — `useRailPlayers` puts the active
+          ahead of the disqualified — so neither name is a guess about who is
+          wearing what. */}
+      {players.map((p, i) => (
         <PlayerRow
           key={p.id}
           player={p}
           selected={p.id === shooter}
           lit={p.id === active}
+          targetId={
+            p.status === 'out' ?
+              p.id === firstOut ? 'row.out'
+              : undefined
+            : i === 0 ? 'row.first'
+            : undefined
+          }
           onPress={() => press(p.id)}
         />
       ))}

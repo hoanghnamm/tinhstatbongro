@@ -8,6 +8,7 @@
 import { FOULS, FOUL_KINDS, PERIOD_LEN, TALLY } from '../constants/game';
 import { FT_SPOT, zoneFor } from './court';
 import { mmss } from './format';
+import { STARTERS } from './roster';
 import type {
   EventBody,
   FoulKindKey,
@@ -196,11 +197,39 @@ export function recordFoul(
   return 'ok';
 }
 
-export function substitute(g: GameState, outId: string, inId: string): void {
+/**
+ * Returns whether the substitution happened, and it can refuse: A PLAYER WHO
+ * HAS FOULED OUT MAY NOT BE PUT BACK IN THE LINEUP. Every picker already draws
+ * them as a disabled tile, but a disabled tile is a fact about a panel and this
+ * is a fact about the game, so the rule lives here where `npm run check` can
+ * read it and no future caller can walk around it. A refusal logs nothing and
+ * changes nothing, which is what lets the store drop its snapshot.
+ */
+export function substitute(g: GameState, outId: string, inId: string): boolean {
   const out = need(g, outId);
+  const on = need(g, inId);
+  if (on.status === 'out') return false;
   if (out.status === 'active') out.status = 'bench'; // a fouled-out player stays out
-  need(g, inId).status = 'active';
+  on.status = 'active';
   log(g, { type: 'substitution', playerId: inId, outPlayerId: outId });
+  return true;
+}
+
+/**
+ * THE BOARD OWES A SUBSTITUTION: the floor is short of five and there is
+ * somebody on the bench to fill it.
+ *
+ * A disqualified player used to sit in the rail dimmed for as long as the
+ * scorer left them there, which meant the column said five while the floor had
+ * four on it. So the replacement question is asked at the moment of the fifth
+ * foul, and while this is true it is not a question the scorer may walk away
+ * from — see `FouledOutPanel` and `PanelHost`. It is asked of the GAME and not
+ * of a player, because the debt is the empty place on the floor rather than the
+ * person who vacated it, and it goes false the only two honest ways: somebody
+ * comes on, or there is nobody left to come on and the team really is short.
+ */
+export function owesSub(g: GameState): boolean {
+  return onCourt(g).length < STARTERS && onBench(g).length > 0;
 }
 
 /**
@@ -211,6 +240,30 @@ export function substitute(g: GameState, outId: string, inId: string): void {
  */
 export function addPossession(g: GameState, n = 1): void {
   g.possessions = Math.max(0, g.possessions + n);
+}
+
+/**
+ * One timeout, counted by hand — a team counter like `addPossession`, with no
+ * player to hang it on, AND a mark on the clock.
+ *
+ * The mark is the one place the two counters part company, and it is not a
+ * play-by-play line for its own sake: a timeout is the only thing on this board
+ * that a coach DID, and the only question worth asking about it is whether the
+ * team played better after it. That question needs a period and a clock reading
+ * — see `timeoutRun` in `lib/analysis.ts` — and the log is where this app keeps
+ * times. Nothing is credited to anybody, so no box score moves.
+ *
+ * It is logged only when the count actually rose: `n` is clamped at zero, and a
+ * clamped tap is a tap that did nothing.
+ *
+ * It is the default half of the footer's fourth cell where possessions are the
+ * opt-in half; see `Options.poss`. Same `edit()`, and the snapshot carries the
+ * log, so one UNDO takes back both the number and the mark.
+ */
+export function addTimeout(g: GameState, n = 1): void {
+  const was = g.timeouts;
+  g.timeouts = Math.max(0, g.timeouts + n);
+  if (g.timeouts > was) log(g, { type: 'timeout', playerId: null, position: null });
 }
 
 /**

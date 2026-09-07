@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
 import { Text, View } from 'react-native';
 import { BlurView } from 'expo-blur';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
+import { GlowText } from '../ui/GlowText';
 import { Press } from '../ui/Press';
 import { Col, Row } from '../ui/Row';
 import { useMetrics } from '../../theme/metrics';
@@ -41,6 +43,15 @@ import { useTheme } from '../../theme/useTheme';
 export interface SegItem<T extends string | number> {
   key: T;
   label: string;
+  /**
+   * BEHIND THE PAYWALL. The cell still draws, still presses and still calls
+   * `onChange` — what changes is that it carries a padlock, so a strip with
+   * one paid tab in it reads as a door rather than as a control that ignored
+   * the tap. What the press then DOES is the caller's business: this strip has
+   * no idea what a gate is, and `Seg` is used by three screens that must not
+   * each grow their own copy of that rule.
+   */
+  locked?: boolean;
 }
 
 /**
@@ -56,10 +67,21 @@ export function Seg<T extends string | number>({
   items,
   value,
   onChange,
+  compact = false,
 }: {
   items: SegItem<T>[];
   value: T;
   onChange(key: T): void;
+  /**
+   * A strip that FILTERS a list rather than one that switches a view.
+   *
+   * The stats screens' two bars are the subject of their screens — you go to
+   * them to change what the numbers below mean. The shelf's is chrome above a
+   * list of scores, and at the full `tap` height it read as the heaviest thing
+   * on the screen. It drops to `tapSm` and to `fsXs`; nothing else moves, so
+   * it is still ONE control rather than two that drift.
+   */
+  compact?: boolean;
 }) {
   const m = useMetrics();
   const t = useTheme();
@@ -86,7 +108,7 @@ export function Seg<T extends string | number>({
             style={{
               flex: 1,
               minWidth: 0,
-              minHeight: m.tap,
+              minHeight: compact ? m.tapSm : m.tap,
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'center',
@@ -99,13 +121,24 @@ export function Seg<T extends string | number>({
               numberOfLines={1}
               style={{
                 ...fUi(on ? 600 : 500),
-                fontSize: m.fsSm,
-                letterSpacing: ls(m.fsSm, LS_LABEL),
+                fontSize: compact ? m.fsXs : m.fsSm,
+                letterSpacing: ls(compact ? m.fsXs : m.fsSm, LS_LABEL),
                 color: on ? t.accentInk : t.ink2,
               }}
             >
               {it.label}
             </Text>
+            {/* THE PADLOCK RIDES AFTER THE WORD, at the label's own size and
+                in `ink3` — quieter than the word it follows, because it is a
+                note about the tab and not the tab's name. */}
+            {!!it.locked && (
+              <MaterialCommunityIcons
+                name="lock"
+                size={compact ? m.fsXs : m.fsSm}
+                color={on ? t.accentInk : t.ink3}
+                style={{ marginLeft: m.s1 }}
+              />
+            )}
           </Press>
         );
       })}
@@ -188,7 +221,7 @@ export function Band({
         borderBottomColor: t.rule,
       }}
     >
-      <Text
+      <GlowText
         numberOfLines={1}
         style={{
           ...fUi(tone ? 600 : 500),
@@ -198,7 +231,7 @@ export function Band({
         }}
       >
         {label}
-      </Text>
+      </GlowText>
       {!!note && <View style={{ marginLeft: 'auto', flexGrow: 0, flexShrink: 0 }}>{note}</View>}
     </Row>
   );
@@ -319,8 +352,9 @@ export function Line({
       >
         {label}
       </Text>
-      <Text
+      <GlowText
         numberOfLines={1}
+        containerStyle={{ flexGrow: 0, flexShrink: 0 }}
         style={{
           flexGrow: 0,
           flexShrink: 0,
@@ -334,7 +368,7 @@ export function Line({
         }}
       >
         {value}
-      </Text>
+      </GlowText>
       <Text
         numberOfLines={1}
         style={{
@@ -390,7 +424,7 @@ export function Tile({
         backgroundColor: t.surface,
       }}
     >
-      <Text
+      <GlowText
         numberOfLines={1}
         style={{
           ...fNum(700),
@@ -402,7 +436,7 @@ export function Tile({
         }}
       >
         {value}
-      </Text>
+      </GlowText>
       <Text
         numberOfLines={1}
         style={{

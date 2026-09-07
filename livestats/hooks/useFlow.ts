@@ -69,6 +69,16 @@ export function useFlow() {
           ? Haptics.NotificationFeedbackType.Warning
           : Haptics.NotificationFeedbackType.Success,
       );
+      // A FOULED-OUT PLAYER MAY NOT BE LEFT IN THE FIVE. The board asks who
+      // replaces them here, at the fifth foul, rather than leaving a dimmed row
+      // in the column for the scorer to remember — the column said five while
+      // the floor had four on it. `fresh` is what lets that panel offer UNDO
+      // THE FOUL: the foul is still the top of the undo stack this once.
+      if (outcome === 'out') {
+        u.clear();
+        u.open({ kind: 'fouledOut', playerId, fresh: true });
+        return;
+      }
       u.reset();
       return;
     }
@@ -128,7 +138,9 @@ export function useFlow() {
   const openSubOut = useCallback((outId: string) => {
     const p = game.getState().players.find((x) => x.id === outId);
     ui.getState().open(
-      p?.status === 'out' ? { kind: 'fouledOut', playerId: outId } : { kind: 'subOut', outId },
+      p?.status === 'out'
+        ? { kind: 'fouledOut', playerId: outId, fresh: false }
+        : { kind: 'subOut', outId },
     );
   }, [game, ui]);
 

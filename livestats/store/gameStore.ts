@@ -38,7 +38,10 @@ const UNDO_CAP = 80;
  * a time, or undoing that basket a minute later would wind the game clock back
  * to when it was scored.
  */
-type Snapshot = Pick<GameState, 'score' | 'oppScore' | 'possessions' | 'players' | 'events'> & {
+type Snapshot = Pick<
+  GameState,
+  'score' | 'oppScore' | 'possessions' | 'timeouts' | 'players' | 'events'
+> & {
   period?: number;
   remaining?: number;
 };
@@ -85,9 +88,15 @@ export interface GameStore extends GameState {
   recordRebound(playerId: string, position: Position | null, kind: 'offensive' | 'defensive'): void;
   recordTally(playerId: string, position: Position | null, type: TallyType): void;
   recordFoul(playerId: string, position: Position | null, kindKey: FoulKindKey): FoulOutcome;
-  substitute(outId: string, inId: string): void;
-  /** the footer's POSS cell, and the only writer of `possessions` */
+  /**
+   * False when it refused: a fouled-out player may not be put back in the
+   * lineup. See `lib/actions.ts` — the rule is there, not in the pickers.
+   */
+  substitute(outId: string, inId: string): boolean;
+  /** the footer's POSS half, and the only writer of `possessions` */
   addPossession(): void;
+  /** the footer's TIMEOUT cell, and the only writer of `timeouts` */
+  addTimeout(): void;
 
   undo(): void;
   setRunning(on: boolean): void;
@@ -132,6 +141,7 @@ const freshGame = (
   running: false,
   ended: false,
   possessions: 0,
+  timeouts: 0,
   players,
   events: [],
 });
@@ -148,6 +158,35 @@ const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 let pendingWrite: { key: string; value: string } | null = null;
 let writeTimer: ReturnType<typeof setTimeout> | null = null;
 
+/**
+ * THE ONE THING THAT CAN STOP THE BOARD REACHING THE DISK, and the walkthrough
+ * is its only caller.
+ *
+ * `components/tutorial/` runs the tour on the REAL board against a throwaway
+ * game, which means for two minutes this store holds a game that must never be
+ * remembered. Suppressing the WRITE rather than cleaning up afterwards is what
+ * makes that safe in the case cleanup cannot reach: the OS killing the app
+ * mid-tour leaves the scorer's own board on disk exactly as it was, because it
+ * was never overwritten. See `store/tutorialStore.ts`, which also stashes the
+ * board it replaced and puts it back.
+ *
+ * A paused write is DROPPED, not queued — the whole point is that the tour's
+ * game has nothing to say to the disk, and flushing it later would say it.
+ */
+let persistPaused = false;
+
+export function pausePersist(on: boolean): void {
+  persistPaused = on;
+  // anything already waiting when the tour begins belongs to the board that is
+  // being stashed, and it is on its way to disk as the same value it already
+  // holds; anything waiting when it ends belongs to nothing
+  if (on) {
+    if (writeTimer) clearTimeout(writeTimer);
+    writeTimer = null;
+    pendingWrite = null;
+  }
+}
+
 function flushWrite(): void {
   if (writeTimer) {
     clearTimeout(writeTimer);
@@ -163,6 +202,7 @@ export const flushPersist = flushWrite;
 const debouncedStorage = {
   getItem: (key: string) => AsyncStorage.getItem(key),
   setItem: (key: string, value: string) => {
+    if (persistPaused) return;
     pendingWrite = { key, value };
     if (!writeTimer) writeTimer = setTimeout(flushWrite, 2000);
   },
@@ -187,7 +227,8 @@ export const useGameStore = create<GameStore>()(
         const s = get();
         undoStack.push(
           JSON.stringify({
-            score: s.score, oppScore: s.oppScore, possessions: s.possessions,
+            score: s.score, oppScore: s.oppScore,
+            possessions: s.possessions, timeouts: s.timeouts,
             players: s.players, events: s.events,
             ...(clock ? { period: s.period, remaining: s.remaining } : null),
           } satisfies Snapshot),
@@ -202,7 +243,8 @@ export const useGameStore = create<GameStore>()(
           periods: s.periods, periodLen: s.periodLen,
           period: s.period,
           remaining: s.remaining, running: s.running, ended: s.ended,
-          possessions: s.possessions, players: s.players, events: s.events,
+          possessions: s.possessions, timeouts: s.timeouts,
+          players: s.players, events: s.events,
         });
         const out = fn(g);
         set(g);
@@ -249,9 +291,17 @@ export const useGameStore = create<GameStore>()(
           return outcome;
         },
 
-        substitute: (outId, inId) => edit((g) => A.substitute(g, outId, inId)),
+        substitute: (outId, inId) => {
+          const done = edit((g) => A.substitute(g, outId, inId));
+          // a refused substitution changed nothing, so its snapshot would be a
+          // dead undo step — the same trade a denied foul makes above
+          if (!done) undoStack.pop();
+          return done;
+        },
 
         addPossession: () => edit((g) => A.addPossession(g, 1)),
+
+        addTimeout: () => edit((g) => A.addTimeout(g, 1)),
 
         undo: () => {
           const raw = undoStack.pop();
@@ -269,6 +319,7 @@ export const useGameStore = create<GameStore>()(
             score: prev.score,
             oppScore: prev.oppScore,
             possessions: prev.possessions,
+            timeouts: prev.timeouts,
             players,
             events: prev.events,
             ended: false,
@@ -335,7 +386,8 @@ export const useGameStore = create<GameStore>()(
         score: s.score, oppScore: s.oppScore,
         periods: s.periods, periodLen: s.periodLen,
         period: s.period,
-        remaining: s.remaining, ended: s.ended, possessions: s.possessions,
+        remaining: s.remaining, ended: s.ended,
+        possessions: s.possessions, timeouts: s.timeouts,
         players: s.players, events: s.events, options: s.options,
       }),
       onRehydrateStorage: () => (s) => {
@@ -353,11 +405,15 @@ export const useGameStore = create<GameStore>()(
         // over the length, so any other guess re-slices a game already played
         s.periods = s.periods ?? REG_PERIODS;
         s.periodLen = s.periodLen ?? PERIOD_LEN;
+        // a live game persisted before the footer counted them took none — the
+        // same reading `reviveGame` gives a saved one
+        s.timeouts = s.timeouts ?? 0;
         // a build from before the skin switcher was cut persisted a stray
         // option. Nothing reads it, but naming the ones that are left is what
         // keeps it from outliving the update in storage too.
         const {
           periods, periodLen, ft, tap, assist, bar, labels, dotMade, dotMiss, dotFt,
+          poss, board,
         } = s.options;
         s.options = {
           // added after builds shipped, like `labels` below: the default rather
@@ -374,6 +430,12 @@ export const useGameStore = create<GameStore>()(
           dotMade: dotMade ?? DEFAULT_OPTIONS.dotMade,
           dotMiss: dotMiss ?? DEFAULT_OPTIONS.dotMiss,
           dotFt: dotFt ?? DEFAULT_OPTIONS.dotFt,
+          // a board persisted before the footer's fourth cell was a timeout
+          // count keeps the quieter half of it: the cell whole, the possession
+          // tap not put back under a scorer who never asked for it
+          poss: poss ?? DEFAULT_OPTIONS.poss,
+          // and the same for the board's own skin, which arrived last of all
+          board: board ?? DEFAULT_OPTIONS.board,
         };
       },
     },
@@ -383,12 +445,30 @@ export const useGameStore = create<GameStore>()(
 export const undoDepth = (): number => undoStack.length;
 
 /**
+ * A WHOLE GAME, PUT ON THE BOARD, AND THE WALKTHROUGH IS ITS ONLY CALLER.
+ *
+ * It is deliberately NOT on the `GameStore` interface. Every action there is a
+ * thing a scorer does; this is a thing done TO the board, twice, by the tour —
+ * once to install its throwaway game and once to put back the board it
+ * replaced. Naming it out here keeps it off the surface every screen reads and
+ * makes it findable by exactly the search that should find it.
+ *
+ * It clears the undo stack for `startGame`'s reason: a board's undo history
+ * belongs to the game standing on it, and a stack left over from another one
+ * would rewind this board into a state it was never in.
+ */
+export function installGame(g: GameState): void {
+  undoStack.length = 0;
+  useGameStore.setState({ ...g });
+}
+
+/**
  * The GAME, without the store's machinery around it.
  *
  * `getState()` hands back the actions and the options as well, and both would
  * be written to disk by a `JSON.stringify` that does not know the difference —
  * the options are a preference and not a fact about the game, and a function
- * serialises to nothing at all. Naming the sixteen keys is what keeps a saved
+ * serialises to nothing at all. Naming the seventeen keys is what keeps a saved
  * game the same shape as the one every reader here already takes.
  */
 export const currentGame = (): GameState => {
@@ -408,6 +488,7 @@ export const currentGame = (): GameState => {
     running: s.running,
     ended: s.ended,
     possessions: s.possessions,
+    timeouts: s.timeouts,
     players: s.players,
     events: s.events,
   };

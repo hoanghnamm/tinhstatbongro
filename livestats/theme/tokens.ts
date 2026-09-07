@@ -49,15 +49,42 @@ export interface Palette {
   danger: string;
   dangerInk: string;
   /**
+   * BETTER THAN BEFORE — and it is the fourth hue, added knowingly.
+   *
+   * The rule everywhere else in this app is that three hues do three jobs and
+   * do not trade: `accent` means OURS, `live` means NOW, `danger` means this
+   * destroys something or it has stopped. A CHANGE COLUMN is the one reading
+   * none of the three can carry. It has two directions and they are not ours
+   * and theirs, not now and then, not safe and destructive — they are better
+   * and worse, and every reader of a table like that arrives expecting green
+   * and red. Spending `accent` on "improved" would put the app's primary on
+   * whichever half of a comparison happened to go up, which is the same
+   * mistake the shelf made when a win lit the opponent's score.
+   *
+   * So `danger` keeps the WORSE half — the stated departure the shelf already
+   * makes with the `L` on a loss — and this is the BETTER half. It is INK
+   * ONLY: there is no `goodInk`, because nothing is ever filled with it, and
+   * a fill would need the pair that a fill always needs.
+   *
+   * It lifts on the dark palette exactly as `danger` does. A mid green that
+   * reads on white is a smear on near-black.
+   */
+  good: string;
+  /**
    * NOW, IN PROGRESS — and it is the retired accent, not a new hue.
    *
    * The board is orange, which puts `accent` about twenty degrees from
    * `danger` on the wheel. That is survivable almost everywhere and is NOT
    * survivable on the footer's clock, which is a single cell that means one
    * thing when it is running and the opposite when it is stopped, read at a
-   * glance from the bench. So the teal the palette used to spend on `accent`
-   * moves here rather than leaving: running clock, the lobby's LIVE dot, and
-   * the court's tap mark, which all say the same word.
+   * glance from the bench. So the cool hue the palette used to spend on
+   * `accent` moves here rather than leaving: running clock, the lobby's LIVE
+   * dot, and the court's tap mark, which all say the same word.
+   *
+   * IT IS THE PHOTOGRAPH'S BLUE NOW AND IT WAS A TEAL. Same hue family, same
+   * job, and the swap costs the argument above nothing — it is the infield
+   * the lobby's hero is shot on, so the one cool thing on these screens is a
+   * colour the room can point at rather than a hue chosen in the abstract.
    */
   live: string;
   /* court */
@@ -71,7 +98,7 @@ export interface Palette {
    * It used to be basketball orange, on the grounds that it was the one hue
    * the palette spent nowhere else. `accent` IS that orange now, so the mark
    * would have collided with the made-shot dot it exists to be distinct from.
-   * It is `live` — the same teal, because a tap not yet resolved into a make
+   * It is `live` — the same blue, because a tap not yet resolved into a make
    * or a miss is the same "in progress" the running clock means.
    */
   mark: string;
@@ -82,7 +109,8 @@ export interface Palette {
 interface Raw {
   orange: string;
   orange2: string;
-  teal: string;
+  orangeHot: string;
+  blue: string;
   ink: string;
   ink60: string;
   ink30: string;
@@ -93,6 +121,8 @@ interface Raw {
   press: string;
   rule: string;
   danger: string;
+  /** the change column's better half — see `Palette.good` */
+  good: string;
   courtLine: string;
   onAccent: string;
   liveFill: string;
@@ -107,12 +137,32 @@ interface Raw {
  * a saturated orange reads as two palettes sharing a screen. The court is the
  * one surface left slightly cool, because it is the backdrop the orange marks
  * are read against and it is the only place the contrast is worth the seam.
+ *
+ * AND THE WARMTH IS NOW A PLACE RATHER THAN A PREFERENCE. The lobby's hero is
+ * a photograph of a rubber track — rust ground, a white lane line, a yellow
+ * chevron and a blue infield — and the skin is sampled off it. `orange` moved
+ * a few degrees toward the track's own hue (H21 → H17), so the accent reads as
+ * that surface lit rather than as a basketball beside it; `blue` IS the
+ * infield; the near-black the four rooms are drawn on carries a trace of the
+ * rust so the bloom has something to sit in. The photograph's WHITE LINE is
+ * the one colour that needed no work — `canvas` and `rule` were already that
+ * warm off-white.
+ *
+ * WHAT WAS DELIBERATELY NOT TAKEN IS THE YELLOW. It is the brightest mark in
+ * the picture and it is the one the eye goes to, which is exactly the job
+ * `accent` already has — two of those on one screen is two primaries. And a
+ * yellow fill wants black ink, where every accent surface in this app is
+ * paired with white.
  */
 const RAW: Raw = {
-  orange: '#F26414',
-  orange2: '#D2500A', // pressed: darker, never lighter — down is down
-  teal: '#0E8FA3',
-  ink: '#050505',
+  orange: '#E2571F', // the track, lit — H17, where the photograph's rust is
+  orange2: '#BE4313', // pressed: darker, never lighter — down is down
+  // THE NEAR CORNER OF ORANGE INK — see `glowInk`. The SAME H17: it is the
+  // accent taken up in lightness, not walked toward the photograph's yellow,
+  // which was deliberately not taken and would be a second primary.
+  orangeHot: '#FF7038',
+  blue: '#2E7094', // the infield, held a little above the asphalt's own sat
+  ink: '#0A0604',
   ink60: '#6B6560',
   ink30: '#A8A29B',
   court: '#BFC5C8',
@@ -121,10 +171,13 @@ const RAW: Raw = {
   press: '#F4F2F0', // white has nowhere brighter to go
   rule: '#E3DFDB',
   danger: '#B3261E',
+  // held at the same weight as `danger` above, so a `+3.6` and a `-1.4` in one
+  // column read as two directions rather than as two levels of importance
+  good: '#1E8A4B',
   courtLine: '#FFFFFF',
   onAccent: '#FFFFFF',
   liveFill: 'rgba(255,255,255,0.55)',
-  shadow: '#050505',
+  shadow: '#0A0604',
 };
 
 /** Layer 2. What the UI asks for, aliased onto layer 1. */
@@ -143,10 +196,11 @@ export const PALETTE: Palette = {
   accentInk: RAW.onAccent,
   danger: RAW.danger,
   dangerInk: RAW.onAccent,
-  live: RAW.teal,
+  good: RAW.good,
+  live: RAW.blue,
   court: RAW.court,
   courtLine: RAW.courtLine,
-  mark: RAW.teal,
+  mark: RAW.blue,
   markMiss: RAW.surface,
   liveFill: RAW.liveFill,
 };
@@ -168,16 +222,22 @@ export const PALETTE: Palette = {
  * sit outside the group and stay light with it.
  *
  * The greys are WARM and near-black rather than neutral, so the orange sits in
- * them rather than on them. Two tokens are deliberately NOT the light values:
- * `danger` lifts, because `#B3261E` on near-black is a smear rather than a red,
- * and `live` lifts for the same reason. Both are still the same two hues doing
- * the same two jobs; they are simply the versions of them that survive here.
+ * them rather than on them. The near-black itself carries a trace of the
+ * track's rust — it is the hero photograph's ground, and it is what gives the
+ * bloom above it something to sit in rather than on.
+ *
+ * Three tokens are deliberately NOT the light values: `danger` lifts, because
+ * `#B3261E` on near-black is a smear rather than a red; `good` lifts with it,
+ * because the two are read side by side in one column and a pair that lifts
+ * by halves stops being a pair; and `live` lifts for the same reason as the
+ * first. All three are still the same hues doing the same jobs; they are
+ * simply the versions of them that survive here.
  */
 export const DARK: Palette = {
   ink: '#F7F4F2',
   ink2: '#A39A93',
   ink3: '#6E655F',
-  bg: '#050505',
+  bg: '#0B0604',
   // THE SURFACES ARE TRANSLUCENT, AND THAT IS WHAT MAKES THE GLASS WORK.
   // A `Card` on this screen is a `BlurView`, and an opaque child inside one
   // covers the blur completely — so a `Stat`, a `Band` and a `Seam` painted in
@@ -199,10 +259,12 @@ export const DARK: Palette = {
   accentInk: RAW.onAccent,
   danger: '#E5484D',
   dangerInk: RAW.onAccent,
-  live: '#2AB8CE',
+  // lifted with `danger`, and by the same amount: the pair has to stay a pair
+  good: '#4CC38A',
+  live: '#4E9CC6',
   court: '#2A211B',
   courtLine: '#6E655F',
-  mark: '#2AB8CE',
+  mark: '#4E9CC6',
   markMiss: '#6E655F',
   liveFill: 'rgba(0,0,0,0.35)',
 };
@@ -222,6 +284,7 @@ export const DARK: Palette = {
  */
 export const isTranslucent = (p: Palette): boolean => p.surface.startsWith('rgba');
 
+
 /* ------------------------------------------------------------------ *
  * The chart's three dots
  *
@@ -232,12 +295,21 @@ export const isTranslucent = (p: Palette): boolean => p.surface.startsWith('rgba
  * reason they are settable at all is that a scorer who cannot separate orange
  * from grey cannot read a chart whose two commonest marks are orange and grey.
  *
- * FOUR OF THE EIGHT ARE PALETTE TOKENS, not new hexes — orange IS `accent`,
- * red IS `danger`, teal IS `live`, and NEUTRAL is `markMiss`, which is the one
- * that differs between the light board and the dark player page. Resolving
- * them through the palette rather than freezing a hex is what keeps a dot
- * legible on both floors. The other four are raw, and this is still the only
- * file in the app where a hex is written.
+ * THREE OF THE EIGHT ARE PALETTE TOKENS, not new hexes — orange IS `accent`,
+ * red IS `danger`, and NEUTRAL is `markMiss`, which is the one that differs
+ * between the light board and the dark player page. Resolving them through the
+ * palette rather than freezing a hex is what keeps a dot legible on both
+ * floors. The other five are raw, and this is still the only file in the app
+ * where a hex is written.
+ *
+ * TEAL WAS A FOURTH AND IS RAW NOW, and it is the palette's own retired hue.
+ * It resolved through `live`, which was that teal — `live` is the hero
+ * photograph's infield blue since the skin was sampled off the track, so the
+ * swatch labelled TEAL would have drawn a blue, sitting beside BLUE in the same
+ * row of eight. A swatch is a promise about what the dot will look like, so it
+ * keeps the hue its label names. #0E8FA3 was built to read on the board's cool
+ * floor and on the dark player page's warm one, which is exactly what is asked
+ * of it here.
  *
  * The defaults reproduce exactly what the chart drew before it was settable:
  * orange, neutral, red.
@@ -269,6 +341,7 @@ export const DOT_HUES: readonly DotHue[] = [
 const DOT_RAW = {
   yellow: '#E0A200',
   green: '#2E9E4F',
+  teal: '#0E8FA3',
   blue: '#2563C9',
   purple: '#7B4BC9',
 } as const;
@@ -279,8 +352,6 @@ export const dotColor = (hue: DotHue, p: Palette): string => {
       return p.accent;
     case 'red':
       return p.danger;
-    case 'teal':
-      return p.live;
     // the palette-dependent one, and the reason a hex here would be wrong:
     // white on the board's cool floor, warm grey on the dark player page
     case 'neutral':
@@ -317,6 +388,7 @@ export const COLOR_KEYS = [
   'accentInk',
   'danger',
   'dangerInk',
+  'good',
   'live',
   'court',
   'courtLine',
@@ -484,20 +556,37 @@ export const fDisplay = (): FontFace => ({ fontFamily: 'Anton_400Regular' });
  *   LS_CAPS    the scorebook's abbreviations — the only caps left
  *   LS_MICRO   the smallest captions, where a hair of air still helps
  *   LS_LABEL   an ordinary label
- *   LS_BTN     a verb on a button: none, it is a word like any other
+ *   LS_BTN     a verb on a button: a word like any other, set as the ramp
+ *              sits — no air of its own, and none taken from it either
  *   LS_TITLE   a screen's own name at display size
  *   LS_TIGHT   the numbers: a score, a tile's value, the footer's block, so a
  *              figure reads as ONE object rather than as digits standing next
  *              to each other. Tabular figures keep their column regardless.
  *
+ * AND THE WHOLE RAMP HAS SLID NEGATIVE. It was halved once — every step to
+ * half its old magnitude — and then SHIFTED, the whole ladder down by 0.01em,
+ * which is a different operation and the one that actually closes letters up:
+ * halving only walks a number toward zero, and zero is the face's own spacing,
+ * so a ramp that converges there can never draw type tighter than the font
+ * already sets it. Shifting keeps the ramp's SHAPE — the six steps are the
+ * same distances apart they have always been — and moves where it sits.
+ *
+ * WHAT THAT COSTS IS THE SIGNS, AND THEY WERE NEVER THE POINT. `LS_LABEL`,
+ * `LS_MICRO` and `LS_BTN` are all negative now: an ordinary label, a caption
+ * and a verb on a button are set a hair tight rather than a hair loose. Only
+ * `LS_CAPS` is still positive, which is the whole argument it was named for —
+ * the abbreviations are the last capitals in the app and capitals need air.
+ * The order never changed: CAPS is still the loosest thing on screen and
+ * TIGHT is still the closest.
+ *
  * CSS tracking is em-relative; React Native's letterSpacing is absolute, which
  * is the whole reason `ls()` exists — an em is a multiplication here, not a unit.
  */
-export const LS_CAPS = 0.06;
-export const LS_BTN = 0;
-export const LS_LABEL = 0.005;
-export const LS_MICRO = 0.015;
-export const LS_TITLE = -0.01;
+export const LS_CAPS = 0.02;
+export const LS_BTN = -0.01;
+export const LS_LABEL = -0.0075;
+export const LS_MICRO = -0.0025;
+export const LS_TITLE = -0.015;
 export const LS_TIGHT = -0.02;
 export const ls = (fontSize: number, em: number): number => fontSize * em;
 
@@ -564,7 +653,7 @@ export const bloomWash = (accent: string): readonly [string, string, string] => 
  * down half a window; a button is forty-eight points tall, and those alphas
  * over a strip that short is a dark slab nobody reads as the primary verb —
  * worse, one that reads like the `surface` weight this same button takes while
- * a game is live. The other end is the flat `#F26414` slab this variant exists
+ * a game is live. The other end is the flat `#E2571F` slab this variant exists
  * to stop being: at full strength the fill is louder than everything it is
  * meant to sit among, and the gradient in it cannot be seen at all.
  *
@@ -602,3 +691,50 @@ export const plateWash = (accent: string): readonly [string, string, string] => 
   withAlpha(accent, 0.09),
   'transparent',
 ];
+
+/**
+ * AND THE FOURTH IS THE ONE THAT IS NOT A GROUND: ORANGE INK.
+ *
+ * Every accent LETTER and NUMBER in the ten dark rooms is painted with this
+ * rather than filled flat, through `components/ui/GlowText.tsx` — the wordmark,
+ * a winning score, a starter's name, a hero figure. It runs on `BLOOM_START` /
+ * `BLOOM_END` like the other three, so a lit numeral is lit from the same
+ * corner as the room it is standing in.
+ *
+ * IT IS THE ONE RAMP THAT MAY NOT USE ALPHA, and that is the whole reason it
+ * is written out here instead of being another `withAlpha` pair. The other
+ * three are grounds and fade to nothing at the far corner; this one is a MASK,
+ * and a stop that fades to nothing does not soften a glyph — it ERASES the end
+ * of it. So both stops are solid and what varies is DEPTH: `orangeHot` at the
+ * near corner settling into the accent itself at the far one.
+ *
+ * IT LIFTS RATHER THAN DARKENS, and that is the other decision. Running the
+ * accent down into `accent2` was the alternative and it reads as ink going
+ * muddy at one end; taking it UP reads as light catching the type, which is
+ * the same thing the bloom behind it is doing.
+ *
+ * TWO STOPS AND NOT THREE. `BLOOM_STOPS` puts its middle at 0.45, which over a
+ * five-character score would put the whole move inside two glyphs; a straight
+ * run corner to corner is what stays legible on a word as short as `LOG`.
+ */
+export const glowInk = (accent: string): readonly [string, string] => [
+  RAW.orangeHot,
+  accent,
+];
+
+/* ------------------------------------------------------------------ *
+ * THERE IS NO PINSTRIPE ANY MORE
+ *
+ * `STRIPE_PITCH`, `STRIPE_W`, `stripeInk` and `components/ui/Pinstripe.tsx`
+ * are GONE, and with them the cloth that used to be the first child of all ten
+ * dark routes. It was the club's mark moved off the jersey plate — a vertical
+ * thread at 1.8% of the room's own `ink`, the last stop above not being visible
+ * at all — and being the last stop above invisible turned out to be the whole
+ * of the argument against it: a texture nobody can name is a layer every screen
+ * pays for and no screen is improved by.
+ *
+ * THE BLOOM IS THE ONLY GROUND LEFT, which is the shape the rooms were always
+ * closest to: one light on one surface. Do not put a weave, a grid, a noise
+ * field or a monogram back behind these screens without being asked.
+ * ------------------------------------------------------------------ */
+

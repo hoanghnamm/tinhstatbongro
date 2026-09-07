@@ -34,8 +34,9 @@
           "cameraPermission": false,
           "microphonePermission": false
         }
-      ]
-    ],
-    "newArchEnabled": true
+      ],
+      "expo-sharing",
+      "expo-status-bar"
+    ]
   }
 }

@@ -22,7 +22,13 @@ import {
   type DotHue,
 } from '../theme/tokens';
 import { useTheme } from '../theme/useTheme';
-import type { Options } from '../constants/options';
+import {
+  BOARD_CHOICES,
+  LABEL_CHOICES,
+  LENGTH_CHOICES,
+  PERIOD_CHOICES,
+  POSS_CHOICES,
+} from '../constants/options';
 
 /**
  * GAME SETTINGS — the switches, on a screen of their own.
@@ -220,26 +226,11 @@ function Swatches({
 
 /* ---- the answers --------------------------------------------------- */
 
-const PERIODS: SegItem<Options['periods']>[] = [
-  { key: 2, label: '2 halves' },
-  { key: 4, label: '4 quarters' },
-];
-
-/** Four cells is the tightest row on this screen, so the UNIT is said once in
- *  the label above rather than four times inside it — `12 MIN` in a quarter of
- *  a 360pt phone is a cell that ellipsises. */
-const LENGTHS: SegItem<Options['periodLen']>[] = [
-  { key: 360, label: '6' },
-  { key: 480, label: '8' },
-  { key: 600, label: '10' },
-  { key: 720, label: '12' },
-];
-
-const LABELS: SegItem<Options['labels']>[] = [
-  { key: 'full', label: 'Word' },
-  { key: 'short', label: 'Short' },
-  { key: 'both', label: 'Both' },
-];
+/**
+ * THE FOUR TABLES ARE IN `constants/options.ts` NOW, because the door draws
+ * two of them as well — see the note there. Nothing about them changed; they
+ * simply stopped being this screen's private copy.
+ */
 
 /* ---- the screen ---------------------------------------------------- */
 
@@ -323,13 +314,13 @@ function SettingsScreen() {
               <OptionRow
                 first
                 title="Periods"
-                items={PERIODS}
+                items={[...PERIOD_CHOICES]}
                 value={options.periods}
                 onChange={(k) => setOption('periods', k)}
               />
               <OptionRow
                 title="Minutes per period"
-                items={LENGTHS}
+                items={[...LENGTH_CHOICES]}
                 value={options.periodLen}
                 onChange={(k) => setOption('periodLen', k)}
               />
@@ -340,7 +331,7 @@ function SettingsScreen() {
               <OptionRow
                 first
                 title="On the panels"
-                items={LABELS}
+                items={[...LABEL_CHOICES]}
                 value={options.labels}
                 onChange={(k) => setOption('labels', k)}
               />
@@ -371,6 +362,26 @@ function SettingsScreen() {
 
             {/* ── THE BOARD'S OWN BEHAVIOUR ── set once on the first night, and
                 last on the screen for exactly that reason */}
+            <Section title="The board">
+              <OptionRow
+                first
+                title="Background"
+                items={[...BOARD_CHOICES]}
+                value={options.board}
+                onChange={(k) => setOption('board', k)}
+              />
+              {/* THE FOURTH FOOTER CELL, WHOLE OR IN HALVES. The timeout count
+                  is not a choice — every game has them — so the switch is
+                  named after what it ADDS, and adding it splits the cell
+                  rather than replacing anything. Read live: a game already on
+                  the board shows the count it already has. */}
+              <OptionRow
+                title="Possession index"
+                items={[...POSS_CHOICES]}
+                value={options.poss}
+                onChange={(k) => setOption('poss', k)}
+              />
+            </Section>
           </Col>
         </ScrollView>
       </View>

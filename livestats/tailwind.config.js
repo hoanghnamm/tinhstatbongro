@@ -39,6 +39,7 @@ module.exports = {
         'accent-ink': color('accent-ink'),
         danger: color('danger'),
         'danger-ink': color('danger-ink'),
+        good: color('good'),
         court: color('court'),
         'court-line': color('court-line'),
         mark: color('mark'),

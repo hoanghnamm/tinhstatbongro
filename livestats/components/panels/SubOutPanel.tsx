@@ -10,8 +10,9 @@ import { Btn, CancelX, Chip, Empty, PEmpty, PHead, PlayerGrid } from './shell';
  * where those two list the floor. The player coming off was chosen by the panel
  * that opened this one, so the only question here is who comes on.
  *
- * Anyone who has fouled out is listed after the bench and disabled —
- * `substitute()` refuses them anyway, and a dimmed tile says why.
+ * Anyone who has fouled out is listed after the bench and disabled — a dimmed
+ * tile says why, and `substitute()` refuses them underneath it, so the tile is
+ * a courtesy rather than the rule.
  */
 export function SubOutPanel({ outId }: { outId: string }) {
   const box = useCourtBox();

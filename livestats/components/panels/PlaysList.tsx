@@ -1,6 +1,7 @@
 import { Text, View } from 'react-native';
 
 import { describe } from '../../lib/describe';
+import { GlowText } from '../ui/GlowText';
 import { useMetrics } from '../../theme/metrics';
 import { fNum, fUi } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
@@ -14,8 +15,15 @@ const clamp = (lo: number, v: number, hi: number) => Math.min(hi, Math.max(lo, v
  * panel can put them in a capped ScrollView and the saved-game screen can let
  * the page's own scroll carry them.
  *
- * Anything reading events must tolerate a null playerId: an opponent point has
- * no jersey, so the column prints OPP.
+ * Anything reading events must tolerate a null playerId, and TWO kinds of event
+ * carry one: an opponent point, whose column prints OPP, and a timeout, which
+ * is ours and still has no jersey — a coach called it. That one prints a dash,
+ * because OPP over a line that says Timeout would read as THEIR timeout.
+ *
+ * WHO did it is that pill and only that pill, so its pair must invert: the ink
+ * is `bg`, never `surface`. `DARK`'s `surface` is 5% WHITE over a near-white
+ * `ink` fill, which is a jersey number nobody can read on the one screen this
+ * list has a caller on — the saved game, which is a dark room.
  */
 export function PlaysList({ events, players }: { events: GameEvent[]; players: Player[] }) {
   const m = useMetrics();
@@ -54,20 +62,20 @@ export function PlaysList({ events, players }: { events: GameEvent[]; players: P
               style={{
                 minWidth: ncol, textAlign: 'center', borderRadius: 99,
                 paddingVertical: 2, paddingHorizontal: m.sp * 0.9,
-                backgroundColor: t.ink, color: t.surface,
+                backgroundColor: t.ink, color: t.bg,
                 ...fNum(700), fontSize: m.fsSm, overflow: 'hidden',
               }}
             >
-              {p ? p.number : 'Opp'}
+              {p ? p.number : ev.type === 'timeout' ? '—' : 'Opp'}
             </Text>
             <Text style={{ flex: 1, ...fUi(500), fontSize: m.fsSm, color: t.ink }}>
               {describe(ev, byId)}
             </Text>
-            <Text
+            <GlowText
               style={{ paddingRight: 4, ...fNum(700), fontSize: m.fsMd, color: t.accent }}
             >
               {value ? '+' + value : ''}
-            </Text>
+            </GlowText>
           </View>
         );
       })}

@@ -52,6 +52,7 @@ export function useLastGame(): LastGame | null {
         running: s.running,
         ended: s.ended,
         possessions: s.possessions,
+        timeouts: s.timeouts,
         players: s.players,
         events: s.events,
       }),

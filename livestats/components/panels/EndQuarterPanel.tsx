@@ -1,3 +1,5 @@
+import { router } from 'expo-router';
+
 import { useAnnounce } from '../../hooks/useAnnounce';
 import { mmss, periodName, periodWord } from '../../lib/format';
 import { useGameStore } from '../../store/gameStore';
@@ -20,10 +22,19 @@ import { CancelX, PHead, PRows, PTitleText, Pts, Tile } from './shell';
  * rarely one tap and reopening between them is the whole cost. SET hands off to
  * the keypad, and the two that end something close.
  *
- * Two rows, written out rather than chunked: the clock keys take a third of the
- * top each and the two enders take half the bottom each, which is what makes
- * the row you must not mis-tap the biggest target on the panel. END GAME is the
- * only red text on it.
+ * Two rows, written out rather than chunked, and BOTH ARE THIRDS now. The
+ * bottom row was two halves — the row you must not mis-tap made the biggest
+ * target on the panel — and EXIT is what cost it that. The trade is taken
+ * knowingly and it is smaller than it sounds: a third of the SMALLEST court is
+ * already the budget the top row's labels are cut to, so the cell is a proven
+ * size, and END GAME is still only an OPENER — its confirm is what makes a
+ * mis-tap survivable, not its width.
+ *
+ * The row reads left to right as a severity ramp: leave and come back, end a
+ * period (undoable), end the game (confirmed). That order also keeps the two
+ * `End` tiles adjacent, which is how they read as a pair, and leaves the
+ * destructive one at the row's far edge rather than flanked by its neighbours.
+ * END GAME is still the only red text on the panel.
  */
 export function EndQuarterPanel() {
   const period = useGameStore((s) => s.period);
@@ -61,6 +72,43 @@ export function EndQuarterPanel() {
             />,
           ],
           [
+            /* EXIT LEAVES THE GAME STANDING, and that is the whole difference
+               between this tile and the red one at the end of the row. Nothing
+               is ended, nothing is filed and nothing is cleared: the board keeps
+               its score, its log and its clock, and the lobby's CONTINUE GAME is
+               the way back onto it.
+
+               So it takes NO `tone` AND NO CONFIRM. Red would say it destroys
+               something and it destroys nothing; a confirm on an act that is
+               undone by walking back through the door is a question with one
+               answer. The screen changing IS the confirmation, which is why it
+               does not toast either.
+
+               THE CLOCK IS DELIBERATELY NOT STOPPED. A running clock is a fact
+               about the game rather than about which screen is showing — it is
+               why the ticker lives in `app/_layout.tsx` and not here — so
+               leaving the board credits minutes exactly as walking off to the
+               TEAM tab mid-quarter always has. Stopping it here would make this
+               one door behave unlike every other. */
+            <Tile
+              key="exit"
+              code="Exit"
+              caption="To lobby"
+              onPress={() => {
+                // THE PANEL IS CLOSED BEFORE THE ROUTE CHANGES, the way END
+                // GAME does it, and here it is load-bearing rather than tidy:
+                // `endQuarter` is placed over the COURT, and three of the four
+                // tabs mount their own `<PanelHost />` — so a panel left open
+                // in `uiStore` would try to draw itself on the lobby, over a
+                // court that is not there.
+                reset();
+                // REPLACE, and to a STATED destination rather than `back()`:
+                // the board is reached both by `replace` out of the picker and
+                // by `push` off the lobby, and a deep link reaches it with no
+                // stack at all. `/` is the lobby under all three.
+                router.replace('/');
+              }}
+            />,
             <Tile
               key="qt"
               code="End"

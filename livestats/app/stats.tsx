@@ -9,6 +9,9 @@ import { PlayersTab } from '../components/stats/PlayersTab';
 import { TeamTab } from '../components/stats/TeamTab';
 import { ZonesTab } from '../components/stats/ZonesTab';
 import { Seg, type SegItem } from '../components/stats/parts';
+import { GlowText } from '../components/ui/GlowText';
+import { Bloom } from '../components/ui/Bloom';
+import { DarkRoom } from '../components/ui/DarkRoom';
 import { Press } from '../components/ui/Press';
 import { Col, Row } from '../components/ui/Row';
 import { freeThrowsIn, periodsOf, report, shotsIn, type Split } from '../lib/box';
@@ -45,8 +48,13 @@ const TABS: SegItem<Tab>[] = [
  * The board's counters answer the whole game and the play log answers the
  * quarters — see `lib/box.ts`. Nothing here mutates anything: the screen is
  * pure derivation, so it is correct after an UNDO with no work of its own.
+ *
+ * IT IS DARK, like the two pages that print the same numbers off the shelf.
+ * It has no caller — END GAME goes to `history/[id]` — but a page kept warm
+ * has to be kept in step, and a light copy of `history/[id]` is exactly the
+ * kind of drift that gets shipped the day something routes here again.
  */
-export default function StatsScreen() {
+function StatsScreen() {
   const m = useMetrics();
   const t = useTheme();
   const safe = useSafeAreaInsets();
@@ -73,6 +81,7 @@ export default function StatsScreen() {
         running: s.running,
         ended: s.ended,
         possessions: s.possessions,
+        timeouts: s.timeouts,
         players: s.players,
         events: s.events,
       }),
@@ -101,6 +110,8 @@ export default function StatsScreen() {
         paddingRight: safe.right + m.s4,
       }}
     >
+      <Bloom />
+
       <Row gap={m.s2} style={{ minHeight: m.tap, flexGrow: 0, flexShrink: 0 }}>
         <Press
           onPress={() => router.back()}
@@ -165,7 +176,7 @@ export default function StatsScreen() {
         </Col>
 
         <Row gap={m.s2} style={{ marginLeft: 'auto', flexGrow: 0, flexShrink: 0 }}>
-          <Text
+          <GlowText
             style={{
               ...fNum(700),
               fontSize: m.fsXl,
@@ -175,9 +186,9 @@ export default function StatsScreen() {
             }}
           >
             {rep.us}
-          </Text>
+          </GlowText>
           <Text style={{ ...fNum(500), fontSize: m.fsMd, color: t.ink3 }}>:</Text>
-          <Text
+          <GlowText
             style={{
               ...fNum(700),
               fontSize: m.fsXl,
@@ -187,7 +198,7 @@ export default function StatsScreen() {
             }}
           >
             {rep.them}
-          </Text>
+          </GlowText>
         </Row>
       </Row>
 
@@ -210,5 +221,14 @@ export default function StatsScreen() {
         {tab === 'zones' && <ZonesTab report={rep} shots={shots} ft={ft} />}
       </ScrollView>
     </View>
+  );
+}
+
+/** The palette and the status bar, from the same wrapper the tab group uses. */
+export default function Stats() {
+  return (
+    <DarkRoom>
+      <StatsScreen />
+    </DarkRoom>
   );
 }

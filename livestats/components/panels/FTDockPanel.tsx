@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { useAnnounce } from '../../hooks/useAnnounce';
+import { useLitClose } from '../../hooks/useLitClose';
 import { useGameStore } from '../../store/gameStore';
 import { usePlayer } from '../../store/selectors';
 import { useUiStore } from '../../store/uiStore';
@@ -22,9 +24,11 @@ import { CancelX, PHead, PTitleText } from './shell';
  * muscle memory carries: MADE takes the wider tile and the accent, MISS the
  * surface, the 1px seam between them is the rule colour showing through.
  *
- * ONE TAP IS ONE ATTEMPT, and the panel stays open — a two- or three-shot trip
- * is tapped straight through without reopening. Only X closes it. Each tap is
- * its own one-shot trip, so undo steps back exactly one attempt.
+ * ONE TAP IS ONE ATTEMPT AND THE TAP ENDS THE FLOW: the tile lights, then the
+ * dock goes and toasts, exactly as a court flow does. It stayed open once so a
+ * two- or three-shot trip could be tapped straight through — but this panel is
+ * the QUICK setting, where every trip is one attempt logged on its own, and a
+ * scorer who wanted the trip tapped through has `ft: 'trip'` for it.
  */
 export function FTDockPanel() {
   const m = useMetrics();
@@ -32,11 +36,18 @@ export function FTDockPanel() {
   const shooter = useUiStore((s) => s.shooter);
   const p = usePlayer(shooter);
   const recordFreeThrowTrip = useGameStore((s) => s.recordFreeThrowTrip);
+  const litClose = useLitClose('ftResult');
+  /** which of the two was tapped, held only for as long as it is lit */
+  const [lit, setLit] = useState<boolean | null>(null);
 
   useAnnounce('free throw');
   if (!p || !shooter) return null;
 
-  const shoot = (made: boolean) => () => recordFreeThrowTrip(shooter, [made], false);
+  const shoot = (made: boolean) => () => {
+    recordFreeThrowTrip(shooter, [made], false);
+    setLit(made);
+    litClose(`FT ${made ? 'made' : 'missed'} · #${p.number} ${p.name}`);
+  };
 
   // MADE and MISS are the same tile at the same type size. MADE takes the
   // accent AND the accent's ink — the pair is set together, because keeping the
@@ -71,6 +82,21 @@ export function FTDockPanel() {
       >
         {label}
       </Text>
+      {/* THE SAME RING A TILE DRAWS WHEN IT IS THE ONE JUST TAPPED, and it is
+          an overlay for the same reason: it must not eat a pixel of the seam.
+          The colour is whatever the fill is NOT — a ring in the accent would
+          be invisible on MADE, which is the tile most often tapped. */}
+      {lit === made && (
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            top: 0, right: 0, bottom: 0, left: 0,
+            borderWidth: 2,
+            borderColor: made ? t.accentInk : t.accent,
+          }}
+        />
+      )}
     </Press>
   );
 

@@ -5,6 +5,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import { useDots } from '../../hooks/useDots';
+import { useLocked } from '../../hooks/useGate';
+import { playerComparison } from '../../lib/analysis';
 import { FT_SPOT } from '../../lib/court';
 import { mmss, pct } from '../../lib/format';
 import { appeared } from '../../lib/season';
@@ -14,10 +16,13 @@ import { COURT_ASPECT, useMetrics } from '../../theme/metrics';
 import { LS_LABEL, LS_MICRO, LS_TIGHT, LS_TITLE, fNum, fUi, ls } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 import { CourtSvg } from '../../components/board/CourtSvg';
+import { GlowText } from '../../components/ui/GlowText';
 import { Bloom } from '../../components/ui/Bloom';
+import { Locked } from '../../components/ui/Locked';
 import { DarkRoom } from '../../components/ui/DarkRoom';
 import { Press } from '../../components/ui/Press';
 import { Col, Row } from '../../components/ui/Row';
+import { CompareTable } from '../../components/stats/Compare';
 import { Card, Key, Line, Note, Section, Seam, Tile } from '../../components/stats/parts';
 import { useRosterStore } from '../../store/rosterStore';
 import type { GameState, Player, PlayerStats } from '../../types';
@@ -96,6 +101,7 @@ function PlayerProfileScreen() {
   const m = useMetrics();
   const t = useTheme();
   const dots = useDots();
+  const gated = useLocked('season');
   const safe = useSafeAreaInsets();
 
   const { id, games: gamesJson } = useLocalSearchParams<{ id: string; games: string }>();
@@ -155,6 +161,18 @@ function PlayerProfileScreen() {
     }
     return zero;
   }, [playerGames, id]);
+
+  /**
+   * THEIR LAST GAME AGAINST THE FIVE BEFORE IT.
+   *
+   * `allGames` arrives newest first and already OFFICIAL — it is the season's
+   * own array, handed through the route by the screen that opened this page —
+   * and `playerComparison` narrows it to the games this player APPEARED in.
+   * That is the same denominator every other average on this page divides by,
+   * and it is why the card can say "their last game" rather than "the team's":
+   * a player who missed Saturday is not having a worse run because of it.
+   */
+  const comparison = useMemo(() => playerComparison(allGames, id), [allGames, id]);
 
   const gp = playerGames.length;
   const per = (n: number) => (gp ? Math.round((n / gp) * 10) / 10 : 0);
@@ -263,7 +281,7 @@ function PlayerProfileScreen() {
         <Col style={{ flexShrink: 1, minWidth: 0 }}>
           <Row gap={m.s2} style={{ flexShrink: 1, minWidth: 0, alignItems: 'baseline' }}>
             {displayNumber !== null && (
-              <Text
+              <GlowText
                 style={{
                   ...fNum(700),
                   fontSize: m.fsXl,
@@ -273,7 +291,7 @@ function PlayerProfileScreen() {
                 }}
               >
                 #{displayNumber}
-              </Text>
+              </GlowText>
             )}
             <Text
               numberOfLines={1}
@@ -304,6 +322,14 @@ function PlayerProfileScreen() {
         </Col>
       </Row>
 
+      {/* THE SAME SELF-GUARD THE COMPETITION PAGE CARRIES, for the same
+          reason: every caller checks the gate already, and a page that relies
+          on that is one new caller away from being a hole. */}
+      {gated ? (
+        <Col justify="center" style={{ flex: 1 }}>
+          <Locked gate="season" blurb="This player's whole season — their averages, their splits and their shot chart." />
+        </Col>
+      ) : (
       <ScrollView
         style={{ flex: 1, marginTop: m.s3 }}
         showsVerticalScrollIndicator={false}
@@ -334,6 +360,34 @@ function PlayerProfileScreen() {
                 <Tile value={pctStr(seasonStats.tpm, seasonStats.tpa)} label="3P%" />
               </Seam>
             </View>
+
+            {/* ── LAST GAME AGAINST THE AVERAGE ──────────────────────────
+                It sits directly under the headline tiles because it answers
+                the question those tiles raise: the tiles say what this player
+                has been all season, and the only thing anybody wants next is
+                whether the last night was better or worse than that.
+
+                NO CARD AND NO `Section`. `Section` wraps its children in a
+                `Card`, and the table below already draws its own rules — a
+                filled box around it would be the one framed block on a page
+                whose other blocks are framed for a reason (a chart, a wide
+                table). What names it is a label outside it, which is what
+                `Section` does with its title anyway.                       */}
+            {comparison && (
+              <Col gap={m.s2} style={{ marginBottom: m.s2 }}>
+                <Text
+                  style={{
+                    ...fUi(600),
+                    fontSize: m.fsSm,
+                    letterSpacing: ls(m.fsSm, LS_LABEL),
+                    color: t.ink2,
+                  }}
+                >
+                  Last game vs average
+                </Text>
+                <CompareTable comparison={comparison} />
+              </Col>
+            )}
 
             {/* ── Shot chart section with Game Filter ── */}
             <Section title="Shot chart">
@@ -622,6 +676,7 @@ function PlayerProfileScreen() {
           </Col>
         )}
       </ScrollView>
+      )}
     </View>
   );
 }

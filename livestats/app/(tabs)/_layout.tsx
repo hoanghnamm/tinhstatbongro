@@ -1,11 +1,11 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { Platform } from 'react-native';
+import { Platform, View, type ColorValue } from 'react-native';
 import { Tabs } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon, Label, NativeTabs, VectorIcon } from '../../components/nav/nativeTabs';
 import { DarkRoom } from '../../components/ui/DarkRoom';
 import { useMetrics } from '../../theme/metrics';
-import { LS_LABEL, fUi, ls } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 
 /**
@@ -30,6 +30,19 @@ import { useTheme } from '../../theme/useTheme';
  *
  * `accent` is spent here on exactly one thing — the active tab — which is one
  * of the four jobs the palette still lets it do. The inactive tint is `ink2`.
+ *
+ * ## NEITHER BAR CARRIES A WORD
+ *
+ * Four glyphs, no labels, on both platforms. A tab bar is the one strip a
+ * scorer learns in a single night, and the word under each icon was a second
+ * row of type in the heaviest object on screens made of quiet ones. What says
+ * WHICH tab is the tint on the glyph — plus, on Android, the pill behind it.
+ *
+ * **The two bars take the word away differently, and neither is an omission.**
+ * The glass bar's trigger falls back to the ROUTE'S OWN TITLE when it has no
+ * `<Label>`, so leaving it out prints `index` under the first icon; `<Label
+ * hidden />` is the one that actually hides it. The JS bar has a flag,
+ * `tabBarShowLabel: false`.
  *
  * ## THE FOUR ROOMS ARE DARK, AND THIS IS WHERE THEY SAY SO
  *
@@ -62,8 +75,8 @@ import { useTheme } from '../../theme/useTheme';
  * **The glass is what you get by NOT ASKING for a background.** `backgroundColor`
  * and `blurEffect` are both left unset on purpose: either one replaces the
  * system appearance with a flat fill or a pre-26 `UIBlurEffect`, and the glass
- * goes with it. So the two colours this bar sets are the two it is allowed to —
- * the tint and the label ink — and the surface is UIKit's.
+ * goes with it. So the tint is the one colour this bar sets — there is no label
+ * ink left to set — and the surface is UIKit's.
  *
  * **`minimizeBehavior` is `never`, against the iOS 26 default of `automatic`.**
  * A bar that shrinks away on scroll is a navigation control that is not where it
@@ -75,9 +88,8 @@ import { useTheme } from '../../theme/useTheme';
  * `VectorIcon`, rather than SF Symbols on one side and glyphs on the other.
  * Swapping the set is a separate decision from putting glass under it.
  *
- * The one thing that does not cross: `letterSpacing`. `NativeTabsLabelStyle`
- * has no such key — a UIKit bar item is not a `Text` — so `LS_LABEL` is spent
- * on the Android bar only.
+ * Nothing of the type ramp crosses either bar any more, `letterSpacing`
+ * included: with the labels gone there is no string on either one to set.
  */
 const ICON = {
   index: 'home-variant',
@@ -89,18 +101,15 @@ const ICON = {
 type Route = keyof typeof ICON;
 
 /** The route table both bars are built from, so the two cannot drift. */
-const TABS: { name: Route; title: string }[] = [
-  { name: 'index', title: 'Lobby' },
-  { name: 'matches', title: 'Matches' },
-  { name: 'season', title: 'Stats' },
-  { name: 'team', title: 'Team' },
+const TABS: { name: Route}[] = [
+  { name: 'index' },
+  { name: 'matches' },
+  { name: 'season' },
+  { name: 'team' },
 ];
 
 function GlassTabs() {
-  const m = useMetrics();
   const t = useTheme();
-
-  const label = { ...fUi(500), fontSize: m.fsXs };
 
   return (
     <NativeTabs
@@ -109,14 +118,13 @@ function GlassTabs() {
       minimizeBehavior="never"
       tintColor={t.accent}
       iconColor={{ default: t.ink2, selected: t.accent }}
-      labelStyle={{
-        default: { ...label, color: t.ink2 },
-        selected: { ...label, color: t.accent },
-      }}
     >
-      {TABS.map(({ name, title }) => (
+      {TABS.map(({ name }) => (
         <NativeTabs.Trigger key={name} name={name}>
-          <Label>{title}</Label>
+          {/* THE LABEL IS HIDDEN, NOT ABSENT. A trigger with no `<Label>` falls
+              back to the route's own title, so `index` would print under the
+              first glyph. `hidden` is what actually takes the word away. */}
+          <Label hidden />
           <Icon src={<VectorIcon family={MaterialCommunityIcons} name={ICON[name]} />} />
         </NativeTabs.Trigger>
       ))}
@@ -124,14 +132,58 @@ function GlassTabs() {
   );
 }
 
+/**
+ * THE ANDROID BAR'S OWN THREE NUMBERS, and they are platform metrics rather
+ * than steps on the sizing ramp — the same kind of number `useTabInset`'s
+ * `BAR_H` is, and written here for the same reason: a tab bar is a fixed strip
+ * of chrome, not a block that scales with the window the way the board's do.
+ *
+ * IT CAME DOWN, AND ONLY A LITTLE. React Navigation's default row plus its own
+ * label padding renders around 60 points before the system inset, which is a
+ * tenth of a short phone spent on navigation — enough that the bar read as the
+ * heaviest object on a screen of quiet type. 54 is what is left, and it STAYS
+ * 54 now that the label has gone: what the row holds is the pill and the air
+ * around it, and the rest of it is the TAP TARGET — the four rooms are reached
+ * from here dozens of times a night, and shrinking the bar to the height of the
+ * only thing drawn in it would be buying back points at the thumb's expense.
+ */
+const BAR_ROW = 54;
+const PILL_H = 28;
+const ICON_SZ = 22;
+
 function JsTabs() {
   const m = useMetrics();
   const t = useTheme();
+  const safe = useSafeAreaInsets();
 
+  /**
+   * THE ACTIVE STATE IS A PILL, and on Android that is the honest version of
+   * what the iOS bar gets for free. UIKit's glass picks the selected item out
+   * with a material; there is no material here, so the selection is a `surface2`
+   * capsule behind the glyph — the same 9% white every other raised cell in
+   * these rooms is made of, and NOT a second thing the accent means. The tint
+   * on the glyph is still what says WHICH tab — and with the label gone it is
+   * the only word-free half of that job left, which is the second reason the
+   * pill is here; it gives the lit glyph somewhere to sit.
+   *
+   * `size` is deliberately not taken from the caller: the bar hands down its
+   * own default, and the glyph is sized against `PILL_H` here instead.
+   */
   const icon =
     (name: Route) =>
-    ({ color, size }: { color: string; size: number }) => (
-      <MaterialCommunityIcons name={ICON[name]} size={size} color={color} />
+    ({ focused, color }: { focused: boolean; color: ColorValue }) => (
+      <View
+        style={{
+          height: PILL_H,
+          minWidth: PILL_H * 2,
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderRadius: PILL_H / 2,
+          backgroundColor: focused ? t.surface2 : 'transparent',
+        }}
+      >
+        <MaterialCommunityIcons name={ICON[name]} size={ICON_SZ} color={color} />
+      </View>
     );
 
   return (
@@ -140,22 +192,35 @@ function JsTabs() {
         headerShown: false,
         tabBarActiveTintColor: t.accent,
         tabBarInactiveTintColor: t.ink2,
+        // NO LABELS ON EITHER BAR. Four glyphs a scorer learns in one night,
+        // and the word under each was a second row of type in the heaviest
+        // strip on a screen of quiet ones. The tint and the pill say which tab.
+        tabBarShowLabel: false,
         // THE BAR IS THE CANVAS over a 1px `rule`, and `bg` rather than
         // `surface` is the point: this palette's surfaces are TRANSLUCENT, and
         // a bar is not a card sitting on the screen above it — it is a strip of
         // the same near-black ground, with the seam every card is drawn with
         // along its top edge. A 5% white here would have sampled the root's
         // light canvas behind the navigator and come out grey.
+        //
+        // THE HEIGHT IS STATED, AND THE SYSTEM INSET IS ADDED TO IT RATHER
+        // THAN LEFT TO THE DEFAULT. `height` on this bar is the WHOLE strip,
+        // padding included, so the gesture bar's inset has to be both inside
+        // the height and paid again as `paddingBottom` — miss the second and
+        // the labels sit under the system navigation; miss the first and the
+        // bar grows by the inset instead of containing it. Everything above
+        // the inset is the row: `s1`, the pill, its label, `s1`.
         tabBarStyle: {
           backgroundColor: t.bg,
           borderTopWidth: 1,
           borderTopColor: t.rule,
+          height: BAR_ROW + safe.bottom,
+          paddingTop: m.s1,
+          paddingBottom: safe.bottom + m.s1,
         },
-        tabBarLabelStyle: {
-          ...fUi(500),
-          fontSize: m.fsXs,
-          letterSpacing: ls(m.fsXs, LS_LABEL),
-        },
+        // the icon carries its own pill and its own centring, so the margins
+        // React Navigation would otherwise add around it are given back
+        tabBarIconStyle: { height: PILL_H, marginBottom: 0 },
         // THE SCENE IS PAINTED HERE NOW, and it has to be: the shell in
         // `app/_layout.tsx` paints the LIGHT canvas, which is right for the
         // board and for every page outside this group and is the wrong thing to
@@ -164,8 +229,8 @@ function JsTabs() {
         sceneStyle: { backgroundColor: t.bg },
       }}
     >
-      {TABS.map(({ name, title }) => (
-        <Tabs.Screen key={name} name={name} options={{ title, tabBarIcon: icon(name) }} />
+      {TABS.map(({ name }) => (
+        <Tabs.Screen key={name} name={name} options={{tabBarIcon: icon(name) }} />
       ))}
     </Tabs>
   );

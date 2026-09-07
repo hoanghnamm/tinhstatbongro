@@ -1,5 +1,5 @@
 import { useAnnounce } from '../../hooks/useAnnounce';
-import { resultOf } from '../../lib/history';
+import { outcomeOf, summaryKind } from '../../lib/history';
 import { useHistoryStore } from '../../store/historyStore';
 import { useUiStore } from '../../store/uiStore';
 import { Btn, Note, PTitle, Row } from './shell';
@@ -15,6 +15,13 @@ import { Btn, Note, PTitle, Row } from './shell';
  * UNDO does not reach here. It is the game's stack, this is the shelf the game
  * was put on when it ended, and the confirm is the whole of the safety net —
  * which the note says out loud rather than leaving to be discovered.
+ *
+ * THE NOTE NAMES WHAT IS BEING DELETED, AND IT USED TO GUESS. It read the
+ * two-way `resultOf`, which is `>=`, so long-pressing a `0 — 0` practice
+ * offered to delete "the win at 0 — 0" — a result the app invented out of an
+ * unscored game. It asks `outcomeOf` now, which answers null on equal numbers,
+ * and it asks the KIND first: a practice is not a result at all, so it is named
+ * as a practice rather than as a match nobody won.
  */
 export function RemoveGamePanel({ gameId }: { gameId: string }) {
   const summary = useHistoryStore((s) => s.index.find((g) => g.id === gameId));
@@ -25,12 +32,21 @@ export function RemoveGamePanel({ gameId }: { gameId: string }) {
 
   const score = summary ? `${summary.score} — ${summary.oppScore}` : '';
 
+  /** What it WAS, never what it might have been. See the note above. */
+  const what = (): string => {
+    if (!summary) return '';
+    if (summaryKind(summary) === 'practice') return `The practice at ${score}`;
+    const outcome = outcomeOf(summary);
+    if (!outcome) return `The match at ${score}`;
+    return `The ${outcome === 'W' ? 'win' : 'loss'} at ${score}`;
+  };
+
   return (
     <>
       <PTitle title="Delete this game?" kind={score || undefined} tone="ink" />
       <Note>
         {summary
-          ? `The ${resultOf(summary) === 'W' ? 'win' : 'loss'} at ${score}, its box score and its play by play are removed for good. Undo does not reach saved games, and the season totals drop it too.`
+          ? `${what()}, its box score and its play by play are removed for good. Undo does not reach saved games, and the season totals drop it too.`
           : 'This game is no longer on the shelf.'}
       </Note>
       <Row mt>

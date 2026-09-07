@@ -17,4 +17,15 @@
  * both platforms — but nothing renders it there: see the layout's note on why
  * Android keeps the JS `<Tabs>`.
  */
-export { Icon, Label, NativeTabs, VectorIcon } from 'expo-router/unstable-native-tabs';
+import { NativeTabs } from 'expo-router/unstable-native-tabs';
+
+/**
+ * SDK 57 MOVED THREE OF THESE FOUR ONTO `NativeTabs.Trigger`. Up to SDK 54 the
+ * module exported `Icon`, `Label` and `VectorIcon` at the top level; 57 dropped
+ * the `export *` that put them there and hangs them off the trigger instead.
+ * Unpacking them back into named consts here is what keeps that a change to
+ * THIS file and to nothing else, which is the whole reason the file exists.
+ */
+const { Icon, Label, VectorIcon } = NativeTabs.Trigger;
+
+export { Icon, Label, NativeTabs, VectorIcon };

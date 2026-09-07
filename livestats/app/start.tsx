@@ -12,6 +12,7 @@ import { Bloom } from '../components/ui/Bloom';
 import { DarkRoom } from '../components/ui/DarkRoom';
 import { Dot } from '../components/ui/Dot';
 import { Jersey } from '../components/ui/Jersey';
+import { GlowText } from '../components/ui/GlowText';
 import { Press } from '../components/ui/Press';
 import { Col, Row } from '../components/ui/Row';
 import { chunk } from '../lib/grid';
@@ -50,9 +51,10 @@ import type { GameKind, RosterPlayer } from '../types';
  * number is true of the player, not only of tonight.
  *
  * The three controls on a row are three separate press targets rather than one
- * row with a menu: the PLATE edits the number, the NAME picks or unpicks a
- * starter, and the DOT is availability — the same toggle it is on the TEAM tab,
- * because it is the same fact an hour later.
+ * row with a menu: the PLATE opens the number keypad, the NAME picks or unpicks
+ * a starter, and the DOT is availability — the same toggle it is on the TEAM
+ * tab, because it is the same fact an hour later. THE TEAM TAB WEARS THIS ROW
+ * TOO, and took it from here; see the note over `PlayerRow`.
  *
  * AN UNAVAILABLE PLAYER STILL SHOWS, dimmed, and cannot be picked. They are on
  * the team and this is the screen where "actually, they made it" is one tap;
@@ -101,7 +103,7 @@ function Label({ children, tone }: { children: string; tone?: string }) {
   const m = useMetrics();
   const t = useTheme();
   return (
-    <Text
+    <GlowText
       numberOfLines={1}
       style={{
         ...fUi(500),
@@ -111,10 +113,27 @@ function Label({ children, tone }: { children: string; tone?: string }) {
       }}
     >
       {children}
-    </Text>
+    </GlowText>
   );
 }
 
+/**
+ * THE ROW, AND THE TEAM TAB WEARS IT TOO.
+ *
+ * Three targets on a ruled line: the PLATE, the NAME, and the DOT. It is the
+ * shape both team screens are drawn in now — `app/(tabs)/team.tsx` took it from
+ * here rather than the other way round, because a jersey plate says "player" in
+ * a way three bordered boxes in a row never did, and because the two screens
+ * ask the same questions an hour apart and must not look like two apps.
+ *
+ * THE PLATE NEVER CHANGES COLOUR FOR A STARTER, and it used to. It took
+ * `Jersey`'s `selected` inversion, so picking five turned five numbers orange —
+ * a plate exists to say which shirt somebody is wearing, and a STATE laid over
+ * the top of that is the loudest thing in the row fighting the one thing the
+ * row is for. It stays on the FLOOR whatever is picked. What says the pick is
+ * the NAME: `accent` ink, and the word beside it. Nothing else moves, and there
+ * is still no filled row — for the same reason a selected tile never took one.
+ */
 function PlayerRow({
   player,
   starting,
@@ -131,6 +150,8 @@ function PlayerRow({
   const m = useMetrics();
   const t = useTheme();
   const jh = Math.round(m.tap * 0.72);
+
+  const who = player.name || `#${player.number}`;
 
   return (
     <View
@@ -151,7 +172,7 @@ function PlayerRow({
       {/* THE PLATE IS THE NUMBER EDITOR, and the only editor on this screen */}
       <Press
         onPress={onNumber}
-        accessibilityLabel={`change the number for #${player.number} ${player.name}`}
+        accessibilityLabel={`change the number for ${who}`}
         style={{
           flexGrow: 0,
           flexShrink: 0,
@@ -163,12 +184,8 @@ function PlayerRow({
         }}
         pressedStyle={{ backgroundColor: t.surface2 }}
       >
-        <Jersey
-          number={player.number}
-          w={Math.round(jh * 1.15)}
-          h={jh}
-          tone={starting ? 'selected' : 'floor'}
-        />
+        {/* `floor`, always — see the note above */}
+        <Jersey number={player.number} w={Math.round(jh * 1.15)} h={jh} />
       </Press>
 
       {/* the name is the pick. It takes the rest of the row, so the target for
@@ -176,9 +193,7 @@ function PlayerRow({
       <Press
         onPress={player.available ? onPick : undefined}
         accessibilityLabel={
-          player.available
-            ? `#${player.number} ${player.name}${starting ? ', starting' : ''}`
-            : `#${player.number} ${player.name}, unavailable`
+          player.available ? `${who}${starting ? ', starting' : ''}` : `${who}, unavailable`
         }
         style={{
           flex: 1,
@@ -192,19 +207,18 @@ function PlayerRow({
         }}
         pressedStyle={{ backgroundColor: t.surface2 }}
       >
-        <Text
+        <GlowText
           numberOfLines={1}
-          ellipsizeMode="tail"
+          containerStyle={{ flexShrink: 1, minWidth: 0 }}
           style={{
-            flexShrink: 1,
-            minWidth: 0,
-            ...fUi(600),
+            // the pick, said where the finger landed and nowhere near the plate
+            ...fUi(starting ? 700 : 600),
             fontSize: m.fsMd,
-            color: t.ink,
+            color: starting ? t.accent : t.ink,
           }}
         >
-          {player.name}
-        </Text>
+          {player.name || `Player ${player.number}`}
+        </GlowText>
         {starting && (
           <View style={{ marginLeft: 'auto', flexGrow: 0, flexShrink: 0 }}>
             <Label tone={t.accent}>Starter</Label>
@@ -217,8 +231,8 @@ function PlayerRow({
         onPress={onAvailable}
         accessibilityLabel={
           player.available
-            ? `mark #${player.number} ${player.name} unavailable`
-            : `mark #${player.number} ${player.name} available`
+            ? `${who} is dressed, tap to sit them out`
+            : `${who} is out, tap to dress them`
         }
         style={{
           flexGrow: 0,
@@ -451,10 +465,18 @@ function StartScreen() {
           paddingRight: safe.right + m.s4,
         }}
       >
-        {/* this screen is pushed, not a tab root, so it owns its way out */}
+        {/* This screen is pushed, not a tab root, so it owns its way out —
+            and the way out is STATED rather than assumed. It is reached from
+            the lobby by a `push`, which leaves a stack to go back through, and
+            from the DOOR by a `replace`, which leaves none: the last step of
+            the onboarding lands a scorer straight here so the verb on it —
+            START MY FIRST GAME — means what it says. `canGoBack` is what tells
+            the two apart, and the fallback is the lobby, which is where
+            backing out of a game that never started belongs either way. It is
+            the same pair the paywall's `close()` draws, for the same reason. */}
         <Row gap={m.s2} style={{ minHeight: m.tap, flexGrow: 0, flexShrink: 0 }}>
           <Press
-            onPress={() => router.back()}
+            onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
             accessibilityLabel="back, start no game"
             style={{
               flexGrow: 0,
@@ -517,11 +539,9 @@ function StartScreen() {
               Starting five
             </Text>
 
-            <Text
+            <GlowText
+              containerStyle={{ marginLeft: 'auto', flexGrow: 0, flexShrink: 0 }}
               style={{
-                marginLeft: 'auto',
-                flexGrow: 0,
-                flexShrink: 0,
                 ...fNum(500),
                 fontSize: m.fsMd,
                 color: ready ? t.accent : t.ink2,
@@ -529,7 +549,7 @@ function StartScreen() {
               }}
             >
               {picked.length}/{STARTERS}
-            </Text>
+            </GlowText>
           </Row>
 
           {roster.length ? (

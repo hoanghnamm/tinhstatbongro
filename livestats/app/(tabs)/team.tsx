@@ -1,23 +1,23 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   FlatList,
   InputAccessoryView,
   Keyboard,
   Platform,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Path } from 'react-native-svg';
 
 import { PanelHost } from '../../components/panels/PanelHost';
 import { ClubCard } from '../../components/team/ClubCard';
+import { NUM_DONE, RosterRow } from '../../components/team/RosterRow';
 import { Bloom } from '../../components/ui/Bloom';
+import { GlowText } from '../../components/ui/GlowText';
 import { Press } from '../../components/ui/Press';
 import { Row } from '../../components/ui/Row';
 import { useTabInset } from '../../hooks/useTabInset';
-import { NAME_MAX, ROSTER_CAP, nextFreeNumber, numberHolder, validNumber } from '../../lib/roster';
+import { ROSTER_CAP, nextFreeNumber } from '../../lib/roster';
 import { useRosterStore } from '../../store/rosterStore';
 import { useMetrics } from '../../theme/metrics';
 import { LS_LABEL, fNum, fUi, ls } from '../../theme/tokens';
@@ -35,15 +35,19 @@ import type { RosterPlayer } from '../../types';
  *
  * THREE PARTS, LEFT TO RIGHT, and each is its own target:
  *
- *   #          the jersey, 0–99, digits only. Its border goes `danger` the
+ *   the plate  the jersey, 0–99, digits only. It takes a `danger` ring the
  *              moment the number collides with someone else's.
  *   name       free text, capped at NAME_MAX. Blank is ordinary and shows the
  *              placeholder — a row can exist before its name does.
- *   the slot   dressed. `accent` and a tick when they are, an outline and a
- *              `danger` dash when they are not.
+ *   the dot    dressed. `ink3` when they are, `danger` when they are not.
+ *
+ * AND ALL THREE ARE THE NEW-GAME PICKER'S, because the two team screens ask the
+ * same questions an hour apart. `app/start.tsx` is where the shape comes from;
+ * see the note over `components/team/RosterRow.tsx` for what that cost
+ * the jersey field.
  *
  * A 4px `accent` MARK down the row's left edge and a `×` at its right edge were
- * both built and cut. The mark said what the slot already says, and the row's
+ * both built and cut. The mark said what the dot already says, and the row's
  * own 0.45 dim says it a third time at a glance; the `×` put a destructive
  * target a thumb's width from two text fields on the screen a scorer is typing
  * fastest on. NOTHING REMOVES A PLAYER FROM THIS SCREEN NOW — `RemovePlayerPanel`
@@ -51,9 +55,9 @@ import type { RosterPlayer } from '../../types';
  *
  * `available` is still the only fact on this screen that DOES anything, and it
  * still does exactly one thing: `availableIn` filters the starter picker. The
- * ✓/— slot is that switch under another shape, which is why an unavailable row
- * dims to 0.45 rather than leaving — they are on the team, and turning them
- * back on has to be one tap.
+ * dot is that switch under another shape, which is why an unavailable row dims
+ * to 0.45 rather than leaving — they are on the team, and turning them back on
+ * has to be one tap.
  *
  * WHAT IS DELIBERATELY NOT HERE is a captain, a starting five and a position.
  * The first two are facts about a GAME, and `app/start.tsx` already asks them at
@@ -68,6 +72,14 @@ import type { RosterPlayer } from '../../types';
  * through all fifteen of them. The keyboard is allowed to sit OVER the list
  * instead, and the list is what moves — `keyboardDismissMode="on-drag"`, so a
  * scroll both reaches the next row and puts the keyboard away.
+ *
+ * BUT THE ROW BEING TYPED IN IS LIFTED CLEAR OF IT, which is the other half of
+ * letting the keyboard cover the list. Room to scroll is not the same as being
+ * scrolled: the tail below only means the last rows CAN be pulled up, and a
+ * scorer who taps the twelfth player still had the keyboard land on top of the
+ * two fields they were about to read. So focus measures the row against the
+ * bottom of the list's own frame and scrolls exactly the overlap away — never
+ * a fixed amount, and never at all for a row that is already clear.
  *
  * AND THE NUMBER PAD GETS A DONE BAR, because on iOS it is the one keyboard
  * with no return key at all: two digits go in and there is no way off it.
@@ -84,176 +96,20 @@ import type { RosterPlayer } from '../../types';
  *
  * IT IS DRAWN ON BLACK with the other three rooms, and nothing below says so
  * except the `<Bloom />`: the palette belongs to the group and is declared in
- * `app/(tabs)/_layout.tsx`. The fields are the case that makes that worth
- * having — a `TextInput` here asks for `surface` under `ink` and gets a
- * translucent white under a near-white, with the same `rule` around it and the
- * same `danger` on a collision, and not one line of this screen had to know.
- * `ClubCard` is the same card the new-game picker draws, on the light skin,
- * from the same source.
+ * `app/(tabs)/_layout.tsx`. The name field is the case that makes that worth
+ * having — it asks for `ink` on nothing at all and gets a near-white on the
+ * room's own near-black, with `ink3` under the placeholder, and not one line of
+ * this screen had to know. The plate is the counter-case and the reason it is
+ * `Jersey` rather than a colour written here: `court` and `courtLine` are the
+ * one pair that does NOT invert, so a jersey reads white on both skins and the
+ * picker's plate and this one are the same object. `ClubCard` is the same card
+ * the picker draws, on the light skin, from the same source.
  */
-
-/** One DONE bar for every jersey field on the screen; see the note above. */
-const NUM_DONE = 'hooplog-jersey-done';
 
 /** Two columns start here — the same line `RotateGate` and `start.tsx` draw. */
 const TWO_UP = 700;
 /** …and past it the count is computed, so a 1180pt iPad gets three, not two. */
 const COL_W = 380;
-
-function PlayerRow({ player, index }: { player: RosterPlayer; index: number }) {
-  const m = useMetrics();
-  const t = useTheme();
-
-  const roster = useRosterStore((s) => s.players);
-  const update = useRosterStore((s) => s.update);
-
-  // the text is local; see the header note. The list keys rows by id, so a row
-  // never inherits the state of whoever used to sit at its index.
-  const [numText, setNumText] = useState(String(player.number));
-  const [name, setName] = useState(player.name);
-
-  const num = Number(numText);
-  const numOk = numText.length > 0 && validNumber(num);
-  const holder = numOk ? numberHolder(roster, num, player.id) : null;
-  const numBad = !numOk || !!holder;
-
-  const who = player.name || `Player ${index + 1}`;
-
-  const onNum = (v: string) => {
-    const digits = v.replace(/[^0-9]/g, '').slice(0, 2);
-    setNumText(digits);
-    const n = Number(digits);
-    // a colliding or half-typed number is SHOWN but not written: the roster
-    // never holds two of the same shirt, not even for one keystroke
-    if (digits.length > 0 && validNumber(n) && !numberHolder(roster, n, player.id)) {
-      update(player.id, { number: n });
-    }
-  };
-
-  const onName = (v: string) => {
-    setName(v);
-    update(player.id, { name: v });
-  };
-
-  const field = {
-    minHeight: m.tap,
-    paddingHorizontal: m.s2,
-    borderRadius: m.r,
-    borderWidth: 1,
-    borderColor: t.rule,
-    backgroundColor: t.surface,
-    color: t.ink,
-    fontSize: m.fsMd,
-  };
-
-  return (
-    <View
-      style={{
-        flex: 1,
-        minWidth: 0,
-        minHeight: m.tap,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: m.s2,
-        marginBottom: m.s2,
-        // dimmed, not hidden — they are still on the team, and the slot beside
-        // them is still the way to say they turned up after all
-        opacity: player.available ? 1 : 0.45,
-      }}
-    >
-      <TextInput
-        value={numText}
-        onChangeText={onNum}
-        onBlur={() => setNumText(String(player.number))}
-        keyboardType="number-pad"
-        inputMode="numeric"
-        maxLength={2}
-        placeholder="#"
-        placeholderTextColor={t.ink3}
-        inputAccessoryViewID={Platform.OS === 'ios' ? NUM_DONE : undefined}
-        accessibilityLabel={`jersey number for ${who}`}
-        style={[
-          field,
-          {
-            flexGrow: 0,
-            flexShrink: 0,
-            width: Math.max(m.tap, Math.round(m.fsMd * 3.2)),
-            textAlign: 'center',
-            ...fNum(700),
-            fontVariant: ['tabular-nums'],
-            // the one error a row can show, and it needs no words: the number
-            // it collides with is a few rows above or below it
-            borderWidth: numBad ? 2 : 1,
-            borderColor: numBad ? t.danger : t.rule,
-          },
-        ]}
-      />
-
-      <TextInput
-        value={name}
-        onChangeText={onName}
-        onBlur={() => setName(player.name)}
-        maxLength={NAME_MAX}
-        autoCapitalize="words"
-        autoCorrect={false}
-        returnKeyType="done"
-        onSubmitEditing={Keyboard.dismiss}
-        placeholder={`Player ${index + 1}`}
-        placeholderTextColor={t.ink3}
-        accessibilityLabel={`name for ${who}`}
-        style={[field, { flex: 1, minWidth: 0, ...fUi(600) }]}
-      />
-
-      {/* THE SLOT. Filled is on, exactly as the mockup has it — and the OFF
-          state keeps `danger` for its dash, because absence is the half of this
-          fact that is worth a colour everywhere else in the app too. */}
-      <Press
-        onPress={() => update(player.id, { available: !player.available })}
-        accessibilityLabel={
-          player.available
-            ? `${who} is dressed, tap to sit them out`
-            : `${who} is out, tap to dress them`
-        }
-        style={{
-          flexGrow: 0,
-          flexShrink: 0,
-          width: m.tap,
-          minHeight: m.tap,
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderRadius: m.r,
-          borderWidth: 1,
-          borderColor: player.available ? t.accent : t.rule,
-          backgroundColor: player.available ? t.accent : t.surface,
-        }}
-        pressedStyle={{ opacity: 0.7 }}
-      >
-        {player.available ? (
-          <Svg width={m.fsLg} height={m.fsLg} viewBox="0 0 24 24">
-            <Path
-              d="M5 12.5l4.5 4.5L19 7.5"
-              stroke={t.accentInk}
-              strokeWidth={2.4}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              fill="none"
-            />
-          </Svg>
-        ) : (
-          <Svg width={m.fsLg} height={m.fsLg} viewBox="0 0 24 24">
-            <Path
-              d="M6 12h12"
-              stroke={t.danger}
-              strokeWidth={2.4}
-              strokeLinecap="round"
-              fill="none"
-            />
-          </Svg>
-        )}
-      </Press>
-    </View>
-  );
-}
 
 export default function TeamScreen() {
   const m = useMetrics();
@@ -268,20 +124,84 @@ export default function TeamScreen() {
   // `KeyboardAvoidingView` that was refused: the viewport keeps its full
   // height, and all that changes is how much there is to scroll.
   const [kb, setKb] = useState(0);
+  // …and the same height as a ref, because `lift` is called from a listener and
+  // from a layout callback, neither of which is holding this render's copy.
+  const kbRef = useRef(0);
   useEffect(() => {
     const up = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillChangeFrame' : 'keyboardDidShow',
-      (e) => setKb(e.endCoordinates.height),
+      (e) => {
+        kbRef.current = e.endCoordinates.height;
+        setKb(e.endCoordinates.height);
+      },
     );
     const down = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => setKb(0),
+      () => {
+        kbRef.current = 0;
+        setKb(0);
+      },
     );
     return () => {
       up.remove();
       down.remove();
     };
   }, []);
+
+  /**
+   * LIFTING THE FOCUSED ROW OFF THE KEYBOARD.
+   *
+   * The tail below is what makes this POSSIBLE and this is what makes it
+   * HAPPEN: a scorer tapping the twelfth player's name had the keyboard land
+   * over the two fields they were about to read, with the room to scroll sitting
+   * unused underneath. So the row is measured against the bottom of the list's
+   * own frame and the OVERLAP is scrolled away — nothing moves for a row that is
+   * already clear, and a row half-covered moves half a row.
+   *
+   * THE FRAME IS MEASURED RATHER THAN THE WINDOW, because the two platforms lose
+   * the height at different ends. iOS lays the keyboard OVER the frame, so its
+   * bottom is still the window's and the keyboard's own height has to come off;
+   * Android RESIZES the window under it, so the frame has already lost exactly
+   * that much and taking it off again would scroll a whole keyboard too far.
+   */
+  const listRef = useRef<FlatList<RosterPlayer | null>>(null);
+  const frameRef = useRef<View>(null);
+  const focusedRow = useRef<View | null>(null);
+  const offset = useRef(0);
+
+  const lift = useCallback(() => {
+    const node = focusedRow.current;
+    const frame = frameRef.current;
+    if (!node || !frame) return;
+
+    frame.measureInWindow((_fx, fy, _fw, fh) => {
+      const limit = fy + fh - (Platform.OS === 'ios' ? kbRef.current : 0) - m.s3;
+      node.measureInWindow((_x, y, _w, h) => {
+        const over = y + h - limit;
+        // a point or two is measurement noise, not a covered row
+        if (over > 1) {
+          listRef.current?.scrollToOffset({ offset: offset.current + over, animated: true });
+        }
+      });
+    });
+  }, [m.s3]);
+
+  // ON THE COMMIT, NOT IN THE LISTENER: the keyboard's height is also what the
+  // tail is paid out of, and scrolling before that padding exists would clamp
+  // against a content height that has not grown yet.
+  useEffect(() => {
+    if (kb > 0) lift();
+  }, [kb, lift]);
+
+  const onFocusRow = useCallback(
+    (node: View | null) => {
+      focusedRow.current = node;
+      // the keyboard is already up when focus moves from one row to the next,
+      // so there is no event coming and this is the only call that will happen
+      lift();
+    },
+    [lift],
+  );
 
   const players = useRosterStore((s) => s.players);
   const add = useRosterStore((s) => s.add);
@@ -306,6 +226,15 @@ export default function TeamScreen() {
       <Bloom />
 
       <View
+        ref={frameRef}
+        // ANDROID RESIZES THE WINDOW UNDER THE KEYBOARD, and that arrives as a
+        // layout rather than as a taller keyboard: this is the frame losing the
+        // height, so it is the frame that says when to lift again. On iOS it
+        // fires on rotation and on nothing else, which is also worth re-lifting
+        // for. `lift` is a no-op with no focused row or no keyboard.
+        onLayout={() => {
+          if (kbRef.current > 0) lift();
+        }}
         style={{
           flex: 1,
           paddingTop: safe.top + m.s2,
@@ -322,6 +251,7 @@ export default function TeamScreen() {
       >
         {/* no back button: this is a tab root, and the tab bar is the way out */}
         <FlatList
+          ref={listRef}
           // THE CLUB CARD AND THE BAND ARE THE LIST HEADER, not a fixed block
           // above it: this screen is one sheet, and a header pinned over a
           // scrolling list is a second surface that has to be justified. It is
@@ -370,9 +300,19 @@ export default function TeamScreen() {
           columnWrapperStyle={columns > 1 ? { gap: m.s3 } : undefined}
           keyExtractor={(p, i) => p?.id ?? 'pad' + i}
           renderItem={({ item, index }) =>
-            item ? <PlayerRow player={item} index={index} /> : <View style={{ flex: 1 }} />
+            item ? (
+              <RosterRow player={item} index={index} onFocusRow={onFocusRow} />
+            ) : (
+              <View style={{ flex: 1 }} />
+            )
           }
           style={{ flex: 1 }}
+          // where the list is standing, so the lift can scroll BY the overlap
+          // rather than to an absolute offset it would have to reconstruct
+          onScroll={(e) => {
+            offset.current = e.nativeEvent.contentOffset.y;
+          }}
+          scrollEventThrottle={16}
           // AND THIS IS THE ONE PLACE THE BAR AND THE KEYBOARD ARE PAID FOR.
           // It was `m.s3` flat — twelve points against a glass bar four times
           // that — so + ADD PLAYER and the last row sat BEHIND the bar with
@@ -404,7 +344,7 @@ export default function TeamScreen() {
             </View>
           }
           // AT THE CAP IT IS GONE, not disabled. A dark button on a full roster
-          // is a control still asking to be pressed; the 15/15 above says why.
+          // is a control still asking to be pressed; the 20/20 above says why.
           ListFooterComponent={
             full ? null : (
               <Press
@@ -421,7 +361,7 @@ export default function TeamScreen() {
                 }}
                 pressedStyle={{ backgroundColor: t.surface2, borderColor: t.accent }}
               >
-                <Text
+                <GlowText
                   style={{
                     ...fUi(600),
                     fontSize: m.fsMd,
@@ -430,7 +370,7 @@ export default function TeamScreen() {
                   }}
                 >
                   + Add player
-                </Text>
+                </GlowText>
               </Press>
             )
           }
@@ -467,7 +407,7 @@ export default function TeamScreen() {
               }}
               pressedStyle={{ opacity: 0.6 }}
             >
-              <Text
+              <GlowText
                 style={{
                   ...fUi(600),
                   fontSize: m.fsMd,
@@ -476,7 +416,7 @@ export default function TeamScreen() {
                 }}
               >
                 Done
-              </Text>
+              </GlowText>
             </Press>
           </View>
         </InputAccessoryView>

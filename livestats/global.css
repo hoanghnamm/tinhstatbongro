@@ -5,7 +5,7 @@
 /* The light palette, as a fallback only. The root view overwrites every one of
    these at runtime from theme/tokens.ts, which is the source of truth. */
 :root {
-  --color-ink: #050505;
+  --color-ink: #0a0604;
   --color-ink-2: #6b6560;
   --color-ink-3: #a8a29b;
   --color-bg: #f4f2f0;
@@ -14,15 +14,16 @@
   --color-press: #f4f2f0;
   --color-rule: #e3dfdb;
   --color-line: #e3dfdb;
-  --color-accent: #f26414;
-  --color-accent-2: #d2500a;
+  --color-accent: #e2571f;
+  --color-accent-2: #be4313;
   --color-accent-ink: #ffffff;
   --color-danger: #b3261e;
   --color-danger-ink: #ffffff;
-  --color-live: #0e8fa3;
+  --color-good: #1e8a4b;
+  --color-live: #2e7094;
   --color-court: #bfc5c8;
   --color-court-line: #ffffff;
-  --color-mark: #0e8fa3;
+  --color-mark: #2e7094;
   --color-mark-miss: #ffffff;
   --color-live-fill: rgba(255, 255, 255, 0.55);
 }

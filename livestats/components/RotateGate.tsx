@@ -17,8 +17,10 @@ import Svg, { Path, Rect } from 'react-native-svg';
 
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { useMetrics } from '../theme/metrics';
-import { LS_BTN, fUi, ls } from '../theme/tokens';
+import { DARK, LS_BTN, fUi, ls } from '../theme/tokens';
 import { useTheme } from '../theme/useTheme';
+import { Bloom } from './ui/Bloom';
+import { DarkRoom } from './ui/DarkRoom';
 
 /**
  * A phone held upright cannot show this board: the court is aspect-locked at
@@ -87,15 +89,56 @@ const HOLD = 820; // the pause at each end, where the arrows read 0.25
 const SPIN = { duration: 620, easing: Easing.inOut(Easing.cubic) };
 
 /**
+ * THE GATE IS A ROOM, AND THE ROOM IS THE LOBBY'S.
+ *
+ * Everything else on this route is the board — the one LIGHT screen in the app,
+ * read at arm's length in a gym — and the gate is the one thing on it that is
+ * NOT the board: nothing is being played while it is up, and nothing on it is
+ * read at arm's length. So it is drawn the way every other screen in the app is
+ * drawn: `DarkRoom` for the palette and the status bar, the `Bloom` for the
+ * warm corner. (There was a `Pinstripe` under that bloom on every one of these
+ * screens and it is gone from all of them.) Turning the phone is then the same
+ * "lights coming up" the lobby → board walk already is, rather than a white
+ * sheet dropping over a white board.
+ *
+ * The wrapper is OUTSIDE the animated view and the `blocked` test is above it,
+ * so `DarkRoom`'s focus effect mounts with the gate and its cleanup puts the
+ * board's dark status-bar ink back the moment the device is turned.
+ */
+export function RotateGate() {
+  const blocked = usePortraitBlocked();
+  /**
+   * THE ROOM THIS IS MOUNTED IN MAY ALREADY BE DARK — `options.board` — and a
+   * second `DarkRoom` inside one is a status bar stranded: the inner cleanup
+   * hands the bar back to the ROOT's `dark` ink when the gate goes down, and
+   * the outer provider has no effect left to re-run. So the wrapper is only
+   * mounted over a LIGHT board, which is the only board that needs it.
+   */
+  const dark = useTheme() === DARK;
+  if (!blocked) return null;
+
+  if (dark) return <Gate />;
+
+  return (
+    <DarkRoom>
+      <Gate />
+    </DarkRoom>
+  );
+}
+
+/**
  * The one thing on screen while the phone is upright. It covers the board, the
  * panels and the toast (zIndex 80) and swallows every touch, because a tap that
  * lands on a board this cramped is a mis-entry in a live game.
+ *
+ * It is mounted only while the gate is up, which is what lets the spin be an
+ * effect with nothing to test: the component exists exactly as long as the
+ * animation should be running.
  */
-export function RotateGate() {
+function Gate() {
   const m = useMetrics();
   const t = useTheme();
   const reduced = useReducedMotion();
-  const blocked = usePortraitBlocked();
 
   // ONE shared value. The arrows are derived from the rotation itself, so the
   // pulse cannot drift out of step with the turn, and the holds at 0 and 90
@@ -103,7 +146,7 @@ export function RotateGate() {
   const rotation = useSharedValue(0);
 
   useEffect(() => {
-    if (!blocked || reduced) return;
+    if (reduced) return;
     rotation.value = 0;
     rotation.value = withRepeat(
       withSequence(
@@ -113,7 +156,7 @@ export function RotateGate() {
       -1,
     );
     return () => cancelAnimation(rotation);
-  }, [blocked, reduced, rotation]);
+  }, [reduced, rotation]);
 
   const phone = useAnimatedStyle(() => ({
     transform: [{ rotate: `${rotation.value}deg` }],
@@ -121,8 +164,6 @@ export function RotateGate() {
   const arrows = useAnimatedStyle(() => ({
     opacity: interpolate(rotation.value, [0, 45, 90], [0.25, 1, 0.25]),
   }));
-
-  if (!blocked) return null;
 
   const box = m.rot;
   const glyph = { position: 'absolute' as const, width: box, height: box };
@@ -145,6 +186,12 @@ export function RotateGate() {
         backgroundColor: t.bg,
       }}
     >
+      {/* the ground, and it is the same ONE layer every other screen draws:
+          the warm corner. It is absolute and eats no taps, so it disturbs
+          neither the centred column nor the overlay's job of swallowing every
+          touch. */}
+      <Bloom />
+
       {/* a fixed square: a column parent would otherwise stretch it wide */}
       <View style={{ width: box, height: box, flexGrow: 0, flexShrink: 0 }}>
         {/* reduced motion holds the phone in the PORTRAIT pose — a landscape

@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { Text, View, type LayoutChangeEvent } from 'react-native';
 
-import { initials } from '../../lib/team';
+import type { TargetId } from '../../constants/tutorial';
 import { useLitRect } from '../../store/layoutStore';
-import { useTeamStore } from '../../store/teamStore';
 import { useMetrics } from '../../theme/metrics';
 import { fNum, fUi } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
@@ -35,10 +34,16 @@ export function PlayerRow({
   player,
   selected,
   lit = false,
+  targetId,
   onPress,
 }: {
   player: Player;
   selected: boolean;
+  /**
+   * The walkthrough's name for this row. The rail hands it to two of the five:
+   * the first one on the floor, and whichever row is showing OUT — see `Rail`.
+   */
+  targetId?: TargetId;
   /**
    * This row's own panel is open, so it holds the pressed fill until that panel
    * closes. `selected` outranks it: an accent row is already the loudest thing
@@ -50,10 +55,6 @@ export function PlayerRow({
   const m = useMetrics();
   const t = useTheme();
   const dq = player.status === 'out';
-  // the club's mark, stamped on the plate the way it is stamped on a shirt —
-  // one mark across the five rows, because it is the CLUB's and not the
-  // player's. `Jersey` drops it on any plate too small to carry it.
-  const club = useTeamStore((s) => s.profile.name);
   const squeeze = m.compact && !m.portrait;
   const hole = useLitRect(lit);
 
@@ -77,6 +78,7 @@ export function PlayerRow({
       accessibilityLabel={`#${player.number} ${player.name}${dq ? ', fouled out' : ''}`}
       innerRef={hole.ref}
       onLayout={hole.onLayout}
+      targetId={targetId}
       style={{
         flex: 1,
         minWidth: 0,
@@ -113,7 +115,6 @@ export function PlayerRow({
           w={plateW}
           h={plateH}
           tone={dq ? 'out' : selected ? 'selected' : 'floor'}
-          monogram={initials(club)}
         />
       </View>
 

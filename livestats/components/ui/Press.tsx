@@ -1,6 +1,9 @@
 import { useState, type ReactNode } from 'react';
 import { Pressable, type StyleProp, type View, type ViewStyle } from 'react-native';
 
+import { useMergedRef, useTutorialTarget } from '../../hooks/useTutorialTarget';
+import type { TargetId } from '../../constants/tutorial';
+
 /**
  * The only Pressable this app uses. Do not reach for React Native's directly.
  *
@@ -40,6 +43,20 @@ export interface PressProps {
   innerRef?: React.Ref<View>;
   onLayout?(): void;
   /**
+   * THE NAME THE WALKTHROUGH KNOWS THIS CONTROL BY, and the only thing a
+   * control has to do to be spotlit.
+   *
+   * It is a prop rather than a wrapper because a wrapper would take the flex
+   * rules and leave the paint on the child — the same argument `innerRef` is
+   * here for, one layer up. Setting it costs a real game nothing: see
+   * `hooks/useTutorialTarget.ts`, which measures only while the tour is open.
+   *
+   * The two refs are MERGED, not chosen between. Three of the tour's targets
+   * are controls the scrim already cuts a hole for, so both hooks want this
+   * node and React takes one ref per node.
+   */
+  targetId?: TargetId;
+  /**
    * A render prop when the CONTENT has to react to the press too — an inverted
    * button flips its ink with its fill, and dropping one half of that pair is
    * how a control turns into a blank slab.
@@ -56,14 +73,24 @@ export function Press({
   accessibilityLabel,
   innerRef,
   onLayout,
+  targetId,
   children,
 }: PressProps) {
   const [pressed, setPressed] = useState(false);
+  const target = useTutorialTarget(targetId);
+  const ref = useMergedRef(innerRef, target.ref);
+
+  // both, always, and in that order — the scrim's hole and the tour's are two
+  // different questions about the same node
+  const layout = (): void => {
+    onLayout?.();
+    target.onLayout?.();
+  };
 
   return (
     <Pressable
-      ref={innerRef}
-      onLayout={onLayout}
+      ref={ref}
+      onLayout={layout}
       onPress={onPress}
       onLongPress={onLongPress}
       disabled={disabled || !onPress}

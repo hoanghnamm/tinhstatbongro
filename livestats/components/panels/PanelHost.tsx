@@ -2,8 +2,11 @@ import { useEffect } from 'react';
 import { BackHandler, Pressable, ScrollView, View } from 'react-native';
 import Animated, { FadeIn, SlideInRight } from 'react-native-reanimated';
 
+import { owesSub } from '../../lib/actions';
 import { useCourtBox, useDockBox } from '../../hooks/usePanelBox';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
+import { useTutorialTarget } from '../../hooks/useTutorialTarget';
+import { useGameStore } from '../../store/gameStore';
 import { useRects, type Rect } from '../../store/layoutStore';
 import { useUiStore, type Panel } from '../../store/uiStore';
 import { useMetrics } from '../../theme/metrics';
@@ -21,6 +24,7 @@ import { PlayerActionsPanel } from './PlayerActionsPanel';
 import { RebKindPanel } from './RebKindPanel';
 import { RemoveGamePanel } from './RemoveGamePanel';
 import { RemovePlayerPanel } from './RemovePlayerPanel';
+import { ResumeTutorialPanel } from './ResumeTutorialPanel';
 import { SetClockPanel } from './SetClockPanel';
 import { SetNumberPanel } from './SetNumberPanel';
 import { SubOutPanel } from './SubOutPanel';
@@ -47,12 +51,20 @@ const SCRIM = 'rgba(0,0,0,0.45)';
  * The bands tile the window exactly — they must not overlap, because two 45%
  * sheets crossing would draw a darker seam where they meet.
  */
-function Scrim({ hole, onPress }: { hole: Rect | null; onPress(): void }) {
+/**
+ * `onPress` is null for a panel that must be answered — see `locked` below. The
+ * bands are still `Pressable` and still opaque to touch, because the job they
+ * do either way is keeping the board underneath out of reach; what goes with
+ * the handler is the "close" label, since a sheet that does not close must not
+ * tell a screen reader that it does.
+ */
+function Scrim({ hole, onPress }: { hole: Rect | null; onPress: (() => void) | null }) {
   if (!hole) {
     return (
       <Pressable
-        onPress={onPress}
-        accessibilityLabel="close"
+        onPress={onPress ?? undefined}
+        accessible={!!onPress}
+        accessibilityLabel={onPress ? 'close' : undefined}
         style={{ position: 'absolute', inset: 0, backgroundColor: SCRIM }}
       />
     );
@@ -67,22 +79,23 @@ function Scrim({ hole, onPress }: { hole: Rect | null; onPress(): void }) {
   return (
     <>
       <Pressable
-        onPress={onPress}
-        accessibilityLabel="close"
+        onPress={onPress ?? undefined}
+        accessible={!!onPress}
+        accessibilityLabel={onPress ? 'close' : undefined}
         style={{ position: 'absolute', left: 0, right: 0, top: 0, height: Math.max(0, y), backgroundColor: SCRIM }}
       />
       <Pressable
-        onPress={onPress}
+        onPress={onPress ?? undefined}
         accessible={false}
         style={{ position: 'absolute', left: 0, right: 0, top: bottom, bottom: 0, backgroundColor: SCRIM }}
       />
       <Pressable
-        onPress={onPress}
+        onPress={onPress ?? undefined}
         accessible={false}
         style={{ position: 'absolute', left: 0, width: Math.max(0, x), top: y, height: bottom - y, backgroundColor: SCRIM }}
       />
       <Pressable
-        onPress={onPress}
+        onPress={onPress ?? undefined}
         accessible={false}
         style={{ position: 'absolute', left: right, right: 0, top: y, height: bottom - y, backgroundColor: SCRIM }}
       />
@@ -105,7 +118,7 @@ function body(panel: Panel) {
     case 'ftResult': return <FTDockPanel />;
     case 'tripSize': return <TripSizePanel />;
     case 'tripShots': return <TripShotsPanel />;
-    case 'fouledOut': return <FouledOutPanel playerId={panel.playerId} />;
+    case 'fouledOut': return <FouledOutPanel playerId={panel.playerId} fresh={panel.fresh} />;
     case 'foulDenied': return <FoulDeniedPanel playerId={panel.playerId} />;
     case 'endQuarter': return <EndQuarterPanel />;
     case 'setClock': return <SetClockPanel />;
@@ -114,6 +127,7 @@ function body(panel: Panel) {
     case 'setNumber': return <SetNumberPanel playerId={panel.playerId} />;
     case 'removePlayer': return <RemovePlayerPanel playerId={panel.playerId} />;
     case 'removeGame': return <RemoveGamePanel gameId={panel.gameId} />;
+    case 'resumeTutorial': return <ResumeTutorialPanel />;
   }
 }
 
@@ -126,16 +140,33 @@ export function PanelHost() {
   const court = useCourtBox();
   const dock = useDockBox();
   const lit = useRects().lit ?? null;
+  /**
+   * THE SHEET ITSELF IS A WALKTHROUGH TARGET, and it is the fallback for every
+   * control on it. A named tile that has not laid out yet — the case a panel
+   * mounting mid-step is exactly — would otherwise resolve to nothing and put
+   * the cut-out on empty floor; resolving to the panel is never wrong, because
+   * the thing to tap is certainly on it.
+   */
+  const target = useTutorialTarget('panel');
+
+  /**
+   * THE ONE PANEL THAT HAS TO BE ANSWERED. A player who has fouled out may not
+   * be left standing in the five, so while there is somebody on the bench to
+   * replace them neither the scrim nor the hardware back button lets go of the
+   * question — the panel draws its own three ways out and none of them is
+   * walking away. Every other panel is dismissible, as before.
+   */
+  const locked = useGameStore((s) => panel?.kind === 'fouledOut' && owesSub(s));
 
   // the hardware back button is this platform's Escape
   useEffect(() => {
     if (!panel) return;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      reset();
+      if (!locked) reset();
       return true;
     });
     return () => sub.remove();
-  }, [panel, reset]);
+  }, [panel, reset, locked]);
 
   if (!panel) return null;
   const mode = MODE[panel.kind];
@@ -190,7 +221,7 @@ export function PanelHost() {
           style={{ position: 'absolute', inset: 0, backgroundColor: 'transparent' }}
         />
       ) : (
-        <Scrim hole={lit} onPress={reset} />
+        <Scrim hole={lit} onPress={locked ? null : reset} />
       )}
       <View
         style={
@@ -201,6 +232,8 @@ export function PanelHost() {
         pointerEvents="box-none"
       >
         <Animated.View
+          ref={target.ref}
+          onLayout={target.onLayout}
           entering={enter}
           accessibilityViewIsModal
           style={[

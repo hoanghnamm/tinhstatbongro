@@ -178,6 +178,17 @@ export type EventBody =
   | { type: 'substitution'; playerId: string; outPlayerId: string }
   /** the opponent's whole model: `value` is THEIR points, so read `type` first */
   | { type: 'oppPoint'; playerId: null; position: null; value: number }
+  /**
+   * A TIMEOUT, and it is in the log for exactly one thing: the TIME on it.
+   *
+   * It carries no player and no points — a timeout belongs to the team, the
+   * same way `timeouts` itself does, and nothing about a box score changes
+   * when one is called. What changes is what happens next, and "what happened
+   * next" needs a period and a clock reading to be asked at all: see
+   * `timeoutRun` in `lib/analysis.ts`. The counter on `GameState` is still the
+   * number a scorer reads off the footer; this is the stamp beside it.
+   */
+  | { type: 'timeout'; playerId: null; position: null }
   | { type: TallyType; playerId: string; position: Position | null };
 
 export type GameEvent = EventMeta & EventBody;
@@ -278,6 +289,23 @@ export interface GameState {
    * the undo snapshot, so a mis-tap next to the clock costs one UNDO.
    */
   possessions: number;
+  /**
+   * TIMEOUTS TAKEN, tapped by hand off the same footer cell, and the same kind
+   * of number as `possessions`: a team counter with no player behind it, in the
+   * undo snapshot so a mis-tap costs one UNDO.
+   *
+   * It is the one of the two that ALSO leaves a mark in the log — a `timeout`
+   * event carrying the period and the clock and nothing else — because the
+   * question a scorer asks about a timeout is whether the team came out of it
+   * better, and that question is about a moment rather than about a total. The
+   * count stays the number the footer reads; see `EventBody`.
+   *
+   * It is the DEFAULT half of that cell rather than a second setting, because a
+   * timeout is a thing every scorer has to keep and a possession count is a
+   * thing only some of them want — see `Options.poss`. A game read back off
+   * disk from before it existed took none.
+   */
+  timeouts: number;
   players: Player[];
   events: GameEvent[];
 }

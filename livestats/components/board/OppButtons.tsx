@@ -41,7 +41,10 @@ export function OppButtons({
       }
     >
       <SBtn code="+1" label="OPP" opp onPress={add(1)} accessibilityLabel="add one point to the opponent" />
-      <SBtn code="+2" label="OPP" opp onPress={add(2)} accessibilityLabel="add two points to the opponent" />
+      {/* THE MIDDLE ONE IS THE WALKTHROUGH'S TARGET, and only it: the three
+          are one control repeated, so spotlighting all three would be a hole
+          the shape of the column rather than a hole the shape of a button. */}
+      <SBtn code="+2" label="OPP" opp onPress={add(2)} targetId="opp2" accessibilityLabel="add two points to the opponent" />
       <SBtn code="+3" label="OPP" opp onPress={add(3)} accessibilityLabel="add three points to the opponent" />
     </View>
   );

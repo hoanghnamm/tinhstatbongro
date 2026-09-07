@@ -15,10 +15,10 @@ import type { Panel, What } from '../store/uiStore';
  *    reached from the quarter panel, so the quarter cell owns all three: the
  *    control that started the chain is the one that stays lit through it.
  *
- * Anything that opens nothing is absent by design. UNDO, POSS and the clock
- * fire and are done — there is no panel to close, so there is nothing to hold
- * them lit past the finger. Adding them here would mean inventing a state the
- * model does not have. **The SCORE is absent for a stronger reason**: it is not
+ * Anything that opens nothing is absent by design. UNDO, the clock and the
+ * footer's counted cell fire and are done — there is no panel to close, so
+ * there is nothing to hold them lit past the finger. Adding them here would
+ * mean inventing a state the model does not have. **The SCORE is absent for a stronger reason**: it is not
  * a control any more at all. The box-score panel it opened is gone, the cell is
  * a plain readout, and `'score'` is not a light this board has.
  */

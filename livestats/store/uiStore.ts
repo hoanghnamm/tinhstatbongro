@@ -24,7 +24,15 @@ export type Panel =
   | { kind: 'ftResult' }
   | { kind: 'tripSize' }
   | { kind: 'tripShots' }
-  | { kind: 'fouledOut'; playerId: string }
+  /**
+   * WHO REPLACES A PLAYER WHO HAS JUST FOULED OUT, and while there is anybody
+   * on the bench it is not a question the scorer may walk away from — see
+   * `owesSub`. `fresh` says the foul that put them out is still the top of the
+   * undo stack, which is the only state in which UNDO THE FOUL is an honest
+   * way out of a mis-tap; reached from a dimmed rail row it is false, and the
+   * only way on is the replacement itself.
+   */
+  | { kind: 'fouledOut'; playerId: string; fresh: boolean }
   | { kind: 'foulDenied'; playerId: string }
   | { kind: 'endQuarter' }
   | { kind: 'setClock' }
@@ -35,7 +43,14 @@ export type Panel =
   | { kind: 'setNumber'; playerId: string }
   | { kind: 'removePlayer'; playerId: string }
   /** a saved game, off the GAMES list — the roster's confirm, one shelf over */
-  | { kind: 'removeGame'; gameId: string };
+  | { kind: 'removeGame'; gameId: string }
+  /**
+   * The walkthrough was stopped part way through last time; carry on, or start
+   * again. Asked BEFORE the tour opens, so it is a lobby panel like the three
+   * above it and not something drawn over a board that has already been
+   * replaced.
+   */
+  | { kind: 'resumeTutorial' };
 
 export interface Trip {
   shooter: string;
@@ -63,6 +78,22 @@ interface UiState {
   trip: Trip | null;
   note: ShotNote | null;
   panel: Panel | null;
+  /**
+   * HOW MANY TIMES A PANEL HAS BEEN OPENED, and it has two readers.
+   *
+   * `panel` alone cannot answer "did something just open", because opening the
+   * same KIND twice in a row — a player panel that reopens after every tally,
+   * a second player's actions right after the first — leaves the kind exactly
+   * where it was. The walkthrough has to know a tap landed, so it counts the
+   * opens rather than watching the kind, and a counter is the smallest honest
+   * thing that says so.
+   *
+   * `useLitClose` is the second reader, asking the same question backwards: a
+   * panel that lights and then closes itself must NOT close whatever opened in
+   * the meantime, and "has anything opened since" is this counter standing
+   * still. Nothing is rendered from it either way.
+   */
+  opens: number;
   toast: Toast | null;
 
   open(panel: Panel): void;
@@ -97,9 +128,10 @@ let toastSeq = 0;
 export const useUiStore = create<UiState>()((set) => ({
   ...emptyEntry,
   panel: null,
+  opens: 0,
   toast: null,
 
-  open: (panel) => set({ panel }),
+  open: (panel) => set((s) => ({ panel, opens: s.opens + 1 })),
   clear: () => set({ ...emptyEntry }),
   reset: () => set({ ...emptyEntry, panel: null }),
 

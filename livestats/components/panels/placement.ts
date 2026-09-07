@@ -52,6 +52,9 @@ export const MODE: Record<Panel['kind'], Mode> = {
   setNumber: 'center',
   removePlayer: 'center',
   removeGame: 'center',
+  // a two-way choice with no court to dock against or cover, like every other
+  // panel the rooms open
+  resumeTutorial: 'center',
 };
 
 export const isDocked = (panel: Panel | null): boolean => !!panel && MODE[panel.kind] === 'dock';

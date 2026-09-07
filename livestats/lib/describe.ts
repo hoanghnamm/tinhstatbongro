@@ -26,6 +26,8 @@ export function describe(ev: GameEvent, byId: (id: string) => Player | undefined
       return 'Fouled out';
     case 'substitution':
       return 'Sub in for #' + (byId(ev.outPlayerId)?.number ?? '?');
+    case 'timeout':
+      return 'Timeout';
     default:
       // turnover / steal / block — a word, capitalised like every other one
       return ev.type.charAt(0).toUpperCase() + ev.type.slice(1);

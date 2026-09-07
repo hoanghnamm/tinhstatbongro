@@ -1,5 +1,6 @@
 import { Text, View } from 'react-native';
 
+import { useTutorialTarget } from '../../hooks/useTutorialTarget';
 import { useGameStore } from '../../store/gameStore';
 import { useMetrics } from '../../theme/metrics';
 import { LS_TIGHT, fNum, ls } from '../../theme/tokens';
@@ -48,6 +49,11 @@ export function ScoreCell({ grow }: { grow: number }) {
   const t = useTheme();
   const score = useGameStore((s) => s.score);
   const oppScore = useGameStore((s) => s.oppScore);
+  // THE ONE TARGET THAT IS NOT A CONTROL, and that is what its step is about:
+  // the walkthrough spotlights this cell to say there is nothing behind it. It
+  // takes the hook directly because there is no `Press` here to carry the name
+  // — see the note above on why this cell is a plain View.
+  const target = useTutorialTarget('score');
 
   // the ramp's footer step is the rendered size now, and all three numbers in
   // the middle block share it — see `fsFtr`, which is capped against this text
@@ -56,6 +62,8 @@ export function ScoreCell({ grow }: { grow: number }) {
 
   return (
     <View
+      ref={target.ref}
+      onLayout={target.onLayout}
       accessibilityRole="text"
       accessibilityLabel={`score, ${score} to ${oppScore}`}
       style={{

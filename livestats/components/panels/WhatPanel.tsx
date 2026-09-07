@@ -43,6 +43,12 @@ export function WhatPanel() {
     <Press
       onPress={pick(made ? 'made' : 'miss')}
       accessibilityLabel={label}
+      // BOTH HALVES ARE NAMED FOR THE WALKTHROUGH, one step each: the tour
+      // teaches a missed two and then a made three, so it rings MISS once and
+      // MADE once. What it never does is ring both at the same time — a ring
+      // around a two-way choice is a ring around the strip, which says nothing
+      // the strip does not already say.
+      targetId={made ? 'what.made' : 'what.miss'}
       style={{
         flexGrow: made ? 1.25 : 1,
         flexShrink: 1,

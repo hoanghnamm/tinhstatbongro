@@ -38,13 +38,14 @@ export interface Metrics {
 
   /* type */
   /**
-   * BELOW `fsXs`, AND IT HAS ONE CALLER: the lobby's tagline.
+   * BELOW `fsXs`, AND IT IS OFF THE BOARD.
    *
    * The ramp bottomed out at `fsXs` because that is the smallest thing on the
-   * board a scorer has to READ at arm's length in a gym. A tagline is not that
-   * — it is the lockup's small print, read once and never again — so it is the
-   * one string in the app allowed under the floor. Do not spend it on a label,
-   * a caption or anything on the board.
+   * board a scorer has to READ at arm's length in a gym. This step exists for
+   * the strings that are not that — the paywall's small print, the mini board's
+   * captions — so it is the one size in the app allowed under the floor. Do not
+   * spend it on a label, a caption or anything the BOARD draws. It was cut for
+   * the lobby's tagline, which was its first caller and is now gone.
    */
   fs2xs: number;
   fsXs: number;
@@ -78,6 +79,20 @@ export interface Metrics {
   r: number;
   rSm: number;
   tap: number;
+  /**
+   * THE FLOOR FOR A FULL-WIDTH STRIP CONTROL, and it is the only thing allowed
+   * under `tap`.
+   *
+   * `tap` (48) is sized for the BOARD, where a key is a small square pressed a
+   * hundred times a game by a thumb that is also holding the tablet. A filter
+   * strip is the opposite shape: three cells, each a third of the screen wide,
+   * pressed a handful of times a session. At 48 it read as the heaviest object
+   * on a screen of quiet type — chrome competing with the content it filters —
+   * and 40 against 110 of width is still a target nobody misses. It is on the
+   * ramp rather than written at the call site for the reason every size is:
+   * the day it moves, it moves once.
+   */
+  tapSm: number;
 
   /* layout blocks */
   ftr: number;
@@ -204,6 +219,7 @@ export function computeMetrics(
     r: 8,
     rSm: 6,
     tap,
+    tapSm: 40,
     ftr,
     rail,
     side,

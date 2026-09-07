@@ -1,8 +1,11 @@
 import { router } from 'expo-router';
 
 import { useAnnounce } from '../../hooks/useAnnounce';
+import { TUTORIAL_COPY } from '../../constants/tutorial';
 import { currentGame, useGameStore } from '../../store/gameStore';
+import { useBillingStore } from '../../store/billingStore';
 import { useHistoryStore } from '../../store/historyStore';
+import { useTutorialStore } from '../../store/tutorialStore';
 import { useUiStore } from '../../store/uiStore';
 import { CancelX, PGrid, PHead, PTitleText, Pts, Tile } from './shell';
 
@@ -42,7 +45,35 @@ export function EndGamePanel() {
   const oppScore = useGameStore((s) => s.oppScore);
   const endGame = useGameStore((s) => s.endGame);
   const saveGame = useHistoryStore((s) => s.saveGame);
+  /**
+   * THE FREE GAME IS SPENT HERE, and this is the only call site.
+   *
+   * The trial is one game that reached the SHELF rather than one that tipped
+   * off, so the deduction sits beside the thing that files it. A scorer who
+   * starts a game and walks away has not used anything — there is no box
+   * score, no shelf row and nothing to export — and charging them for the
+   * mis-tap would be charging them for the thing they came to try.
+   */
+  const useTrial = useBillingStore((s) => s.useTrial);
   const reset = useUiStore((s) => s.reset);
+  const say = useUiStore((s) => s.say);
+  /**
+   * THE WALKTHROUGH REACHES THIS PANEL, AND NOTHING IT DOES MAY LEAVE THE
+   * SESSION.
+   *
+   * END GAME sits on the quarter panel, and the tour opens the quarter panel —
+   * so a scorer two minutes into a walkthrough can be one tap from filing a
+   * game that does not exist, spending the one free game they came to try, and
+   * being dropped on a saved-game page with the tour still running underneath.
+   *
+   * The guard is here rather than in the tour because this is the file that
+   * knows what END GAME costs, and it skips ALL FOUR things this tile does —
+   * the stamp, the save, the trial and the route. Stamping `ended` is the one
+   * that looks harmless and is not: every control on the board tests it, so a
+   * tour that ended its own game would go on running over a board where
+   * nothing answers a tap.
+   */
+  const tutorial = useTutorialStore((s) => s.active);
 
   useAnnounce('end the game?');
 
@@ -62,9 +93,23 @@ export function EndGamePanel() {
           big
           tone="danger"
           onPress={() => {
+            // BEFORE `endGame()`, NOT AFTER IT. Stamping `ended` would leave
+            // the walkthrough on a board where every control is a no-op — the
+            // three keys, the opponent's buttons, POSS and the period cell all
+            // test it — which is a scorer trapped mid-tour with nothing that
+            // answers a tap.
+            if (tutorial) {
+              reset();
+              say(TUTORIAL_COPY.notNow);
+              return;
+            }
             endGame();
             // read AFTER endGame, so `ended` is true in the copy that is filed
             const id = saveGame(currentGame());
+            // AFTER the save, for the same reason `id` is read after
+            // `endGame`: the trial is spent on a game that is actually on the
+            // shelf, so nothing is deducted until one is.
+            useTrial();
             // the panel is closed BEFORE the route changes: it belongs to the
             // board, and a modal left open under a pushed screen is what the
             // scorer comes back to when they tap BACK

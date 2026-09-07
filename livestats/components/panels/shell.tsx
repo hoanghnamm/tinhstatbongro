@@ -4,6 +4,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
 
+import type { TargetId } from '../../constants/tutorial';
 import { chunk, gridFor } from '../../lib/grid';
 import { tileWords } from '../../lib/labels';
 import { useGameStore } from '../../store/gameStore';
@@ -14,9 +15,9 @@ import {
   BLOOM_START,
   BLOOM_STOPS,
   LS_BTN,
-  LS_LABEL,
   LS_MICRO,
   bloomFill,
+  plateWash,
   fNum,
   fUi,
   ls,
@@ -93,48 +94,53 @@ export function Pts({ children }: { children: ReactNode }) {
 }
 
 /**
- * Step 2's context label. Only the rebound flow makes it a control: a shot
- * result, a foul kind and FREE THROWS name themselves and nothing else, and a
- * chip that is *sometimes* a control is worse than neither.
+ * Step 2's context label, and it is the SAME TITLE every other panel's header
+ * carries — `PTitleText`'s face, weight and size, with nothing drawn around it.
+ *
+ * **IT WAS A CHIP AND THE CHIP IS GONE.** The rebound flow's copy wore a filled
+ * box: a `surface2` fill, a 1px `rule` border and a radius, because it is the
+ * one step-2 title that is also a control. That made the ONE header in the app
+ * whose title sat in a container — every other panel names itself in plain type
+ * against the seam — so the flow that needed the least explanation was the one
+ * that looked different. The box also cost the title a size: it was set at
+ * `fsMd` where a panel title is `fsLg`.
+ *
+ * **THE `←` IS THE WHOLE AFFORDANCE NOW**, and it is enough: an arrow in
+ * front of a word says "back" more plainly than a border around it ever did.
+ * Only the rebound flow gets one — a shot result, a foul kind and FREE THROWS
+ * name themselves and nothing else, and a control that is *sometimes* a control
+ * is worse than neither. The press is an OPACITY rather than a fill, because a
+ * fill under a title with no box is a box that appears under the thumb.
+ *
+ * The tap floor is kept as `minHeight` on the pressable half, which costs
+ * nothing: `PHead` is already `m.tap` tall.
  */
 export function Chip({ label, onPress }: { label: string; onPress?: () => void }) {
   const m = useMetrics();
-  const t = useTheme();
 
+  // the title itself is `PTitleText` and not a second copy of its rules: this
+  // is a step-2 header like every other one, and two declarations of one face
+  // is how the one that is also a control drifts away from the ones that are not
   const body = (
-    <Text
-      numberOfLines={1}
-      ellipsizeMode="tail"
-      style={{
-        ...fUi(600), fontSize: m.fsMd,
-        letterSpacing: ls(m.fsMd, LS_LABEL), color: t.ink,
-      }}
-    >
+    <PTitleText>
       {onPress ? '← ' : ''}
       {label}
-    </Text>
+    </PTitleText>
   );
 
-  const box = {
-    flexShrink: 1,
-    minWidth: 0,
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    minHeight: m.tap,
-    paddingHorizontal: onPress ? m.s3 : 0,
-    borderRadius: m.rSm,
-    borderWidth: 1,
-    borderColor: onPress ? t.rule : 'transparent',
-    backgroundColor: onPress ? t.surface2 : 'transparent',
-  };
-
-  if (!onPress) return <View style={box}>{body}</View>;
+  if (!onPress) return body;
   return (
     <Press
       onPress={onPress}
       accessibilityLabel="change the previous step"
-      style={box}
-      pressedStyle={{ backgroundColor: t.rule }}
+      style={{
+        flexShrink: 1,
+        minWidth: 0,
+        flexDirection: 'row',
+        alignItems: 'center',
+        minHeight: m.tap,
+      }}
+      pressedStyle={{ opacity: 0.6 }}
     >
       {body}
     </Press>
@@ -321,16 +327,30 @@ export function PlayerGrid({
 /**
  * Inverted on purpose: this is the one button on the panel that LEAVES it, so
  * it must never wear the same surface as the tiles that do not. Background AND
- * colour together — surface-coloured text over a dropped background is an
- * invisible bar.
+ * colour together — text over a dropped background is an invisible bar.
+ *
+ * The ink is `bg` and NOT `surface`, which is what it used to be: an inverted
+ * pair has to survive both palettes, and `DARK`'s `surface` is 5% WHITE, so on
+ * a dark board this bar drew white on white. `bg` is the one token that is the
+ * opposite of `ink` in both.
  */
-export function PSub({ label, onPress }: { label: string; onPress(): void }) {
+export function PSub({
+  label,
+  onPress,
+  targetId,
+}: {
+  label: string;
+  onPress(): void;
+  /** the walkthrough's name for this bar — see `Press`'s own note */
+  targetId?: TargetId;
+}) {
   const m = useMetrics();
   const t = useTheme();
   return (
     <Press
       onPress={onPress}
       accessibilityLabel={label}
+      targetId={targetId}
       style={{
         flexGrow: 0, flexShrink: 0,
         minHeight: m.tap,
@@ -343,7 +363,7 @@ export function PSub({ label, onPress }: { label: string; onPress(): void }) {
       <Text
         style={{
           ...fUi(600), fontSize: m.fsMd,
-          letterSpacing: ls(m.fsMd, LS_BTN), color: t.surface,
+          letterSpacing: ls(m.fsMd, LS_BTN), color: t.bg,
         }}
       >
         {label}
@@ -416,9 +436,24 @@ export function Btn({
    * It is a SEVENTH variant rather than a change to `accent` on purpose: every
    * accent button on the board sits on a panel over a light court, where there
    * is no bloom to belong to and where a fill that falls to near-black would be
-   * a hole. Its one caller is NEW GAME, and it is drawn on `DARK` only.
+   * a hole. Its callers now are CONTINUE GAME and START GAME, and it is drawn
+   * on `DARK` only.
+   *
+   * `plate` IS THE JERSEY PLATE, MADE INTO A BUTTON, and it is the EIGHTH.
+   * The same three layers `components/ui/Jersey.tsx` draws, in the same order:
+   * the `court` fill, `plateWash` out of the corner the room itself is lit
+   * from, and the 2px accent rule down the LEFT — with the glyph in
+   * `courtLine`, which is the ink a jersey number is stencilled in. Its one
+   * caller is the lobby's `+`.
+   *
+   * IT IS NOT A QUIETER `bloom`. `bloom` is the ROOM made into a button — the
+   * near-black ground of the four rooms with the accent washing over it, which
+   * says the verb belongs to the screen it is on. `plate` says a different
+   * thing: that the `+` on the lobby and the plates on the picker one tap
+   * later are the same object, so the button is a jersey before there is a
+   * number on it. Two arguments, and neither is the other at half strength.
    */
-  variant?: 'plain' | 'solid' | 'accent' | 'danger' | 'made' | 'surface' | 'bloom';
+  variant?: 'plain' | 'solid' | 'accent' | 'danger' | 'made' | 'surface' | 'bloom' | 'plate';
   disabled?: boolean;
   /**
    * A GLYPH INSTEAD OF THE LABEL, never beside it. A button carrying both is a
@@ -437,6 +472,10 @@ export function Btn({
   const t = useTheme();
 
   const lit = variant === 'bloom';
+  // the plate is a pair like every other variant here, and it is the one pair
+  // that does not invert with the palette: a jersey is the floor with a number
+  // stencilled on it, in a dark room and on a light board alike.
+  const plated = variant === 'plate';
 
   // background and foreground are chosen together, always — this pair is where
   // an inverted control loses one half and turns into an invisible slab.
@@ -451,11 +490,13 @@ export function Btn({
     : variant === 'danger' ? t.danger
     : variant === 'surface' ? t.surface
     : lit ? t.bg
+    : plated ? t.court
     : 'transparent';
   const fg =
     variant === 'solid' ? t.surface
     : variant === 'accent' || variant === 'made' || lit ? t.accentInk
     : variant === 'danger' ? t.dangerInk
+    : plated ? t.courtLine
     : t.ink;
 
   return (
@@ -471,7 +512,11 @@ export function Btn({
         justifyContent: 'center',
         padding: m.sp,
         borderRadius: m.r,
-        borderWidth: variant === 'surface' ? 1 : 2,
+        // THE PLATE CARRIES NO BORDER AT ALL, because its edge is not a border:
+        // it is a 2px rule down ONE side, drawn below with the wash. A ring of
+        // accent around the whole button would be a different object — every
+        // plate in the app is lit from the left and open on the other three.
+        borderWidth: plated ? 0 : variant === 'surface' ? 1 : 2,
         // the lit button's edge is the ACCENT, not its own fill: the fill is a
         // near-black that would draw no edge at all against the room
         borderColor:
@@ -482,8 +527,9 @@ export function Btn({
         backgroundColor: fill,
         opacity: disabled ? 0.4 : 1,
         // the gradient is absolutely positioned, so the corners have to be cut
-        // somewhere — and only this variant has anything to cut
-        overflow: lit ? 'hidden' : 'visible',
+        // somewhere — and the two dressed variants are the only ones with
+        // anything to cut. There is no shadow here to lose to the clip.
+        overflow: lit || plated ? 'hidden' : 'visible',
       }}
       // DOWN IS DARKER on anything orange, not fainter. `opacity` fades a
       // saturated orange toward a warm canvas that is nearly the same hue, so
@@ -492,8 +538,14 @@ export function Btn({
       // still white and still passes on the darker fill. Every other variant
       // keeps the fade — none of them is orange. On the LIT one the ramp itself
       // takes the step, so only the edge is left here to move with it.
+      // ON THE PLATE THERE IS NOTHING LEFT HERE TO MOVE: the two things that
+      // could go down are both orange and both drawn below, so the wash and
+      // the edge take `accent2` in the render and the warm fill under them
+      // holds still. Fading the whole plate would take the number's contrast
+      // with it, which is the one thing a plate has.
       pressedStyle={
         lit ? { borderColor: t.accent2 }
+        : plated ? {}
         : variant === 'accent' || variant === 'made'
           ? { backgroundColor: t.accent2, borderColor: t.accent2 }
           : { opacity: 0.85 }
@@ -515,6 +567,34 @@ export function Btn({
               pointerEvents="none"
               style={{ position: 'absolute', inset: 0 }}
             />
+          )}
+          {/* THE PLATE'S TWO GROUND LAYERS, in `Jersey`'s own order: the
+              corner bloom first, then the one solid thing in the set. A wash
+              with no hard edge anywhere reads as a smudge, which is the whole
+              reason the rule is there — and it is 2px on the LEFT, exactly as
+              a jersey wears it. Both step to `accent2` under the thumb. */}
+          {plated && (
+            <>
+              <LinearGradient
+                colors={plateWash(pressed ? t.accent2 : t.accent)}
+                locations={BLOOM_STOPS}
+                start={BLOOM_START}
+                end={BLOOM_END}
+                pointerEvents="none"
+                style={{ position: 'absolute', inset: 0 }}
+              />
+              <View
+                pointerEvents="none"
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: 2,
+                  backgroundColor: pressed ? t.accent2 : t.accent,
+                }}
+              />
+            </>
           )}
           {icon ?
             <MaterialCommunityIcons name={icon} size={m.fsXl} color={fg} />

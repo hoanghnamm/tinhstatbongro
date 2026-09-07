@@ -5,6 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { COACH_NAME_MAX, TEAM_NAME_MAX, cleanTeamName } from '../../lib/team';
 import { useTeamStore } from '../../store/teamStore';
 import { useUiStore } from '../../store/uiStore';
+import { GlowText } from '../ui/GlowText';
 import { useMetrics } from '../../theme/metrics';
 import { LS_BTN, LS_LABEL, LS_MICRO, fUi, ls } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
@@ -91,15 +92,27 @@ export function ClubCard({ readOnly = false }: { readOnly?: boolean }) {
   // as part of it rather than as a third control on the row
   const crestSize = Math.round(m.fsLg * 1.6);
 
+  /**
+   * THE LIBRARY IS OPENED WITHOUT ASKING FOR ANYTHING, AND THAT IS THE FIX.
+   *
+   * This called `requestMediaLibraryPermissionsAsync()` first and bailed with
+   * PHOTO ACCESS DENIED on anything but `granted`. `launchImageLibraryAsync`
+   * needs that permission on iOS 10 ALONE — the package says so itself — and on
+   * Android it goes through the system photo picker, which is a separate
+   * process that hands back one file and needs no permission on any version.
+   * So the gate could not let anybody in who was not already in, and it COULD
+   * lock somebody out: a scorer who had ever declined the full-library prompt
+   * got a toast instead of a picker that would have opened perfectly. The
+   * prompt itself was the second cost — asking for a whole photo library in
+   * order to receive one crest the user is about to choose by hand.
+   *
+   * What is left is the honest failure path: the picker throws, or the copy
+   * out of the cache fails, and either way the toast says which.
+   */
   const pick = async () => {
     if (busy) return;
     setBusy(true);
     try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permission.granted) {
-        say('Photo access denied', true);
-        return;
-      }
       const picked = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: true,
@@ -279,7 +292,7 @@ export function ClubCard({ readOnly = false }: { readOnly?: boolean }) {
               }}
               pressedStyle={{ backgroundColor: t.surface2, borderColor: t.accent }}
             >
-              <Text
+              <GlowText
                 numberOfLines={1}
                 style={{
                   ...fUi(600),
@@ -289,7 +302,7 @@ export function ClubCard({ readOnly = false }: { readOnly?: boolean }) {
                 }}
               >
                 {busy ? 'Opening…' : club.logoUri ? '+ Change club logo' : '+ Add club logo'}
-              </Text>
+              </GlowText>
             </Press>
 
             {!!club.logoUri && (

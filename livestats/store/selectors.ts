@@ -28,6 +28,12 @@ export const useFouledOut = () =>
  * floor, the disqualified fill the gap so the column keeps its rhythm and the
  * player stays reachable for a substitution; past that the rail pads with
  * empty rows itself.
+ *
+ * THAT GAP IS NOW THE EXCEPTION RATHER THAN THE RESTING STATE. A fouled-out
+ * player may not be left in the five, so the fifth foul asks who replaces them
+ * and will not be dismissed while there is anybody to ask for — see `owesSub`.
+ * What is left for a dimmed row to mean is the one case the app cannot fix: a
+ * bench with nobody on it, and a team really playing short.
  */
 export const useRailPlayers = () =>
   useGameStore(
