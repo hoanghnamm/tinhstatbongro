@@ -131,6 +131,9 @@ because a staging box that quietly returns login tokens is a staging box that ha
    secret as the `Authorization` header value.
 
 `railway.json` carries the build and start commands and points the health check at `/health`.
+**The build command is `npm run build` and must not install.** Nixpacks installs in its own
+earlier phase and attaches a build cache at `node_modules/.cache`; an `npm ci` in the BUILD
+phase wipes `node_modules` first, cannot remove that live mount, and dies `EBUSY`.
 Migrations run at boot inside a transaction each and are recorded, so two instances starting
 together do not run them twice.
 
