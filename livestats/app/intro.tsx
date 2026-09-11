@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   BackHandler,
   InputAccessoryView,
@@ -9,19 +9,12 @@ import {
   Text,
   View,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
 import { MiniBoard } from '../components/intro/MiniBoard';
-import {
-  Badge,
-  FieldLabel,
-  Foot,
-  Head,
-  Taps,
-  TextField,
-} from '../components/intro/parts';
+import { FieldLabel, Foot, Head, TextField } from '../components/intro/parts';
 import { NUM_DONE, RosterRow } from '../components/team/RosterRow';
 import { Bloom } from '../components/ui/Bloom';
 import { DarkRoom } from '../components/ui/DarkRoom';
@@ -29,13 +22,14 @@ import { GlowText } from '../components/ui/GlowText';
 import { HeroArt } from '../components/ui/HeroArt';
 import { Press } from '../components/ui/Press';
 import { Col, Row } from '../components/ui/Row';
-import { BOARD_STEPS, INTRO_COPY, INTRO_STEPS, TRIAL_GIVES } from '../constants/intro';
+import { INTRO_COPY, INTRO_STEPS, TRIAL_GIVES } from '../constants/intro';
 import { showPaywall } from '../hooks/useGate';
 import { ROSTER_CAP, nextFreeNumber } from '../lib/roster';
 import { DEFAULT_TEAM, cleanTeamName } from '../lib/team';
 import { useIntroStore } from '../store/introStore';
 import { useRosterStore } from '../store/rosterStore';
 import { useTeamStore } from '../store/teamStore';
+import { useTutorialStore } from '../store/tutorialStore';
 import { useMetrics } from '../theme/metrics';
 import { LS_LABEL, LS_MICRO, fUi, ls } from '../theme/tokens';
 import { useTheme } from '../theme/useTheme';
@@ -49,9 +43,10 @@ import { useTheme } from '../theme/useTheme';
  * before they find out the hard way. The club's NAME, because every game is
  * filed under it and the crest falls back to it. WHO is on the team, because
  * the board is five rows and a fresh install seeds five numbered shirts. Then
- * the BOARD, which is two taps per stat and looks like nothing else on a
- * phone; and the TRIAL, which is one free game and had better be said out loud
- * before it is spent.
+ * the BOARD, which looks like nothing else on a phone and is therefore OPENED
+ * rather than described — step three is the invitation to the walkthrough, and
+ * the tour itself is the step; and the TRIAL, which is one free game and had
+ * better be said out loud before it is spent.
  *
  * The order is the argument: the two that ask come first, and the two that
  * only tell come last, so the scorer who taps straight through has still
@@ -82,12 +77,18 @@ import { useTheme } from '../theme/useTheme';
  *
  * ## WHAT IT DOES NOT DO
  *
- * It does not build a game, and it does not touch `gameStore` at all. It
- * writes to `teamStore` and `rosterStore` — the two
- * stores that OUTLIVE every game — through their own writers, so a scorer who
- * later opens the TEAM tab finds exactly what they typed here, in the same
+ * It does not build a game. It writes to `teamStore` and `rosterStore` — the
+ * two stores that OUTLIVE every game — through their own writers, so a scorer
+ * who later opens the TEAM tab finds exactly what they typed here, in the same
  * rows, edited the same way. The roster step IS `components/team/RosterRow.tsx`
  * for that reason: the door and the tab are the same editor.
+ *
+ * `gameStore` is reached in exactly ONE way and not by this file: the board
+ * step calls `tutorialStore.begin`, which stashes whatever game is standing,
+ * pauses the writer and installs the tour's throwaway. On a fresh install that
+ * is an empty board going out and an empty board coming back; on an upgrading
+ * one it is the scorer's own game, untouched on disk the whole way through.
+ * See `store/tutorialStore.ts`.
  */
 
 /** The column's own measure. The same line every other room in the app draws. */
@@ -97,52 +98,6 @@ const MEASURE = 700;
 const ART_H = 0.36;
 
 /* ---- the pieces ---------------------------------------------------- */
-
-/**
- * ONE OF THE FOUR NUMBERED LINES UNDER THE MINIATURE BOARD: the badge, the
- * thing you tap, how many taps it is, and what comes out.
- *
- * The badge is the SECOND drawing of a number already on the picture above,
- * which is what stops the list reading as prose beside a screenshot.
- */
-function BoardLine({ n, title, taps, blurb, live }: (typeof BOARD_STEPS)[number]) {
-  const m = useMetrics();
-  const t = useTheme();
-
-  return (
-    <Row gap={m.s3} align="flex-start">
-      <View style={{ paddingTop: 2 }}>
-        <Badge n={n} live={live} />
-      </View>
-      <Col gap={2} style={{ flex: 1, minWidth: 0 }}>
-        <Row gap={m.s2}>
-          <Text
-            style={{
-              ...fUi(600),
-              fontSize: m.fsSm,
-              letterSpacing: ls(m.fsSm, LS_LABEL),
-              color: t.ink,
-            }}
-          >
-            {title}
-          </Text>
-          <Taps label={taps} />
-        </Row>
-        <Text
-          style={{
-            ...fUi(400),
-            fontSize: m.fsXs,
-            lineHeight: m.fsXs * 1.45,
-            letterSpacing: ls(m.fsXs, LS_MICRO),
-            color: t.ink2,
-          }}
-        >
-          {blurb}
-        </Text>
-      </Col>
-    </Row>
-  );
-}
 
 /**
  * ONE OF THE THREE THINGS THE FREE GAME GIVES: a glyph, a noun, a sentence.
@@ -230,7 +185,54 @@ function IntroScreen() {
 
   const last = step === INTRO_STEPS.length - 1;
 
-  const next = (): void => setStep((s) => Math.min(s + 1, INTRO_STEPS.length - 1));
+  const next = useCallback(
+    (): void => setStep((s) => Math.min(s + 1, INTRO_STEPS.length - 1)),
+    [],
+  );
+
+  /**
+   * THE THIRD STEP DOES NOT EXPLAIN THE BOARD — IT OPENS IT.
+   *
+   * It was a picture with four numbered lines under it, and the walkthrough is
+   * what replaced them: the same four things, done by the scorer on the real
+   * board against a game that is not real. `begin` is the lobby row's own two
+   * lines in the lobby row's own order — the throwaway game is installed and
+   * the writer paused BEFORE the route changes, so the board never paints a
+   * frame of whatever was standing there.
+   *
+   * IT IS A `push` AND THE DOOR STAYS MOUNTED UNDERNEATH IT. This is the third
+   * of four steps and the trial is still owed, so the tour is handed `'back'`
+   * as its way out and pops straight back onto this screen with `step` — and
+   * the club name typed into it — exactly as they were left. It is the one
+   * route out of the door besides SEE PLANS that is meant to come back, and the
+   * only place in the app that hands `begin` anything but the default.
+   */
+  const beginTour = useTutorialStore((s) => s.begin);
+  const away = useRef(false);
+
+  const tour = (): void => {
+    away.current = true;
+    beginTour(undefined, 'back');
+    router.push('/game');
+  };
+
+  /**
+   * AND THE STEP MOVES ON WHEN THEY COME BACK, NOT WHEN THEY LEAVE.
+   *
+   * Advancing on the way out would show a frame of the trial step under the
+   * board being pushed over it, and would leave a scorer who backed out of the
+   * tour on a step they never chose. The ref is what tells a return from the
+   * board apart from this screen's FIRST focus, which happens once with nothing
+   * to advance past. A finished tour and a skipped one both land here, because
+   * both are the scorer saying they are done with it.
+   */
+  useFocusEffect(
+    useCallback(() => {
+      if (!away.current) return;
+      away.current = false;
+      next();
+    }, [next]),
+  );
 
   /**
    * OUT OF THE DOOR AND ONTO THE PICKER.
@@ -270,7 +272,7 @@ function IntroScreen() {
     return () => sub.remove();
   }, [step]);
 
-  /* -- the five bodies ---------------------------------------------- */
+  /* -- the four bodies ----------------------------------------------- */
 
   const clubStep = (
     <Col gap={m.s5}>
@@ -338,16 +340,13 @@ function IntroScreen() {
 
       {/* THE SLAB RUNS EDGE TO EDGE, which is why it steps back out of the
           column's own padding. A picture of a screen with a margin around it
-          reads as a card; without one it reads as the screen. */}
+          reads as a card; without one it reads as the screen. It is the one
+          thing the tour cannot say before it opens — that the board is LIGHT —
+          and it is a picture and nothing else now that the four numbered lines
+          under it have gone. */}
       <View style={{ marginLeft: -(safe.left + m.s4), marginRight: -(safe.right + m.s4) }}>
         <MiniBoard />
       </View>
-
-      <Col gap={m.s4}>
-        {BOARD_STEPS.map((b) => (
-          <BoardLine key={b.n} {...b} />
-        ))}
-      </Col>
     </Col>
   );
 
@@ -391,7 +390,17 @@ function IntroScreen() {
         onSecondary={next}
       />
     ) : kind === 'board' ? (
-      <Foot step={step} primary="Got it" onPrimary={next} />
+      <Foot
+        step={step}
+        primary="Show me the board"
+        onPrimary={tour}
+        // THE WAY PAST IT IS A LINE OF TEXT, which is this foot's rule for a
+        // step the app is not really asking for. The tour is two minutes and
+        // the row that starts it is permanent on the lobby, so a scorer who
+        // does not want it now loses nothing by walking past.
+        secondary="Skip for now"
+        onSecondary={next}
+      />
     ) : (
       <Foot
         step={step}

@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
+import { Backup } from '../components/settings/Backup';
 import { Seg, Section, type SegItem } from '../components/stats/parts';
 import { Bloom } from '../components/ui/Bloom';
 import { DarkRoom } from '../components/ui/DarkRoom';
@@ -51,11 +52,12 @@ import {
  * rather than with the board. Nothing on it needed a colour changed: every
  * value here is a token, so `Section`, `Card` and `Seg` followed on their own.
  *
- * FOUR BLOCKS, AND THE ORDER IS HOW OFTEN A SCORER TOUCHES THEM: the rules of
+ * FIVE BLOCKS, AND THE ORDER IS HOW OFTEN A SCORER TOUCHES THEM: the rules of
  * the game first, because they are the only two here that are set per season
  * rather than once; then what a stat is called; then the chart's three marks;
  * then the board's own behaviour, which most scorers set once on the first
- * night and never open again.
+ * night and never open again; and last the BACKUP, which is not a switch at
+ * all and is the one block here a scorer may go a whole season without opening.
  */
 
 /** The same cap the lobby and the team tab draw: a settings row a foot across
@@ -65,9 +67,10 @@ const TWO_UP = 700;
 /* ---- the pieces ---------------------------------------------------- */
 
 /**
- * A LABEL, A CONTROL AND A LINE OF PROSE, which is what every row on this
- * screen is. It is module-level for the reason every piece in this app is: a
- * component declared inside the screen is a new type on every render.
+ * A LABEL AND A CONTROL, which is what every row on this screen is. The line of
+ * prose under the control is gone. It is module-level for the reason every
+ * piece in this app is: a component declared inside the screen is a new type on
+ * every render.
  */
 function OptionRow<T extends string | number>({
   title,
@@ -107,16 +110,6 @@ function OptionRow<T extends string | number>({
       </Text>
 
       <Seg items={items} value={value} onChange={onChange} />
-
-      <Text
-        style={{
-          ...fUi(400),
-          fontSize: m.fsXs,
-          lineHeight: m.fsXs * 1.5,
-          color: t.ink3,
-        }}
-      >
-      </Text>
     </Col>
   );
 }
@@ -307,9 +300,7 @@ function SettingsScreen() {
         >
           <Col style={{ width: '100%', maxWidth: TWO_UP }}>
             {/* ── THE RULES ── the two that are stamped onto a game rather than
-                read live. The note says so out loud, because a setting that
-                does nothing until the next tip-off is otherwise a setting the
-                scorer thinks is broken. */}
+                read live. */}
             <Section title="The game">
               <OptionRow
                 first
@@ -339,7 +330,7 @@ function SettingsScreen() {
 
             {/* ── THE THREE MARKS ── every chart in the app draws these, and
                 they are the one part of the palette a scorer may move */}
-            <Section title="The chart" note="">
+            <Section title="The chart">
               <Col>
                 <Swatches
                   first
@@ -381,6 +372,14 @@ function SettingsScreen() {
                 value={options.poss}
                 onChange={(k) => setOption('poss', k)}
               />
+            </Section>
+
+            {/* ── THE FILE ── last, because it is the block a scorer touches
+                least often and the only one here that is not a switch. See
+                `components/settings/Backup.tsx` for why it lives on this page
+                at all. */}
+            <Section title="Backup">
+              <Backup />
             </Section>
           </Col>
         </ScrollView>

@@ -202,3 +202,8 @@ export const BENEFITS: { icon: string; lead: string; bold: string; tail: string 
     tail: '',
   },
 ];
+
+/** Only the configured RevenueCat entitlement grants access. */
+export function revenueCatAccess(active: Record<string, unknown>, entitlementId: string): boolean {
+  return Object.prototype.hasOwnProperty.call(active, entitlementId) && active[entitlementId] != null;
+}

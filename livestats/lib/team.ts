@@ -108,14 +108,22 @@ export const initials = (name: string): string =>
  *
  * A LOGO URI IS NOT TRUSTED. The document directory's absolute path moves
  * between installs on iOS, and a file can be gone for a dozen ordinary reasons,
- * so anything that is not a `file://` URI is dropped here and the store checks
- * that the file still exists on rehydrate. A crest that fails to load leaves a
+ * so native migration accepts only a `file://` URI and the store checks
+ * that the file still exists on rehydrate. Web explicitly accepts only a
+ * bounded embedded PNG, produced by its canvas adapter; never a blob URL.
+ * A crest that fails to load leaves a
  * broken square; the monogram is the fallback and has to be reachable.
  */
-export function migrateTeam(raw: unknown): TeamProfile {
+export const WEB_LOGO_MAX_LENGTH = 800_000;
+
+export const isWebLogo = (uri: string): boolean =>
+  uri.length <= WEB_LOGO_MAX_LENGTH && /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(uri);
+
+export function migrateTeam(raw: unknown, web = false): TeamProfile {
   if (!raw || typeof raw !== 'object') return { ...DEFAULT_TEAM };
   const t = raw as Partial<TeamProfile>;
-  const uri = typeof t.logoUri === 'string' && t.logoUri.startsWith('file://') ? t.logoUri : null;
+  const uri = typeof t.logoUri === 'string' &&
+    (web ? isWebLogo(t.logoUri) : t.logoUri.startsWith('file://')) ? t.logoUri : null;
   return {
     name: cleanTeamName(String(t.name ?? DEFAULT_TEAM.name)) || DEFAULT_TEAM.name,
     logoUri: uri,

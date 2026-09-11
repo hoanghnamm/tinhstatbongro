@@ -12,8 +12,17 @@
 import { COURT_POSITIONS, zeroStats } from '../constants/game';
 import type { CourtPosition, Player, RosterPlayer } from '../types';
 
-/** Five rail rows and a bench; past this the picker stops being a picker. */
-export const ROSTER_CAP = 20;
+/**
+ * THE POOL — every player the club has, across all of its teams.
+ *
+ * It was 20, which was one team's worth: five rail rows and a bench, past
+ * which the picker stopped being a picker. A club now runs up to `SQUAD_CAP`
+ * teams of `SQUAD_SIZE`, and the picker is no longer handed this list at all —
+ * it is handed ONE TEAM's members, which is still about a dozen names. So the
+ * number that has to stay human is the team sheet, and this one is free to be
+ * the club: three sheets' worth, plus room for the players who are on none.
+ */
+export const ROSTER_CAP = 36;
 /** The board is five rows — a game cannot start without five to put in them. */
 export const STARTERS = 5;
 /** The rail truncates anyway, so the field says no before the row has to. */
@@ -44,7 +53,7 @@ export function numberHolder(
  * There is no form left to fill a number in on — the row IS the editor — and
  * `number` is not optional, so a new entry has to arrive wearing something.
  * The lowest free one is the only answer that cannot collide with a sibling
- * and needs no explaining. `ROSTER_CAP` is 20, so the 0-99 space can never
+ * and needs no explaining. `ROSTER_CAP` is well under 100, so the 0-99 space can never
  * actually run out; the fallback is 0 rather than a throw.
  */
 export function nextFreeNumber(roster: RosterPlayer[]): number {

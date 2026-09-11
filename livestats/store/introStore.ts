@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Store } from '../platform/storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
@@ -14,7 +14,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
  *
  * `hydrated` IS THE HALF THAT IS NOT PERSISTED, and it is the whole reason
  * anything outside this file reads the store rather than a plain flag. Reading
- * `seen` before AsyncStorage has answered gets `false` — the DEFAULT — which
+ * `seen` before the disk has answered gets `false` — the DEFAULT — which
  * on a scorer's hundredth launch is the onboarding starting up over a season's
  * worth of games. So the answer is not acted on until the read has actually
  * landed, which is what `hooks/useIntro.ts` waits for and what the launch
@@ -55,7 +55,7 @@ export const useIntroStore = create<IntroState>()(
     }),
     {
       name: 'hooplog-intro',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => Store),
       // ONLY THE FACT IS WRITTEN. `hydrated` is about this process and would be
       // a lie the moment it came back off disk as `true` before it was true.
       partialize: (s) => ({ seen: s.seen }),

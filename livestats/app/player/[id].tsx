@@ -6,7 +6,9 @@ import Svg, { Path } from 'react-native-svg';
 
 import { useDots } from '../../hooks/useDots';
 import { useLocked } from '../../hooks/useGate';
-import { playerComparison } from '../../lib/analysis';
+import { playerComparison, poolNote } from '../../lib/analysis';
+import { playerReportHtml, playerReportFileName } from '../../lib/playerPdf';
+import { PdfExportButton } from '../../components/stats/ExportButton';
 import { FT_SPOT } from '../../lib/court';
 import { mmss, pct } from '../../lib/format';
 import { appeared } from '../../lib/season';
@@ -102,6 +104,7 @@ function PlayerProfileScreen() {
   const t = useTheme();
   const dots = useDots();
   const gated = useLocked('season');
+  const exportLocked = useLocked('export');
   const safe = useSafeAreaInsets();
 
   const { id, games: gamesJson } = useLocalSearchParams<{ id: string; games: string }>();
@@ -203,10 +206,11 @@ function PlayerProfileScreen() {
   // Shot marks for the selected filter (TOTAL or single game)
   const marks = useMemo<Mark[]>(() => {
     const out: Mark[] = [];
-    for (const g of chartGames) {
+    for (const [gameIndex, g] of chartGames.entries()) {
       for (const e of g.events) {
         if (e.type === 'shot' && e.playerId === id) {
-          out.push({ id: e.id, x: e.position.x, y: e.position.y, made: e.result === 'made' });
+          // Event IDs restart every game; the total chart combines many games.
+          out.push({ id: `${gameIndex}:${e.id}`, x: e.position.x, y: e.position.y, made: e.result === 'made' });
         }
       }
     }
@@ -232,10 +236,9 @@ function PlayerProfileScreen() {
   const displayPosition = rosterEntry?.position ?? null;
 
   // chart dimensions
-  const clamp = (lo: number, v: number, hi: number) => Math.min(hi, Math.max(lo, v));
   const chartW2 = Math.min(Math.max(0, chartW - 2 * m.s2), m.win.h * 0.66 * COURT_ASPECT);
   const chartH = chartW2 / COURT_ASPECT;
-  const dot = clamp(7, 0.017 * m.win.h, 16);
+  const dot = m.chartDot;
 
   return (
     <View
@@ -350,14 +353,23 @@ function PlayerProfileScreen() {
           </Text>
         ) : (
           <Col gap={m.s3}>
-            {/* ── Headline tiles ── */}
+            {exportLocked ? <Locked gate="export" blurb="Export this player's stats as a PDF." /> :
+              <PdfExportButton build={() => playerReportHtml(allGames, id, roster)} fileName={playerReportFileName(displayName)} title="Player report" />}
+            {/* ── Headline tiles ── FOUR, AND THERE WERE FIVE.
+                A fifth of a phone is not enough room for `100%` at the tile's
+                own size — Inter's percent sign is a full em, so the FG% cell
+                clipped to `100…` on every phone and the PPG cell clipped on
+                some — and five headline figures was one more than this page
+                needed anyway. 3P% is the one that went: it is the narrowest
+                reading of the five, it is already in the shooting table below,
+                and dropping it is the only fix that does not either shrink the
+                type or fold the row in half. Do not put a fifth back. */}
             <View style={{ marginBottom: m.s2 }}>
               <Seam>
                 <Tile value={per(seasonStats.pts).toFixed(1)} label="PPG" tone={t.accent} />
                 <Tile value={per(seasonStats.oreb + seasonStats.dreb).toFixed(1)} label="RPG" />
                 <Tile value={per(seasonStats.ast).toFixed(1)} label="APG" />
                 <Tile value={pctStr(seasonStats.fgm, seasonStats.fga)} label="FG%" />
-                <Tile value={pctStr(seasonStats.tpm, seasonStats.tpa)} label="3P%" />
               </Seam>
             </View>
 
@@ -383,9 +395,9 @@ function PlayerProfileScreen() {
                     color: t.ink2,
                   }}
                 >
-                  Last game vs average
+                  Last game vs their average
                 </Text>
-                <CompareTable comparison={comparison} />
+                <CompareTable rows={comparison.rows} base="Avg" note={poolNote(comparison.baseGames)} />
               </Col>
             )}
 

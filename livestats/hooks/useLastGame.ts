@@ -39,6 +39,8 @@ export function useLastGame(): LastGame | null {
     useShallow(
       (s): GameState => ({
         team: s.team,
+        squadId: s.squadId,
+        squadName: s.squadName,
         kind: s.kind,
         competition: s.competition,
         opponent: s.opponent,

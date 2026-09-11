@@ -3,7 +3,9 @@ import { router } from 'expo-router';
 import { useAnnounce } from '../../hooks/useAnnounce';
 import { mmss, periodName, periodWord } from '../../lib/format';
 import { useGameStore } from '../../store/gameStore';
+import { useTutorialStore } from '../../store/tutorialStore';
 import { useUiStore } from '../../store/uiStore';
+import { leaveTour } from '../tutorial/leave';
 import { CancelX, PHead, PRows, PTitleText, Pts, Tile } from './shell';
 
 /**
@@ -46,6 +48,8 @@ export function EndQuarterPanel() {
   const open = useUiStore((s) => s.open);
   const reset = useUiStore((s) => s.reset);
   const say = useUiStore((s) => s.say);
+  // EXIT is the tour's way off the board as well as a scorer's; see the tile
+  const tutorial = useTutorialStore((s) => s.active);
 
   useAnnounce(periodName(period, periods));
 
@@ -89,7 +93,18 @@ export function EndQuarterPanel() {
                why the ticker lives in `app/_layout.tsx` and not here — so
                leaving the board credits minutes exactly as walking off to the
                TEAM tab mid-quarter always has. Stopping it here would make this
-               one door behave unlike every other. */
+               one door behave unlike every other.
+
+               AND IT IS THE WALKTHROUGH'S WAY OUT TOO, which is the one case
+               where it is not just a route. The tour OPENS this panel and the
+               cut-out is the whole sheet, so every tile on it is live — END
+               GAME is guarded two tiles along for the same reason. A plain
+               `replace` here left the tour running over a board that was no
+               longer under it: the throwaway game still installed, the scorer's
+               own board still stashed, and `pausePersist` still holding their
+               NEXT game off the disk. `leaveTour` is the same two lines the
+               overlay's own SKIP runs, and it lands where the tour was started
+               from. */
             <Tile
               key="exit"
               code="Exit"
@@ -102,6 +117,12 @@ export function EndQuarterPanel() {
                 // in `uiStore` would try to draw itself on the lobby, over a
                 // court that is not there.
                 reset();
+                if (tutorial) {
+                  // the tour is put back before anything moves, and it decides
+                  // its own destination — see above
+                  leaveTour(false);
+                  return;
+                }
                 // REPLACE, and to a STATED destination rather than `back()`:
                 // the board is reached both by `replace` out of the picker and
                 // by `push` off the lobby, and a deep link reaches it with no

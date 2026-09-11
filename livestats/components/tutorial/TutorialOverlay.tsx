@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { BackHandler, View, useWindowDimensions } from 'react-native';
-import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 
 import { useAnnounce } from '../../hooks/useAnnounce';
@@ -21,6 +20,7 @@ import { useUiStore } from '../../store/uiStore';
 import { useMetrics } from '../../theme/metrics';
 import { Caption, SkipButton, SkipConfirm } from './Caption';
 import { Finger } from './Finger';
+import { leaveTour } from './leave';
 import { Regions } from './Regions';
 import { Spotlight } from './Spotlight';
 
@@ -85,7 +85,6 @@ function Tour() {
   const confirming = useTutorialStore((s) => s.confirming);
   const tRects = useTutorialStore((s) => s.rects);
   const goto = useTutorialStore((s) => s.goto);
-  const finishTour = useTutorialStore((s) => s.finish);
   const setConfirming = useTutorialStore((s) => s.setConfirming);
   const remeasure = useTutorialStore((s) => s.remeasure);
   const bRects = useRects();
@@ -136,16 +135,11 @@ function Tour() {
 
   /* -- moving ---------------------------------------------------------- */
 
-  const leave = useCallback(
-    (completed: boolean) => {
-      finishTour(completed);
-      // STATED, NOT `back()`. The board is reached by `replace` out of the
-      // picker, by `push` off the lobby and by a deep link with no stack at
-      // all — the same three cases EXIT on the quarter panel has to survive.
-      router.replace('/');
-    },
-    [finishTour],
-  );
+  // PUT THE BOARD BACK, THEN MOVE — and both live in `leaveTour`, because the
+  // quarter panel's EXIT has to do exactly the same two things in the same
+  // order. Where it lands was decided by whoever started the tour; see
+  // `TourExit`.
+  const leave = useCallback((completed: boolean) => leaveTour(completed), []);
 
   const advance = useCallback(() => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

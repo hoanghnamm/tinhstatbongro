@@ -19,10 +19,12 @@ import { FTDockPanel } from './FTDockPanel';
 import { FoulDeniedPanel } from './FoulDeniedPanel';
 import { FoulKindPanel } from './FoulKindPanel';
 import { FouledOutPanel } from './FouledOutPanel';
+import { DraftPanel } from './DraftPanel';
 import { NewGamePanel } from './NewGamePanel';
 import { PlayerActionsPanel } from './PlayerActionsPanel';
 import { RebKindPanel } from './RebKindPanel';
 import { RemoveGamePanel } from './RemoveGamePanel';
+import { RemoveSquadPanel } from './RemoveSquadPanel';
 import { RemovePlayerPanel } from './RemovePlayerPanel';
 import { ResumeTutorialPanel } from './ResumeTutorialPanel';
 import { SetClockPanel } from './SetClockPanel';
@@ -126,6 +128,8 @@ function body(panel: Panel) {
     case 'newGame': return <NewGamePanel />;
     case 'setNumber': return <SetNumberPanel playerId={panel.playerId} />;
     case 'removePlayer': return <RemovePlayerPanel playerId={panel.playerId} />;
+    case 'draft': return <DraftPanel />;
+    case 'removeSquad': return <RemoveSquadPanel squadId={panel.squadId} />;
     case 'removeGame': return <RemoveGamePanel gameId={panel.gameId} />;
     case 'resumeTutorial': return <ResumeTutorialPanel />;
   }

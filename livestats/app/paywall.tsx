@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Linking, ScrollView, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
-import { BENEFITS, DEFAULT_PLAN, type Plan, PLANS, vnd } from '../lib/billing';
-import { useBillingStore } from '../store/billingStore';
+import { BENEFITS, DEFAULT_PLAN, type Plan } from '../lib/billing';
+import { usePurchaseOptions } from '../hooks/usePurchases';
+
 import { Bloom } from '../components/ui/Bloom';
 import { HeroArt } from '../components/ui/HeroArt';
 import { DarkRoom } from '../components/ui/DarkRoom';
@@ -25,6 +26,10 @@ import {
   ls,
 } from '../theme/tokens';
 import { useTheme } from '../theme/useTheme';
+
+type StorePlan = Omit<Plan, 'price'> & { priceText: string };
+const privacyUrl = process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL;
+const termsUrl = process.env.EXPO_PUBLIC_TERMS_URL;
 
 /**
  * THE PAYWALL.
@@ -146,7 +151,7 @@ function PlanCard({
   selected,
   onPress,
 }: {
-  plan: Plan;
+  plan: StorePlan;
   selected: boolean;
   onPress(): void;
 }) {
@@ -155,7 +160,7 @@ function PlanCard({
 
   return (
     <Press
-      accessibilityLabel={`${plan.title}, ${vnd(plan.price)} ${plan.per}`}
+      accessibilityLabel={`${plan.title}, ${plan.priceText} ${plan.per}`}
       onPress={onPress}
       style={{
         borderRadius: m.r,
@@ -192,7 +197,7 @@ function PlanCard({
                 color: t.ink,
               }}
             >
-              {vnd(plan.price)}
+              {plan.priceText}
             </Text>
             <Text
               style={{
@@ -263,7 +268,7 @@ function Paywall() {
   const m = useMetrics();
   const t = useTheme();
   const safe = useSafeAreaInsets();
-  const unlock = useBillingStore((s) => s.unlock);
+  const billing = usePurchaseOptions();
 
   /**
    * THE ROUTE STILL CARRIES A `gate` AND THIS SCREEN NO LONGER READS IT.
@@ -294,7 +299,14 @@ function Paywall() {
   const headFs = Math.min(m.fs2xl, (Math.min(m.win.w, MEASURE) - m.s4 * 2) / HEAD_EM);
 
   const [picked, setPicked] = useState<Plan['key']>(DEFAULT_PLAN);
-  const plan = PLANS.find((p) => p.key === picked) ?? PLANS[0];
+  const plans: StorePlan[] = billing.packages.map(pkg => ({
+    key: pkg.packageType === 'ANNUAL' ? 'yearly' : 'monthly',
+    title: pkg.packageType === 'ANNUAL' ? 'Yearly' : 'Monthly',
+    per: pkg.packageType === 'ANNUAL' ? 'per year' : 'per month',
+    priceText: pkg.product.priceString,
+  }));
+  const plan = plans.find(p => p.key === picked) ?? plans[0];
+  const selectedPackage = billing.packages.find(pkg => (pkg.packageType === 'ANNUAL' ? 'yearly' : 'monthly') === plan?.key);
 
   const close = (): void => {
     // BACK, NOT `replace('/')`: this opens OVER whatever the scorer was doing —
@@ -306,17 +318,11 @@ function Paywall() {
     else router.replace('/');
   };
 
-  /**
-   * THE PURCHASE, AND TODAY IT IS A FLAG.
-   *
-   * This is the seam and the only one: when StoreKit / Play Billing lands it
-   * lands HERE, awaiting the transaction and calling `unlock()` on success.
-   * Nothing else in the app changes, because no screen asks anything but
-   * whether the scorer is entitled.
-   */
-  const buy = (): void => {
-    unlock();
-    close();
+  const buy = async (): Promise<void> => {
+    if (selectedPackage && await billing.transact(selectedPackage)) close();
+  };
+  const restore = async (): Promise<void> => {
+    if (await billing.transact()) close();
   };
 
   return (
@@ -426,11 +432,11 @@ function Paywall() {
 
           {/* ---- the plans -------------------------------------------- */}
           <Col gap={m.s2}>
-            {PLANS.map((p) => (
+            {plans.map((p) => (
               <PlanCard
                 key={p.key}
                 plan={p}
-                selected={p.key === picked}
+                selected={p.key === plan?.key}
                 onPress={() => setPicked(p.key)}
               />
             ))}
@@ -448,13 +454,17 @@ function Paywall() {
               the one control that matters belongs to the screen behind it
               rather than sitting on it as a slab. */}
           <Row align="stretch">
-            <Btn label={`Unlock — ${vnd(plan.price)} ${plan.per}`} variant="bloom" onPress={buy} />
+            <Btn label={billing.busy ? 'Please wait…' : billing.loading ? 'Loading plans…' : plan ? `Unlock — ${plan.priceText} ${plan.per}` : 'Subscriptions unavailable'} variant="bloom" onPress={() => void buy()} disabled={billing.loading || billing.busy || !selectedPackage} />
           </Row>
 
-          {/* THE SMALL PRINT IS ONE LINE AND IT IS HONEST. There is no store
-              behind this build, so there is no RESTORE PURCHASE control: a
-              button that cannot restore anything is a worse lie than an
-              absence. It comes back with the billing SDK, next to `unlock()`. */}
+          {(privacyUrl || termsUrl) && <Row>
+            {privacyUrl && <Btn label="Privacy policy" variant="plain" onPress={() => { void Linking.openURL(privacyUrl).catch(() => {}); }} />}
+            {termsUrl && <Btn label="Terms of use" variant="plain" onPress={() => { void Linking.openURL(termsUrl).catch(() => {}); }} />}
+          </Row>}
+          {!billing.unavailable && <Row>
+            <Btn label="Restore purchases" variant="plain" onPress={() => void restore()} disabled={billing.busy} />
+            <Btn label="Reload plans" variant="plain" onPress={() => void billing.reload()} disabled={billing.busy || billing.loading} />
+          </Row>}
           <Text
             style={{
               textAlign: 'center',
@@ -464,7 +474,7 @@ function Paywall() {
               color: t.ink3,
             }}
           >
-            Cancel any time. Your saved games stay on your device.
+            {billing.message || 'Subscriptions renew automatically unless cancelled in your store account. Your saved games stay on your device.'}
           </Text>
         </Col>
       </ScrollView>

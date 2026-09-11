@@ -21,6 +21,8 @@ import { STARTERS, availableIn } from '../lib/roster';
 import { COMPETITION_MAX, NOTE_MAX, OPPONENT_MAX, cleanCompetition, competitionKey } from '../lib/team';
 import { useGameStore } from '../store/gameStore';
 import { useHistoryStore } from '../store/historyStore';
+import { useActiveSquad } from '../hooks/useActiveSquad';
+import { membersOf } from '../lib/squads';
 import { useRosterStore } from '../store/rosterStore';
 import { useTeamStore } from '../store/teamStore';
 import { useUiStore } from '../store/uiStore';
@@ -382,10 +384,18 @@ function StartScreen() {
   const t = useTheme();
   const safe = useSafeAreaInsets();
 
-  // EVERY player, not only the available ones. The filter that matters is
-  // still `availableIn`, and it is applied at the one crossing — `startGame`
-  // below — so an unavailable player is shown here and never reaches the game.
-  const roster = useRosterStore((s) => s.players);
+  // THE TEAM THAT IS PLAYING — the one the strip on the TEAM tab is lit for,
+  // and the only place this screen differs from the club-wide picker it used
+  // to be. A club runs up to three teams and only one of them is at this
+  // venue tonight; offering the other two's players a starting spot would be
+  // offering a lineup that cannot take the floor.
+  const { squad, roster: pool } = useActiveSquad();
+
+  // EVERY player on that team, not only the available ones. The filter that
+  // matters is still `availableIn`, and it is applied at the one crossing —
+  // `startGame` below — so an unavailable player is shown here and never
+  // reaches the game.
+  const roster = useMemo(() => membersOf(squad, pool), [squad, pool]);
   const update = useRosterStore((s) => s.update);
   const startGame = useGameStore((s) => s.startGame);
   const open = useUiStore((s) => s.open);
@@ -442,7 +452,17 @@ function StartScreen() {
 
   const start = () => {
     if (!ready) return;
-    startGame(availableIn(roster), picked, teamName, { kind, competition, opponent, note });
+    // THE TEAM IS STAMPED HERE, beside the club's name and the rules of the
+    // game, and is read off the saved game ever after — never looked up again.
+    // A game filed under a team that is later renamed still says which team
+    // played it; see `GameState.squadId`.
+    startGame(
+      availableIn(roster),
+      picked,
+      teamName,
+      { kind, competition, opponent, note },
+      squad ? { id: squad.id, name: squad.name } : undefined,
+    );
     // replace, not push: back off the board goes home, not to a picker for a
     // game that has already started
     router.replace('/game');
@@ -539,6 +559,28 @@ function StartScreen() {
               Starting five
             </Text>
 
+            {/* WHICH TEAM IS PLAYING, stated and not chosen. The switcher is
+                one control and it lives under the club card on the TEAM tab —
+                a second one at the door would be two places to change the same
+                fact, and the door is where a scorer is answering questions
+                about the NIGHT rather than about the club. It is printed here
+                because the five names below are this team's and no other's,
+                and a picker that did not say so would look like a roster that
+                had lost half its players. */}
+            <Text
+              numberOfLines={1}
+              style={{
+                flexShrink: 1,
+                minWidth: 0,
+                ...fUi(500),
+                fontSize: m.fsSm,
+                letterSpacing: ls(m.fsSm, LS_LABEL),
+                color: t.ink3,
+              }}
+            >
+              {squad?.name ?? ''}
+            </Text>
+
             <GlowText
               containerStyle={{ marginLeft: 'auto', flexGrow: 0, flexShrink: 0 }}
               style={{
@@ -583,7 +625,6 @@ function StartScreen() {
               >
                 No players yet
               </Text>
-              <Label tone={t.ink3}>Add them on the team tab</Label>
             </Col>
           )}
 

@@ -14,8 +14,12 @@ import { Inter_600SemiBold } from '@expo-google-fonts/inter/600SemiBold';
 import { Inter_700Bold } from '@expo-google-fonts/inter/700Bold';
 
 import '../global.css';
+// TESTING ONLY — delete this import, the effect below and `dev/` with it
+import { seedMock } from '../dev/seedMock';
 import { Launch } from '../components/ui/Launch';
+import { usePurchaseSync } from '../hooks/usePurchases';
 import { useClock } from '../hooks/useClock';
+import { useStorageFault } from '../hooks/useStorageFault';
 import { useIntroStore } from '../store/introStore';
 import { themeVars, useTheme } from '../theme/useTheme';
 
@@ -55,6 +59,16 @@ import { themeVars, useTheme } from '../theme/useTheme';
 function Root() {
   const t = useTheme();
   useClock();
+  usePurchaseSync();
+  // the disk does not stop being full because a scorer left the board
+  useStorageFault();
+
+  // TESTING ONLY — a mock season, once per install, `__DEV__` only. It runs
+  // here rather than on the lobby because it REPLACES the stores and then
+  // rehydrates them, so it must not be tied to a screen that can be revisited.
+  useEffect(() => {
+    void seedMock();
+  }, []);
 
   // one boolean, and it is not in a store: nothing but this view depends on
   // whether the mark has finished getting out of the way

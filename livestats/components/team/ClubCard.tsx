@@ -72,7 +72,11 @@ import { Row } from '../ui/Row';
  * what puts the last good name back after the field is cleared, since
  * `setProfile` refuses an empty one.
  */
-export function ClubCard({ readOnly = false }: { readOnly?: boolean }) {
+export function ClubCard({ readOnly = false, onEditingChange }: {
+  readOnly?: boolean;
+  /** Team-only presentation. The picker keeps the existing compact card. */
+  onEditingChange?: (editing: boolean) => void;
+}) {
   const m = useMetrics();
   const t = useTheme();
 
@@ -198,7 +202,8 @@ export function ClubCard({ readOnly = false }: { readOnly?: boolean }) {
                 setName(v);
                 setProfile({ name: v });
               }}
-              onBlur={() => setName(club.name)}
+              onFocus={() => onEditingChange?.(true)}
+              onBlur={() => { setName(club.name); onEditingChange?.(false); }}
               maxLength={TEAM_NAME_MAX}
               // WORDS, NOT CHARACTERS. The field used to force the club's own
               // name to caps as it was typed and every screen printed it back
@@ -240,7 +245,8 @@ export function ClubCard({ readOnly = false }: { readOnly?: boolean }) {
                   setCoach(v);
                   setProfile({ coach: v });
                 }}
-                onBlur={() => setCoach(club.coach)}
+                onFocus={() => onEditingChange?.(true)}
+                onBlur={() => { setCoach(club.coach); onEditingChange?.(false); }}
                 maxLength={COACH_NAME_MAX}
                 autoCapitalize="words"
                 autoCorrect={false}
@@ -257,7 +263,8 @@ export function ClubCard({ readOnly = false }: { readOnly?: boolean }) {
                   setAssistant(v);
                   setProfile({ assistant: v });
                 }}
-                onBlur={() => setAssistant(club.assistant)}
+                onFocus={() => onEditingChange?.(true)}
+                onBlur={() => { setAssistant(club.assistant); onEditingChange?.(false); }}
                 maxLength={COACH_NAME_MAX}
                 autoCapitalize="words"
                 autoCorrect={false}

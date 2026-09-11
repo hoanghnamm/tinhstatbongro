@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 
 import { flushPersist, useGameStore } from '../store/gameStore';
@@ -18,6 +18,19 @@ const AWAKE_TAG = 'hooplog-clock';
 
 export function useClock(): void {
   const running = useGameStore((s) => s.running);
+
+  // A page can close while the clock is stopped, within the persist debounce.
+  // localStorage writes start synchronously, so pagehide can flush that edit.
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const hidden = () => { if (document.visibilityState === 'hidden') flushPersist(); };
+    window.addEventListener('pagehide', flushPersist);
+    document.addEventListener('visibilitychange', hidden);
+    return () => {
+      window.removeEventListener('pagehide', flushPersist);
+      document.removeEventListener('visibilitychange', hidden);
+    };
+  }, []);
 
   /**
    * A SCORER'S TABLET MUST NOT SLEEP MID-GAME.

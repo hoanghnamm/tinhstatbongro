@@ -8,18 +8,29 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
 import { PanelHost } from '../../components/panels/PanelHost';
 import { ClubCard } from '../../components/team/ClubCard';
 import { NUM_DONE, RosterRow } from '../../components/team/RosterRow';
-import { Bloom } from '../../components/ui/Bloom';
+import { SquadStrip } from '../../components/team/SquadStrip';
+import { RoomGround } from '../../components/offcourt/RoomGround';
+import { EmptyState } from '../../components/offcourt/EmptyState';
+
 import { GlowText } from '../../components/ui/GlowText';
 import { Press } from '../../components/ui/Press';
-import { Row } from '../../components/ui/Row';
+import { Col, Row } from '../../components/ui/Row';
 import { useTabInset } from '../../hooks/useTabInset';
+import { useTopOnBlur } from '../../hooks/useTopOnBlur';
 import { ROSTER_CAP, nextFreeNumber } from '../../lib/roster';
+import { SQUAD_SIZE, canRemoveSquad, membersOf } from '../../lib/squads';
+import { useActiveSquad } from '../../hooks/useActiveSquad';
+import { useHistoryStore } from '../../store/historyStore';
 import { useRosterStore } from '../../store/rosterStore';
+import { useSquadStore } from '../../store/squadStore';
+import { useUiStore } from '../../store/uiStore';
 import { useMetrics } from '../../theme/metrics';
+import { ROOM_WIDTH } from '../../theme/room';
 import { LS_LABEL, fNum, fUi, ls } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 import type { RosterPlayer } from '../../types';
@@ -108,11 +119,10 @@ import type { RosterPlayer } from '../../types';
 
 /** Two columns start here — the same line `RotateGate` and `start.tsx` draw. */
 const TWO_UP = 700;
-/** …and past it the count is computed, so a 1180pt iPad gets three, not two. */
-const COL_W = 380;
 
 export default function TeamScreen() {
   const m = useMetrics();
+
   const t = useTheme();
   const safe = useSafeAreaInsets();
   const bar = useTabInset();
@@ -124,6 +134,7 @@ export default function TeamScreen() {
   // `KeyboardAvoidingView` that was refused: the viewport keeps its full
   // height, and all that changes is how much there is to scroll.
   const [kb, setKb] = useState(0);
+  const [editing, setEditing] = useState(false);
   // …and the same height as a ref, because `lift` is called from a listener and
   // from a layout callback, neither of which is holding this render's copy.
   const kbRef = useRef(0);
@@ -169,6 +180,11 @@ export default function TeamScreen() {
   const focusedRow = useRef<View | null>(null);
   const offset = useRef(0);
 
+  // A TAB IS A ROOM, AND IT IS ENTERED AT THE TOP OF IT — see the hook. The
+  // offset is reset with it: `lift` scrolls BY an overlap off this copy, and a
+  // programmatic scroll is not guaranteed to come back through `onScroll`.
+  useTopOnBlur(listRef, useCallback(() => { offset.current = 0; }, []));
+
   const lift = useCallback(() => {
     const node = focusedRow.current;
     const frame = frameRef.current;
@@ -203,10 +219,26 @@ export default function TeamScreen() {
     [lift],
   );
 
-  const players = useRosterStore((s) => s.players);
+  const pool = useRosterStore((s) => s.players);
   const add = useRosterStore((s) => s.add);
+  const draft = useSquadStore((s) => s.draft);
+  const index = useHistoryStore((s) => s.index);
+  const open = useUiStore((s) => s.open);
 
-  const full = players.length >= ROSTER_CAP;
+  // THE LIST IS ONE TEAM'S SHEET, NOT THE POOL, and that is the whole shape of
+  // this screen now. The pool is a club-level list of up to `ROSTER_CAP`
+  // names that nobody scrolls through to find tonight's twelve; the sheet is
+  // the twelve. The pool is still reachable and is still where a player is
+  // created — it is behind the DRAFT button, which is the one control that
+  // writes membership.
+  const { squad, squads } = useActiveSquad();
+  const players = membersOf(squad, pool);
+
+  const full = players.length >= SQUAD_SIZE;
+  const poolFull = pool.length >= ROSTER_CAP;
+  // GONE, NOT DISABLED, and only when nothing on the shelf was played by it —
+  // see `canRemoveSquad` for why a team with games behind it cannot go.
+  const removable = canRemoveSquad(squads, squad?.id ?? '', index);
 
   // the keyboard covers the bar as well, so the two do not stack — whichever
   // is standing on the list at the time is what the tail owes, plus the room
@@ -214,7 +246,7 @@ export default function TeamScreen() {
   const tail = Math.max(bar, kb) + m.s6;
 
   const usable = m.win.w - safe.left - safe.right - 2 * m.s4;
-  const columns = usable >= TWO_UP ? Math.max(2, Math.floor(usable / COL_W)) : 1;
+  const columns = usable >= TWO_UP ? 2 : 1;
 
   // a short last row would otherwise stretch its one item across the grid
   const pad = columns > 1 ? (columns - (players.length % columns)) % columns : 0;
@@ -223,7 +255,7 @@ export default function TeamScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: t.bg }}>
       {/* outside the padded view below, so it runs under the safe-area inset */}
-      <Bloom />
+      <RoomGround />
 
       <View
         ref={frameRef}
@@ -237,6 +269,9 @@ export default function TeamScreen() {
         }}
         style={{
           flex: 1,
+          width: '100%',
+          maxWidth: ROOM_WIDTH + safe.left + safe.right + m.s4 * 2,
+          alignSelf: 'center',
           paddingTop: safe.top + m.s2,
           // NO BOTTOM PAD ON THE FRAME, and that is what makes this one sheet:
           // padding here would clip the list short of the bar and leave a dead
@@ -259,7 +294,13 @@ export default function TeamScreen() {
           // across renders and the fields hold their text.
           ListHeaderComponent={
             <>
-              <ClubCard />
+              <ClubCard onEditingChange={setEditing} />
+
+              {/* THE SWITCHER, DIRECTLY UNDER THE CLUB, because that is the
+                  order the two facts nest in: this club, then which of its
+                  teams. Everything below the strip — and every other screen in
+                  the app — is about the chip that is lit. */}
+              <SquadStrip onEditingChange={setEditing} />
 
               <Row gap={m.s2} style={{ minHeight: m.tap, marginTop: m.s3 }}>
                 <Text
@@ -275,6 +316,7 @@ export default function TeamScreen() {
                   Players
                 </Text>
 
+
                 {/* the count is what says why + ADD PLAYER is gone at the cap, so the
                     count is the thing that has to change colour when it gets there */}
                 <Text
@@ -288,8 +330,33 @@ export default function TeamScreen() {
                     fontVariant: ['tabular-nums'],
                   }}
                 >
-                  {players.length}/{ROSTER_CAP}
+                  {players.length}/{SQUAD_SIZE}
                 </Text>
+
+                {/* REMOVE THE TEAM, and it is a glyph in the row that names
+                    the team's size rather than a button of its own: it is
+                    reachable a handful of times ever, and a full-width
+                    destructive control under a list of names would be the one
+                    loud thing on this screen. Gone entirely once the team has
+                    played — see `canRemoveSquad`. */}
+                {removable && (
+                  <Press
+                    onPress={() => squad && open({ kind: 'removeSquad', squadId: squad.id })}
+                    accessibilityLabel={`remove ${squad?.name ?? 'this team'} from the club`}
+                    style={{
+                      flexGrow: 0,
+                      flexShrink: 0,
+                      width: m.tap,
+                      minHeight: m.tap,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: m.rSm,
+                    }}
+                    pressedStyle={{ backgroundColor: t.surface2 }}
+                  >
+                    <MaterialCommunityIcons name="trash-can-outline" size={m.fsMd} color={t.ink3} />
+                  </Press>
+                )}
               </Row>
             </>
           }
@@ -301,7 +368,7 @@ export default function TeamScreen() {
           keyExtractor={(p, i) => p?.id ?? 'pad' + i}
           renderItem={({ item, index }) =>
             item ? (
-              <RosterRow player={item} index={index} onFocusRow={onFocusRow} />
+              <RosterRow player={item} index={index} onFocusRow={onFocusRow} enhanced onEditingChange={setEditing} />
             ) : (
               <View style={{ flex: 1 }} />
             )
@@ -330,49 +397,89 @@ export default function TeamScreen() {
           // rather than shortening it, so reaching the next row puts it away
           keyboardDismissMode="on-drag"
           ListEmptyComponent={
-            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-              <Text
-                style={{
-                  ...fUi(500),
-                  fontSize: m.fsMd,
-                  letterSpacing: ls(m.fsMd, LS_LABEL),
-                  color: t.ink3,
-                }}
-              >
-                No players yet
-              </Text>
-            </View>
+            <EmptyState title="Nobody on this team yet" />
           }
           // AT THE CAP IT IS GONE, not disabled. A dark button on a full roster
           // is a control still asking to be pressed; the 20/20 above says why.
+          // TWO VERBS, AND THEY ARE NOT THE SAME ONE.
+          //
+          //   + ADD PLAYER  makes a NEW person, in the club's pool, and puts
+          //                 them straight on this sheet. That second half is
+          //                 the whole reason it is not just the pool's button:
+          //                 a scorer adding a name while looking at Team 2
+          //                 means that name is on Team 2, and asking them to
+          //                 go and draft somebody they just typed would be the
+          //                 app being pedantic about its own data model.
+          //   DRAFT         opens the pool, where the club's other players
+          //                 already are. It is the only place membership is
+          //                 written in both directions.
+          //
+          // The first is GONE at either cap, the second never is — un-drafting
+          // is how a full sheet gets back under it, and the panel is where
+          // that happens.
           ListFooterComponent={
-            full ? null : (
+            <Col gap={m.s2} style={{ marginTop: m.s3 }}>
+              {!full && !poolFull && (
+                <Press
+                  onPress={() => {
+                    // the pool decides the jersey, not the sheet: a number is
+                    // unique across the club, so a fresh row cannot take one
+                    // that another team is already wearing
+                    const id = add({ number: nextFreeNumber(pool), name: '' });
+                    // …and onto this sheet, which is what the scorer meant.
+                    // `add` hands back the id it minted; see `rosterStore`.
+                    if (id && squad) draft(squad.id, id);
+                  }}
+                  accessibilityLabel="add a new player to this team"
+                  style={{
+                    minHeight: m.tap,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: m.r,
+                    borderWidth: 1,
+                    borderStyle: 'dashed',
+                    borderColor: t.rule,
+                  }}
+                  pressedStyle={{ backgroundColor: t.surface2, borderColor: t.accent }}
+                >
+                  <GlowText
+                    style={{
+                      ...fUi(600),
+                      fontSize: m.fsMd,
+                      letterSpacing: ls(m.fsMd, LS_LABEL),
+                      color: t.accent,
+                    }}
+                  >
+                    + Add player
+                  </GlowText>
+                </Press>
+              )}
+
               <Press
-                onPress={() => add({ number: nextFreeNumber(players), name: '' })}
-                accessibilityLabel="add a player to the team"
+                onPress={() => open({ kind: 'draft' })}
+                accessibilityLabel="draft players from the club pool"
                 style={{
                   minHeight: m.tap,
                   alignItems: 'center',
                   justifyContent: 'center',
                   borderRadius: m.r,
                   borderWidth: 1,
-                  borderStyle: 'dashed',
                   borderColor: t.rule,
                 }}
-                pressedStyle={{ backgroundColor: t.surface2, borderColor: t.accent }}
+                pressedStyle={{ backgroundColor: t.surface2 }}
               >
-                <GlowText
+                <Text
                   style={{
                     ...fUi(600),
                     fontSize: m.fsMd,
                     letterSpacing: ls(m.fsMd, LS_LABEL),
-                    color: t.accent,
+                    color: t.ink2,
                   }}
                 >
-                  + Add player
-                </GlowText>
+                  Draft from pool · {pool.length}
+                </Text>
               </Press>
-            )
+            </Col>
           }
         />
       </View>

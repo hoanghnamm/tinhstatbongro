@@ -11,19 +11,20 @@ import {
   figure,
   netLabel,
   ratioLabel,
-  type Comparison,
   type CompareRow,
   type Highlight,
+  type ImpactRow,
   type TimeoutRun,
 } from '../../lib/analysis';
 
 /**
- * LAST GAME, THE AVERAGE, AND WHAT MOVED — three columns and no grid.
+ * THE GAME, THE BASELINE, AND WHAT MOVED — three columns and no grid.
  *
- * There is ONE of this and there are two callers: the team's own page and a
- * player's card. Both are the same six rows over the same three columns, which
- * is exactly why `lib/analysis.ts` builds both as the same `Comparison` — a
- * second table for the player would be a second answer to "which way is up".
+ * There is ONE of this and it is drawn many times: once per group on the
+ * comparison page, and once on a player's card. Every one of them is the same
+ * three columns over rows `lib/analysis.ts` built, which is exactly why that
+ * file builds the team's and the player's as the same `CompareRow` — a second
+ * table for the player would be a second answer to "which way is up".
  *
  * IT IS TYPE ON THE ROOM'S OWN GROUND, not a card. The shelf's rows already
  * make this argument and it holds harder here: this table is drawn INSIDE a
@@ -38,14 +39,27 @@ import {
  * and a table that moves is a table you have to read twice.
  */
 
-/** The four columns, as multiples of the row's own font size. */
-// LAST is the widest of the four and not because its numbers are longer: it is
-// the one cell set a STEP UP from the row it sits in, so a width measured in
-// the row's own size would clip `44.1%` at the size it is actually drawn.
-const W_LAST = 4.0;
-const W_AVG = 3.4;
-const W_DELTA = 4.6;
-const W_RATIO = 3.0;
+/**
+ * The four columns, as multiples of the row's own font size.
+ *
+ * LAST is the widest of the four and not because its numbers are longer: it is
+ * the one cell set a STEP UP from the row it sits in, so a width measured in
+ * the row's own size would clip `100%` at the size it is actually drawn — the
+ * factor between `fsMd` and `fsSm` reaches 1.28 in the middle of the ramp, and
+ * that is what `W_LAST` carries over the others.
+ *
+ * EVERY ONE OF THE FOUR IS MEASURED NOW, NOT JUDGED BY EYE, against the widest
+ * string its column can hold — `100%`, `-100.0`, `+100 pts`, `+999%` — in the
+ * face that sets them (Inter, whose `%` is a full em, wider than SF's). They
+ * were all short by a tenth to a quarter of their contents, and `npm run check`
+ * holds them to it now. The label takes the slack, as it always has.
+ */
+const W_LAST = 3.9;
+const W_AVG = 3.5;
+const W_DELTA = 4.55;
+const W_RATIO = 3.25;
+/** and how wide one of the players table's five stacked cells is. */
+const W_CELL = 3.2;
 
 function HeadCell({ label, w, fs }: { label: string; w: number; fs: number }) {
   const t = useTheme();
@@ -113,8 +127,8 @@ function CompareLine({ row, first }: { row: CompareRow; first: boolean }) {
         {row.label}
       </Text>
 
-      {/* the LAST game is the subject of the table, so it is the one figure
-          set at full ink and the heavier step */}
+      {/* the SUBJECT is what the table is about, so it is the one figure set
+          at full ink and the heavier step */}
       <Text
         numberOfLines={1}
         style={{
@@ -129,7 +143,7 @@ function CompareLine({ row, first }: { row: CompareRow; first: boolean }) {
           fontVariant: ['tabular-nums'],
         }}
       >
-        {figure(row, row.last)}
+        {figure(row, row.subject)}
       </Text>
 
       <Text
@@ -145,7 +159,7 @@ function CompareLine({ row, first }: { row: CompareRow; first: boolean }) {
           fontVariant: ['tabular-nums'],
         }}
       >
-        {figure(row, row.avg)}
+        {figure(row, row.base)}
       </Text>
 
       <Text
@@ -184,49 +198,217 @@ function CompareLine({ row, first }: { row: CompareRow; first: boolean }) {
 }
 
 /**
- * The table, with its own caption row and the note that makes it honest.
+ * ONE GROUP'S TABLE — a caption row, its rows, and the note when there is one.
  *
- * THE NOTE IS NOT DECORATION and must not be dropped: the average is pooled on
- * the shooting row and meaned on the others, and a reader who assumes one rule
- * for the whole column will read one of the six numbers wrong. It is the same
- * argument as the stats screen's note under POINTS FROM TURNOVERS.
+ * IT DRAWS ROWS AND NOT A `Comparison`, because the comparison page draws
+ * EIGHT of these and a player's card draws one. What the table is about is the
+ * two column heads: the subject is always `Game`, and the baseline names
+ * itself — `Avg` when it is every other official game, a date when it is one
+ * of them.
+ *
+ * THE NOTE IS NOT DECORATION and must not be dropped where it belongs: the
+ * baseline is pooled on every rate row and meaned on every count, and a reader
+ * who assumes one rule for the whole column will read half the table wrong. It
+ * is the same argument as the stats screen's note under POINTS FROM TURNOVERS.
+ * It is passed in rather than built here because it is printed ONCE on a page
+ * of eight tables — under the shooting block, which is where pooling is the
+ * difference between two different numbers.
  */
-export function CompareTable({ comparison }: { comparison: Comparison }) {
+export function CompareTable({
+  rows,
+  base,
+  note,
+}: {
+  rows: CompareRow[];
+  /** the baseline column's head — `Avg`, or the date of one game */
+  base: string;
+  note?: string;
+}) {
   const m = useMetrics();
   const t = useTheme();
   const fs = m.fsSm;
-  const n = comparison.window;
 
   return (
     <Col>
       <Row gap={m.s2} style={{ paddingBottom: m.s2 }}>
         <View style={{ flex: 1, minWidth: 0 }} />
-        <HeadCell label="Last" w={W_LAST} fs={fs} />
-        <HeadCell label="Avg" w={W_AVG} fs={fs} />
+        <HeadCell label="Game" w={W_LAST} fs={fs} />
+        <HeadCell label={base} w={W_AVG} fs={fs} />
         <HeadCell label="Change" w={W_DELTA} fs={fs} />
         <View style={{ width: fs * W_RATIO, flexGrow: 0, flexShrink: 0 }} />
       </Row>
 
-      {comparison.rows.map((row, i) => (
+      {rows.map((row, i) => (
         <CompareLine key={row.key} row={row} first={i === 0} />
       ))}
 
       {/* `fsXs` and not the step under it: the small step is for strings that
           are not read at arm's length, and this one is the sentence that keeps
           the column above it honest. */}
+      {!!note && (
+        <Text
+          style={{
+            paddingTop: m.s3,
+            ...fUi(400),
+            fontSize: m.fsXs,
+            letterSpacing: ls(m.fsXs, LS_MICRO),
+            lineHeight: m.fsXs * 1.45,
+            color: t.ink3,
+          }}
+        >
+          {note}
+        </Text>
+      )}
+    </Col>
+  );
+}
+
+/**
+ * WHO PLAYED ABOVE OR BELOW THEIR OWN NORMAL — five figures per name, each
+ * with the move under it.
+ *
+ * IT IS NOT THE TABLE ABOVE, and it could not be: that one is one stat read
+ * three ways down a column, and this is five stats read for ten people. So the
+ * two readings are STACKED inside the cell instead of set side by side — the
+ * figure at full ink over its own change, two weights apart, which is the same
+ * value-over-caption pair the stats screen's tiles use. It is the only way
+ * fifty numbers fit across a phone without a horizontal scroll.
+ *
+ * THE COLOUR IS ON THE CHANGE AND NOWHERE ELSE, exactly as it is in
+ * `CompareLine`. A player who has played no other game gets dashes rather than
+ * no row: `lib/analysis.ts` keeps them, and dropping them here would put a
+ * name in the box score that this table cannot account for.
+ */
+export function PlayerImpact({ rows }: { rows: ImpactRow[] }) {
+  const m = useMetrics();
+  const t = useTheme();
+
+  if (rows.length === 0) {
+    return (
       <Text
         style={{
-          paddingTop: m.s3,
           ...fUi(400),
-          fontSize: m.fsXs,
-          letterSpacing: ls(m.fsXs, LS_MICRO),
-          lineHeight: m.fsXs * 1.45,
+          fontSize: m.fsSm,
+          letterSpacing: ls(m.fsSm, LS_LABEL),
           color: t.ink3,
         }}
       >
-        {n === 0
-          ? 'No earlier games to average against yet.'
-          : `Averaged over the ${n} game${n === 1 ? '' : 's'} before it. Field goal % is the makes over the attempts across ${n === 1 ? 'that game' : 'those games'}, not the mean of their percentages.`}
+        Nobody played a minute in this game.
+      </Text>
+    );
+  }
+
+  const codes = rows[0].cells.map((c) => c.code);
+
+  return (
+    <Col>
+      <Row gap={m.s2} style={{ paddingBottom: m.s2 }}>
+        <View style={{ flex: 1, minWidth: 0 }} />
+        {codes.map((code) => (
+          <Text
+            key={code}
+            numberOfLines={1}
+            style={{
+              width: m.fsSm * W_CELL,
+              flexGrow: 0,
+              flexShrink: 0,
+              textAlign: 'right',
+              ...fUi(500),
+              fontSize: m.fsSm * 0.82,
+              letterSpacing: ls(m.fsSm * 0.82, LS_CAPS),
+              color: t.ink3,
+            }}
+          >
+            {code}
+          </Text>
+        ))}
+      </Row>
+
+      {rows.map((r, i) => (
+        <Row
+          key={r.id}
+          gap={m.s2}
+          align="flex-start"
+          style={{
+            paddingVertical: m.s3,
+            borderTopWidth: i === 0 ? 0 : 1,
+            borderTopColor: t.rule,
+          }}
+        >
+          <Row gap={m.s2} style={{ flex: 1, minWidth: 0 }}>
+            <Text
+              style={{
+                flexGrow: 0,
+                flexShrink: 0,
+                ...fNum(600),
+                fontSize: m.fsSm,
+                letterSpacing: ls(m.fsSm, LS_TIGHT),
+                color: t.ink3,
+                fontVariant: ['tabular-nums'],
+              }}
+            >
+              {r.number}
+            </Text>
+            <Text
+              numberOfLines={1}
+              style={{
+                flexShrink: 1,
+                minWidth: 0,
+                ...fUi(500),
+                fontSize: m.fsSm,
+                letterSpacing: ls(m.fsSm, LS_LABEL),
+                color: t.ink,
+              }}
+            >
+              {r.name}
+            </Text>
+          </Row>
+
+          {r.cells.map((c) => (
+            <ImpactCell key={c.key} cell={c} />
+          ))}
+        </Row>
+      ))}
+    </Col>
+  );
+}
+
+/** A figure over the move that made it — the only cell on the page with two. */
+function ImpactCell({ cell }: { cell: CompareRow }) {
+  const m = useMetrics();
+  const t = useTheme();
+  const tone = cell.better === null ? t.ink3 : cell.better ? t.good : t.danger;
+
+  return (
+    <Col
+      gap={2}
+      style={{ width: m.fsSm * W_CELL, flexGrow: 0, flexShrink: 0 }}
+    >
+      <Text
+        numberOfLines={1}
+        style={{
+          textAlign: 'right',
+          ...fNum(700),
+          fontSize: m.fsMd,
+          letterSpacing: ls(m.fsMd, LS_TIGHT),
+          color: t.ink,
+          fontVariant: ['tabular-nums'],
+        }}
+      >
+        {figure(cell, cell.subject)}
+      </Text>
+      <Text
+        numberOfLines={1}
+        style={{
+          textAlign: 'right',
+          ...fNum(500),
+          fontSize: m.fsXs,
+          letterSpacing: ls(m.fsXs, LS_MICRO),
+          color: tone,
+          fontVariant: ['tabular-nums'],
+        }}
+      >
+        {deltaLabel(cell)}
       </Text>
     </Col>
   );

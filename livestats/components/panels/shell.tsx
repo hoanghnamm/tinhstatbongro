@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, View, type TextStyle } from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
@@ -15,7 +15,10 @@ import {
   BLOOM_START,
   BLOOM_STOPS,
   LS_BTN,
+  LS_CAPS,
+  LS_LABEL,
   LS_MICRO,
+  LS_TIGHT,
   bloomFill,
   plateWash,
   fNum,
@@ -24,8 +27,9 @@ import {
 } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 import { Badge } from '../ui/Badge';
+import { GlowText } from '../ui/GlowText';
 import { Press } from '../ui/Press';
-import { Center, Row as UIRow } from '../ui/Row';
+import { Center, Col as UICol, Row as UIRow } from '../ui/Row';
 import { Tile } from '../ui/Tile';
 import type { Player } from '../../types';
 
@@ -388,7 +392,10 @@ export function PTitle({
   const m = useMetrics();
   const t = useTheme();
   const bg = tone === 'bad' ? t.danger : tone === 'ink' ? t.ink : t.accent;
-  const fg = tone === 'ink' ? t.surface : tone === 'bad' ? t.dangerInk : t.accentInk;
+  // `bg`, NOT `surface` — that is the token opposite `ink` in each palette.
+  // On the dark rooms `surface` is a 5% white, so an `ink` pill was a
+  // near-white lozenge with near-invisible text sitting on it.
+  const fg = tone === 'ink' ? t.bg : tone === 'bad' ? t.dangerInk : t.accentInk;
 
   return (
     <UIRow gap={m.sp} align="center" style={{ marginBottom: m.spLg }}>
@@ -412,6 +419,129 @@ export function PTitle({
         </View>
       )}
     </UIRow>
+  );
+}
+
+/**
+ * WHAT THE QUESTION IS ABOUT — the game a confirm is asking after, drawn the
+ * way the shelf draws every other game.
+ *
+ * IT REPLACED A PARAGRAPH. Both confirms off the board used to carry two or
+ * three lines of grey prose under the title — *the game in progress will be
+ * discarded*, *its box score and its play by play are removed for good* — which
+ * is the app explaining itself in the one place the scorer is deciding
+ * something. What is at stake is a GAME, and this app already has a way of
+ * printing one: a caption line naming it and a score with OURS in accent, which
+ * is the MATCHES row exactly. Showing the row says which game is about to go
+ * better than a sentence describing it ever did.
+ *
+ * The two hairlines are the shelf's own seam, top and bottom, so the block
+ * reads as a row lifted out of the list rather than as a card inside a card.
+ * Nothing here is a control.
+ */
+export function PSubject({
+  line,
+  tail,
+  mark,
+  markTone = 'accent',
+  us,
+  them,
+}: {
+  /** who or what — `vs Wolves`, `Practice`, `Game in progress` */
+  line: string;
+  /** the muted half of the same line: a competition, a period, a date */
+  tail?: string;
+  /** the one-letter code the shelf rides on the second line — `W`, `L` */
+  mark?: string;
+  markTone?: 'accent' | 'danger';
+  us: number;
+  them: number;
+}) {
+  const m = useMetrics();
+  const t = useTheme();
+
+  // the shelf's figure, one step down: a panel is narrower than the room it is
+  // over, and the score here is context rather than the thing being scanned
+  const figure: TextStyle = {
+    ...fNum(700),
+    fontSize: m.fsXl,
+    letterSpacing: ls(m.fsXl, LS_TIGHT),
+    fontVariant: ['tabular-nums'],
+  };
+
+  return (
+    <UICol
+      gap={m.s1}
+      style={{
+        marginBottom: m.spLg,
+        paddingVertical: m.s3,
+        borderTopWidth: 1,
+        borderBottomWidth: 1,
+        borderColor: t.rule,
+      }}
+    >
+      <UIRow gap={m.s2} style={{ minWidth: 0 }}>
+        <Text
+          numberOfLines={1}
+          style={{
+            flexShrink: 1, minWidth: 0,
+            ...fUi(500), fontSize: m.fsSm,
+            letterSpacing: ls(m.fsSm, LS_LABEL), color: t.ink2,
+          }}
+        >
+          {line}
+        </Text>
+
+        {!!tail && (
+          <>
+            <Text style={{ ...fUi(400), fontSize: m.fsXs, color: t.ink3 }}>·</Text>
+            <Text
+              numberOfLines={1}
+              style={{
+                flexShrink: 1, minWidth: 0,
+                ...fUi(500), fontSize: m.fsXs,
+                letterSpacing: ls(m.fsXs, LS_LABEL), color: t.ink3,
+              }}
+            >
+              {tail}
+            </Text>
+          </>
+        )}
+
+        {/* the result rides at the end of the line, in caps, exactly as it does
+            on the shelf — one letter is the whole of what there is to say */}
+        {!!mark && (
+          <Text
+            style={{
+              marginLeft: 'auto', flexGrow: 0, flexShrink: 0,
+              ...fNum(700), fontSize: m.fsXs,
+              letterSpacing: ls(m.fsXs, LS_CAPS),
+              color: markTone === 'danger' ? t.danger : t.accent,
+            }}
+          >
+            {mark}
+          </Text>
+        )}
+      </UIRow>
+
+      {/* OURS IS ORANGE AND THEIRS IS NOT, on this block as on every row of the
+          shelf, and the dash is a glyph at caption size between them */}
+      <UIRow gap={m.s2} align="center">
+        {/* the mask is a View, so what holds it at its own width is the
+            CONTAINER style — see `GlowText` */}
+        <GlowText
+          numberOfLines={1}
+          containerStyle={{ flexGrow: 0, flexShrink: 0 }}
+          style={{ ...figure, color: t.accent }}
+        >
+          {String(us)}
+        </GlowText>
+        <Text style={{ ...fUi(400), fontSize: m.fsMd, color: t.ink3 }}>—</Text>
+        <Text numberOfLines={1} style={{ ...figure, color: t.ink }}>
+          {String(them)}
+        </Text>
+      </UIRow>
+    </UICol>
   );
 }
 
@@ -493,7 +623,9 @@ export function Btn({
     : plated ? t.court
     : 'transparent';
   const fg =
-    variant === 'solid' ? t.surface
+    // see `PTitle` — `bg` is what `ink` inverts to on BOTH palettes, and the
+    // board can be turned down, so `solid` has to survive the dark one too
+    variant === 'solid' ? t.bg
     : variant === 'accent' || variant === 'made' || lit ? t.accentInk
     : variant === 'danger' ? t.dangerInk
     : plated ? t.courtLine

@@ -75,6 +75,11 @@ export interface Metrics {
   s5: number;
   s6: number;
 
+  /** Court markers shrink by 30% in portrait; touch targets are independent. */
+  boardDot: number;
+  chartDot: number;
+  liveDot: number;
+
   /* shape + hit area */
   r: number;
   rSm: number;
@@ -193,6 +198,9 @@ export function computeMetrics(
 
   return {
     portrait,
+    boardDot: clamp(8, 0.019 * h, 20) * (portrait ? 0.7 : 1),
+    chartDot: clamp(7, 0.017 * h, 16) * (portrait ? 0.7 : 1),
+    liveDot: clamp(18, 0.027 * h, 28) * (portrait ? 0.7 : 1),
     compact,
     win: { w, h },
     safe,

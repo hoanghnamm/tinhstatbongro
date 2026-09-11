@@ -1,4 +1,6 @@
+import { useCallback } from 'react';
 import { View } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 
 import { RotateGate } from '../components/RotateGate';
 import { Toast } from '../components/Toast';
@@ -7,6 +9,7 @@ import { PanelHost } from '../components/panels/PanelHost';
 import { TutorialOverlay } from '../components/tutorial/TutorialOverlay';
 import { DarkRoom } from '../components/ui/DarkRoom';
 import { useGameStore } from '../store/gameStore';
+import { useTutorialStore } from '../store/tutorialStore';
 import { useTheme } from '../theme/useTheme';
 
 /**
@@ -59,6 +62,14 @@ function GameBody() {
 
 export default function GameScreen() {
   const dark = useGameStore((s) => s.options.board) === 'dark';
+
+  // Back gestures and browser navigation can leave without calling leaveTour.
+  // Restore the real board and resume saving on blur or unmount, even when the
+  // stack keeps this screen mounted. Read the session at exit, not at mount.
+  // Keep this on the route so changing the board palette cannot end a tour.
+  useFocusEffect(
+    useCallback(() => () => useTutorialStore.getState().finish(false), []),
+  );
 
   // the wrapper is what carries the palette and the status bar, so a light
   // board mounts no provider at all and is exactly what it always was

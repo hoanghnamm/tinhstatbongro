@@ -99,11 +99,12 @@ export function markLaunchShown(): void {
  * it would put the paywall UNDER the onboarding in the stack.
  */
 export function useLaunchPaywall(hold = false): void {
+  const ready = useBillingStore((s) => s.ready);
   const entitled = useBillingStore((s) => s.entitled);
 
   useEffect(() => {
-    if (hold || launched || entitled) return;
+    if (hold || !ready || launched || entitled) return;
     launched = true;
     showPaywall();
-  }, [entitled, hold]);
+  }, [entitled, hold, ready]);
 }

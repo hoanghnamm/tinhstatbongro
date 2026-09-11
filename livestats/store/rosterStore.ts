@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Store } from '../platform/storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
@@ -29,8 +29,14 @@ export interface RosterState {
    * Refused past `ROSTER_CAP`; the ADD button is disabled there anyway.
    * `available` is optional here and nowhere else — the form has a switch for
    * it, but a caller that does not care means "on the team".
+   *
+   * IT RETURNS THE NEW ID, or null when it refused, because the id is minted
+   * in here and the TEAM tab has to draft the player it just created onto the
+   * sheet it is looking at. Finding them again by jersey number afterwards
+   * would be a lookup that is wrong the moment two rows share a number for one
+   * keystroke, which is a state the number field deliberately allows.
    */
-  add(p: Omit<RosterPlayer, 'id' | 'available'> & { available?: boolean }): void;
+  add(p: Omit<RosterPlayer, 'id' | 'available'> & { available?: boolean }): string | null;
   update(id: string, patch: Partial<Omit<RosterPlayer, 'id'>>): void;
   remove(id: string): void;
 }
@@ -44,12 +50,13 @@ export const useRosterStore = create<RosterState>()(
 
       add: (p) => {
         const players = get().players;
-        if (players.length >= ROSTER_CAP) return;
+        if (players.length >= ROSTER_CAP) return null;
+        const id = newRosterId();
         set({
           players: [
             ...players,
             {
-              id: newRosterId(),
+              id,
               number: p.number,
               name: cleanName(p.name),
               position: p.position,
@@ -59,6 +66,7 @@ export const useRosterStore = create<RosterState>()(
             },
           ],
         });
+        return id;
       },
 
       update: (id, patch) =>
@@ -78,7 +86,7 @@ export const useRosterStore = create<RosterState>()(
     }),
     {
       name: 'hooplog-roster',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => Store),
       /**
        * 1 → 2 added `position` and `available`.
        *

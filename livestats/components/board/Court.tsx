@@ -14,7 +14,6 @@ import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { CourtSvg } from './CourtSvg';
 import type { Position } from '../../types';
 
-const clamp = (lo: number, v: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
 /**
  * The court is the primary input: a tap on the floor starts a shot entry, and
@@ -65,8 +64,8 @@ function CourtImpl() {
   const showFt = ftAttempts > 0 || what === 'ft';
 
   const { w, h } = m.court;
-  const dot = clamp(8, 0.019 * m.win.h, 20);
-  const live = clamp(18, 0.027 * m.win.h, 28);
+  const dot = m.boardDot;
+  const live = m.liveDot;
 
   const onPress = (e: GestureResponderEvent) => {
     // no entry may start while the game is over or a panel is up

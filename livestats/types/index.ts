@@ -67,6 +67,22 @@ export interface TeamProfile {
 }
 
 /**
+ * A TEAM INSIDE THE CLUB — one of at most `SQUAD_CAP` of them.
+ *
+ * It owns no players. `playerIds` points at `rosterStore`'s pool, which is why
+ * a player can be on two teams at once and why fixing a name in one place
+ * fixes it everywhere. See `lib/squads.ts` for the whole rule set; the short
+ * version is that a team is a NAME and a SELECTION, and the selection is by
+ * reference.
+ */
+export interface Squad {
+  id: string;
+  name: string;
+  /** pool ids, in draft order; a player may appear on more than one team */
+  playerIds: string[];
+}
+
+/**
  * A LABEL, and nothing else. It is never read by a rule: the starter picker,
  * the rail and every stat behave exactly the same whether a player has one or
  * not, which is why it is optional and why nothing anywhere branches on it.
@@ -226,6 +242,23 @@ export interface MatchInfo {
 
 export interface GameState {
   team: { name: string };
+  /**
+   * WHICH TEAM OF THE CLUB PLAYED THIS, stamped at tip-off exactly as the
+   * periods and the club name are, and read off the game ever after.
+   *
+   * The id is what every screen filters on; the NAME is carried beside it for
+   * the same reason `team.name` is carried at all — a box score should still
+   * say which team played it after that team has been renamed, and a saved
+   * game must not have to go and ask a store that may no longer hold the
+   * answer.
+   *
+   * `''` on a game saved before the club had teams. That does NOT read as
+   * "no team": `squadIdOf` files it under the first team, because that is the
+   * team the club was when it played it. See `lib/squads.ts`.
+   */
+  squadId: string;
+  /** the team's name as it was on the night — see `squadId` */
+  squadName: string;
   /**
    * PRACTICE or OFFICIAL, chosen at the door and never again — a game does not
    * change what it was after it was played. `lib/season.ts` is the only rule

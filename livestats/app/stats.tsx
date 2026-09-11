@@ -15,7 +15,7 @@ import { DarkRoom } from '../components/ui/DarkRoom';
 import { Press } from '../components/ui/Press';
 import { Col, Row } from '../components/ui/Row';
 import { freeThrowsIn, periodsOf, report, shotsIn, type Split } from '../lib/box';
-import { periodLabel } from '../lib/format';
+import { mmss, periodLabel } from '../lib/format';
 import { opponentLabel } from '../lib/team';
 import { useGameStore } from '../store/gameStore';
 import { useMetrics } from '../theme/metrics';
@@ -68,6 +68,8 @@ function StatsScreen() {
     useShallow(
       (s): GameState => ({
         team: s.team,
+        squadId: s.squadId,
+        squadName: s.squadName,
         kind: s.kind,
         competition: s.competition,
         opponent: s.opponent,
@@ -97,7 +99,7 @@ function StatsScreen() {
     ...periodsOf(g).map((p) => ({ key: String(p), label: periodLabel(p, g.periods) })),
   ];
 
-  const margin = rep.us - rep.them;
+  const margin = g.score - g.oppScore;
 
   return (
     <View
@@ -158,9 +160,16 @@ function StatsScreen() {
               color: t.ink2,
             }}
           >
+            {/* THE GAME'S OWN CONTEXT, and not the slice's: who it is against
+                and where the clock is. WHICH SLICE is the strip immediately
+                below, which is a control and says so — printing it here as
+                well put a quarter's name beside the match score, which is the
+                one pairing on this screen that can be read two ways. */}
             {g.team.name}
             {g.opponent ? ` vs ${opponentLabel(g.opponent)}` : ''}
-            {split === null ? ' · Whole game' : ` · ${periodLabel(split, g.periods)}`}
+            {g.ended
+              ? ''
+              : ` · ${periodLabel(g.period, g.periods)} ${mmss(g.remaining)}`}
           </Text>
           {/* the match note, if the scorer left one at tip-off. Quiet, one
               line, and absent entirely when empty — which is the common case. */}
@@ -176,6 +185,9 @@ function StatsScreen() {
         </Col>
 
         <Row gap={m.s2} style={{ marginLeft: 'auto', flexGrow: 0, flexShrink: 0 }}>
+          {/* THE MATCH SCORE, ONCE. It used to be the SLICE's, which meant the
+              biggest number on the screen changed meaning when the filter
+              moved; what a quarter scored is the quarter table's own row. */}
           <GlowText
             style={{
               ...fNum(700),
@@ -185,7 +197,7 @@ function StatsScreen() {
               fontVariant: ['tabular-nums'],
             }}
           >
-            {rep.us}
+            {g.score}
           </GlowText>
           <Text style={{ ...fNum(500), fontSize: m.fsMd, color: t.ink3 }}>:</Text>
           <GlowText
@@ -197,7 +209,7 @@ function StatsScreen() {
               fontVariant: ['tabular-nums'],
             }}
           >
-            {rep.them}
+            {g.oppScore}
           </GlowText>
         </Row>
       </Row>
@@ -216,7 +228,7 @@ function StatsScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: m.s5 }}
       >
-        {tab === 'team' && <TeamTab report={rep} split={split} />}
+        {tab === 'team' && <TeamTab game={g} report={rep} split={split} onSplit={setSplit} />}
         {tab === 'players' && <PlayersTab report={rep} split={split} />}
         {tab === 'zones' && <ZonesTab report={rep} shots={shots} ft={ft} />}
       </ScrollView>

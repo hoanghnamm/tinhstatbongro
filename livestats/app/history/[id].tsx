@@ -232,9 +232,13 @@ function SavedGameScreen() {
               }}
             >
               {/* the kind leads the line: it is the one thing on this screen that
-                  decides whether the numbers under it are in the season */}
+                  decides whether the numbers under it are in the season.
+                  WHICH TEAM PLAYED IT comes off the GAME and not off the store:
+                  it was stamped at tip-off, so a team renamed since still reads
+                  as it did on the night, and a game saved before the club had
+                  teams simply says nothing rather than guessing. */}
               {summary
-                ? `${summaryKind(summary) === 'practice' ? 'Practice · ' : summary.competition ? `${competitionLabel(summary.competition)} · ` : ''}${numDateLabel(summary.endedAt)}`
+                ? `${game?.squadName ? `${game.squadName} · ` : ''}${summaryKind(summary) === 'practice' ? 'Practice · ' : summary.competition ? `${competitionLabel(summary.competition)} · ` : ''}${numDateLabel(summary.endedAt)}`
                 : ''}
             </Text>
             {outcome ? (
@@ -336,7 +340,7 @@ function SavedGameScreen() {
           <>
             {tab === 'team' && (
               <>
-                <TeamTab report={rep} split={split} />
+                <TeamTab game={game} report={rep} split={split} onSplit={setSplit} />
                 {/* THE LAST THING ON TEAM / ALL, and only there: the sheet is
                     built from the whole game, so a quarter has none to offer.
 

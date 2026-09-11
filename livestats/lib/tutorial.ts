@@ -239,6 +239,11 @@ export function tutorialGame(o: Options, teamName: string): GameState {
 
   return {
     team: { name: teamName },
+    // the tour's throwaway game belongs to no team, and must not: it is never
+    // saved, so nothing ever files it. `squadIdOf` would read this as the
+    // first team if anything asked, and nothing does.
+    squadId: '',
+    squadName: '',
     // it is never filed, but a game has to be one of the two kinds and a
     // practice is the honest reading of a board nobody is keeping
     kind: 'practice',

@@ -237,16 +237,6 @@ function Gate() {
         >
           Rotate to landscape
         </Text>
-        <Text
-          style={{
-            color: t.ink2,
-            ...fUi(500),
-            fontSize: m.fsSm,
-            textAlign: 'center',
-          }}
-        >
-          Your device may be in orientation lock.
-        </Text>
       </View>
     </Animated.View>
   );

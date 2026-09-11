@@ -7,6 +7,9 @@ node_modules/
 .expo/
 dist/
 web-build/
+public/index.html
+public/manifest.webmanifest
+public/icons/
 expo-env.d.ts
 
 # Native

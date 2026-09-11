@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "HoopLog",
-    "slug": "hooplog",
+    "name": "HoopRec",
+    "slug": "hooprec",
     "scheme": "hooplog",
     "version": "1.0.0",
     "orientation": "default",
@@ -9,7 +9,10 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.n2937.hooplog"
+      "bundleIdentifier": "com.n2937.hooplog",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.n2937.hooplog",
@@ -22,6 +25,7 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
+      "output": "single",
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
@@ -30,13 +34,20 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "HoopLog needs access to your photos so you can set your club crest.",
+          "photosPermission": "HoopRec needs access to your photos so you can set your club crest.",
           "cameraPermission": false,
           "microphonePermission": false
         }
       ],
       "expo-sharing",
       "expo-status-bar"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "19b66f61-9785-473a-927f-c3b0259d89eb"
+      }
+    },
+    "owner": "hnamchim18cm"
   }
 }

@@ -46,6 +46,15 @@ export interface GameSummary {
   kind?: GameKind;
   /** the competition an official game was filed under, or `''` */
   competition?: string;
+  /**
+   * WHICH TEAM OF THE CLUB PLAYED IT. OPTIONAL, and it is optional for exactly
+   * the reason `kind` is: a row written before the club had teams has none, and
+   * there is no migration for the index. Read it through `squadIdOf`, never
+   * raw — the default is the FIRST team, because that is the team the club was
+   * on the night, and a row that answered "no team" would drop off every
+   * screen at once.
+   */
+  squadId?: string;
 }
 
 /** The kind a row was written with, or the one every older row already was. */
@@ -101,6 +110,7 @@ export function summarise(g: GameState, id: string, endedAt: number): GameSummar
     opponent: g.opponent,
     kind: g.kind,
     competition: g.competition,
+    squadId: g.squadId,
   };
 }
 
@@ -154,6 +164,13 @@ export function reviveGame(raw: unknown): GameState | null {
   if (!Array.isArray(g.players) || !Array.isArray(g.events)) return null;
   return {
     team: g.team ?? { name: 'My Team' },
+    // A GAME FROM BEFORE THE CLUB HAD TEAMS carries no id, and `squadIdOf`
+    // reads that empty string as the FIRST team rather than as none — see
+    // `lib/squads.ts`. It is left empty here rather than filled in, because
+    // guessing an id into a saved record is how two builds end up disagreeing
+    // about which team a night belonged to.
+    squadId: g.squadId ?? '',
+    squadName: g.squadName ?? '',
     // A GAME FROM BEFORE THE TWO KINDS IS OFFICIAL, deliberately: the season
     // counted it when it was saved, and a migration that quietly dropped a
     // month of games out of the season line would be the worse surprise.

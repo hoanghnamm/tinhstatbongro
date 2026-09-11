@@ -1,8 +1,21 @@
-# HoopLog UI/UX refinement plan
+# HoopRec UI/UX refinement plan
 
-Date: 7 September 2026. Status: proposal and mascot concept; no app implementation.
+Date: 7 September 2026. Updated 8 September 2026: implemented in Lobby, Season and Team. The implementation notes below supersede the original concept and proposed details where stated.
 
-The goal is a more distinctive, easier-to-read HoopLog for a scorer getting ready courtside, reviewing the season, and maintaining the team. The chosen mascot personality is a **calm courtside companion**.
+## Implementation notes — 8 September
+
+Latest revision: the user requested removal of the mascot. All mascot rendering, its component, asset and sizing tokens have been removed; the UI refinements remain. Mascot descriptions below document the earlier implementation only.
+
+- The user's seated-basketball reference replaces the earlier scorebook mascot concept. The shipped character is a calm orange basketball with small facial features and dark courtside shoes. One static pose is used at different sizes; additional poses and motion remain optional future work.
+- Lobby keeps League and MVP as its only populated blocks, separates loading from empty content, and gives New game a readable label with the existing bloom button treatment. Continue game remains primary during a live game.
+- Season has a 700 dp reading cap, a record that moves below the club on narrow screens, explicit competition Per game captions, and player rows that stack identity above aligned values on narrow screens. Derivations and gates are unchanged.
+- Team uses at most two columns, persistent coach captions, a focus rule, an explicit unavailable symbol and a small setup companion that hides while editing. Shared roster and club components expose opt-in presentation so onboarding and other callers retain their defaults.
+- The three rooms feather the existing bloom through a scoped wrapper. The mascot is a matte raster with an SVG radial mask, not an alpha-cutout PNG. No dependency or board token changes were needed.
+- Validation: repository selfcheck and strict TypeScript pass. Browser review covered Team at 390×844 and desktop width; Lobby and locked/populated Season at 320×568; synthetic season averages and long Vietnamese names; typing a spaced Vietnamese name and changing availability. Synthetic fixture route was removed after review. Native keyboard/Done/rotation, large system font scaling, crest-picker errors and first-time scorer usability testing remain device/manual checks; they are not claimed as verified.
+
+The sections below retain the original proposal as design history. See `docs/design/mascot.md` for the shipped artwork and usage.
+
+The goal is a more distinctive, easier-to-read HoopRec for a scorer getting ready courtside, reviewing the season, and maintaining the team. The chosen mascot personality is a **calm courtside companion**.
 
 ## Scope
 
@@ -95,7 +108,7 @@ Reference principles, not character parts to copy:
 | [COLLINS: Mailchimp](https://wearecollins.com/case-studies/mailchimp/) | A capable product can retain restrained humor and a distinctive illustration voice. | No Freddie likeness, wink or yellow brand system. |
 | [FIBA: JIP's purpose](https://www.fiba.basketball/en/news/celebrate-recycle-and-play-with-the-three-host-countries-of-the-fiba-basketball-world-cup-2023) | Physical features can express a character's role; JIP's back hoop serves its recycling message. | No robot, built-in hoop or tournament styling. |
 
-The concept sheet is saved at `docs/design/tally-concept-v1.png`. It establishes character direction, not a ready-to-import sprite sheet. Generated lettering is presentation copy and does not replace the existing HoopLog wordmark.
+The concept sheet is saved at `docs/design/tally-concept-v1.png`. It establishes character direction, not a ready-to-import sprite sheet. Generated lettering is presentation copy and does not replace the existing HoopRec wordmark.
 
 Production design package:
 
@@ -135,4 +148,4 @@ Do not restyle `ClubMark`, `Jersey`, `Press`, `Btn`, `stats/parts`, `Bloom`, the
 - Run `npm run check` and `npm run typecheck` from `livestats` after implementation. Run Expo Doctor only if dependencies change.
 - Compare the light and dark board against pre-change captures and inspect its files for unintended changes. Check Matches, picker and onboarding if any shared opt-in APIs were added.
 
-This planning pass adds only this document, the mascot concept image and its generation prompt. Runtime checks were not run because no app code was changed.
+The original planning pass added only this document, the initial concept image and its prompt. The implementation and validation status is recorded at the top of this document.

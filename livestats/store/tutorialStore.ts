@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Store } from '../platform/storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
@@ -48,9 +48,27 @@ import type { GameState } from '../types';
  * and route are all short-circuited while `active` is true — see that file.
  */
 
+/**
+ * WHERE THE TOUR GOES WHEN IT IS OVER, DECIDED BY WHOEVER STARTED IT.
+ *
+ * `lobby` is a stated `replace('/')` and it is the lobby row's answer: that
+ * row is reached by `push` off the lobby, by `replace` out of the picker and
+ * by a deep link with no stack at all, so the only honest destination is a
+ * named one — the same three cases EXIT on the quarter panel has to survive.
+ *
+ * `back` is THE DOOR'S, and it is the one entry that has something to come
+ * back to. `app/intro.tsx` PUSHES the board over itself with the door still
+ * mounted underneath, because the tour is the third of four steps and the
+ * trial is still owed; popping is what puts the scorer back on the step they
+ * left, with the door's own state untouched. Nothing else may take it.
+ */
+export type TourExit = 'lobby' | 'back';
+
 export interface TutorialState {
   /* ---- the session -------------------------------------------------- */
   active: boolean;
+  /** where `finish` leaves the scorer; see `TourExit`. Never persisted. */
+  exit: TourExit;
   /** the step by ID, never by index: `visibleSteps` renumbers per settings */
   stepId: string | null;
   /** the skip confirm is up, so the overlay stops advancing */
@@ -89,8 +107,13 @@ export interface TutorialState {
    * remembered. `stepIndex` decides what a remembered id means in THIS tour, so
    * a step dropped by a setting change since lands at the start rather than
    * nowhere.
+   *
+   * `exit` is where the way out lands, and it is the CALLER'S to state because
+   * the caller is the only one that knows what is underneath the board. It
+   * defaults to the lobby, so a new way in has to say out loud that it has a
+   * stack worth popping.
    */
-  begin(from?: string): void;
+  begin(from?: string, exit?: TourExit): void;
   /** Put the board back, let the writer go, and remember where they got to. */
   finish(completed: boolean): void;
   goto(stepId: string): void;
@@ -121,6 +144,7 @@ export const useTutorialStore = create<TutorialState>()(
   persist(
     (set, get) => ({
       active: false,
+      exit: 'lobby',
       stepId: null,
       confirming: false,
       rects: {},
@@ -132,7 +156,7 @@ export const useTutorialStore = create<TutorialState>()(
       outroPending: false,
       hydrated: false,
 
-      begin: (from) => {
+      begin: (from, exit = 'lobby') => {
         if (get().active) return;
         // THE STASH IS TAKEN BEFORE ANYTHING IS PAUSED OR REPLACED, and it is
         // the board exactly as `currentGame` hands it to the shelf — the same
@@ -148,7 +172,7 @@ export const useTutorialStore = create<TutorialState>()(
 
         const tour = visibleSteps(g.options);
         const at = tour[stepIndex(tour, from ?? null)] ?? TUTORIAL_STEPS[0];
-        set({ active: true, stepId: at.id, confirming: false, rects: {} });
+        set({ active: true, exit, stepId: at.id, confirming: false, rects: {} });
       },
 
       finish: (completed) => {
@@ -164,6 +188,9 @@ export const useTutorialStore = create<TutorialState>()(
 
         set({
           active: false,
+          // BACK TO THE DEFAULT WITH THE SESSION, so a tour started from the
+          // lobby after one started from the door cannot inherit its way out.
+          exit: 'lobby',
           stepId: null,
           confirming: false,
           rects: {},
@@ -198,7 +225,7 @@ export const useTutorialStore = create<TutorialState>()(
     }),
     {
       name: 'hooplog-tutorial',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => Store),
       // ONLY THE MEMORY IS WRITTEN. A tour half-walked when the OS killed the
       // app is not a tour to restore — `active` coming back true would put the
       // overlay on a board with no tutorial game under it.

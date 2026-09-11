@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Store } from '../platform/storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
@@ -24,7 +24,7 @@ import type { GameState } from '../types';
  *
  * ONLY THE INDEX IS IN THE STORE. The summaries are what HOME and the GAMES
  * list render, they are small, and they are persisted with the store the
- * ordinary way. The full games are written straight to AsyncStorage under
+ * ordinary way. The full games are written straight to the disk under
  * their own keys by `saveGame` and read back by `loadGame`, so opening one is
  * a single row and rendering the list is none — see `lib/history.ts` for why
  * that is not a premature optimisation.
@@ -45,7 +45,7 @@ export interface HistoryState {
 }
 
 const writeGame = (id: string, g: GameState): void => {
-  void AsyncStorage.setItem(gameKey(id), JSON.stringify(g));
+  void Store.setItem(gameKey(id), JSON.stringify(g));
 };
 
 /**
@@ -55,7 +55,7 @@ const writeGame = (id: string, g: GameState): void => {
  * fire-and-forget — so `loadGame` would be reading a row that may not have
  * landed yet. This is the copy it reads instead: the game is already in memory
  * at that point, so the one path that cannot afford the disk read does not make
- * it. Everything else falls through to AsyncStorage as before.
+ * it. Everything else falls through to `platform/storage` as before.
  */
 let justSaved: { id: string; game: GameState } | null = null;
 
@@ -71,7 +71,7 @@ export const useHistoryStore = create<HistoryState>()(
         writeGame(id, state);
         // the oldest game's ROW goes with its summary — an index that forgets a
         // game while its key survives is a leak that only ever grows
-        for (const g of dropped) void AsyncStorage.removeItem(gameKey(g.id));
+        for (const g of dropped) void Store.removeItem(gameKey(g.id));
         justSaved = { id, game: state };
         set({ index });
         return id;
@@ -81,7 +81,7 @@ export const useHistoryStore = create<HistoryState>()(
         // the game we just filed, before its row is guaranteed to be there
         if (justSaved?.id === id) return justSaved.game;
         try {
-          const raw = await AsyncStorage.getItem(gameKey(id));
+          const raw = await Store.getItem(gameKey(id));
           return raw ? reviveGame(JSON.parse(raw) as unknown) : null;
         } catch {
           // a row that will not parse is a row that is gone, and the list is
@@ -92,13 +92,13 @@ export const useHistoryStore = create<HistoryState>()(
 
       removeGame: (id) => {
         if (justSaved?.id === id) justSaved = null;
-        void AsyncStorage.removeItem(gameKey(id));
+        void Store.removeItem(gameKey(id));
         set({ index: get().index.filter((g) => g.id !== id) });
       },
     }),
     {
       name: 'hooplog-history',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => Store),
       // the three methods are not state; only the index is persisted
       partialize: (s) => ({ index: s.index }),
     },

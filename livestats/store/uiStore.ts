@@ -42,6 +42,16 @@ export type Panel =
   /** the jersey keypad — the picker's one edit, and it edits nothing else */
   | { kind: 'setNumber'; playerId: string }
   | { kind: 'removePlayer'; playerId: string }
+  /**
+   * THE POOL, WITH A TICK AGAINST EVERYONE ON THE TEAM BEING LOOKED AT — the
+   * one place membership is written. It carries no id because it is always
+   * about the ACTIVE team: the strip that chose that team is the control
+   * directly above the button that opens this, so passing the id would be
+   * passing the panel a fact it can already see.
+   */
+  | { kind: 'draft' }
+  /** …and the confirm for taking a team off the club. See `canRemoveSquad`. */
+  | { kind: 'removeSquad'; squadId: string }
   /** a saved game, off the GAMES list — the roster's confirm, one shelf over */
   | { kind: 'removeGame'; gameId: string }
   /**

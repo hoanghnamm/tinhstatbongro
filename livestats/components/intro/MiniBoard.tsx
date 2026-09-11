@@ -2,7 +2,6 @@ import type { ReactNode } from 'react';
 import { Text, View } from 'react-native';
 import Svg, { Circle, G, Path, Rect } from 'react-native-svg';
 
-import { Badge } from './parts';
 import { Jersey } from '../ui/Jersey';
 import { Col, Row } from '../ui/Row';
 import { useMetrics } from '../../theme/metrics';
@@ -10,7 +9,7 @@ import { LS_CAPS, LS_TIGHT, PALETTE, fNum, fUi, ls } from '../../theme/tokens';
 import { ThemeProvider } from '../../theme/useTheme';
 
 /**
- * THE BOARD, IN MINIATURE, ON THE ONE STEP THAT EXPLAINS IT.
+ * THE BOARD, IN MINIATURE, ON THE STEP THAT OPENS THE REAL ONE.
  *
  * ## IT IS THE LIGHT PALETTE, DELIBERATELY, INSIDE A DARK ROOM
  *
@@ -38,17 +37,16 @@ import { ThemeProvider } from '../../theme/useTheme';
  * If the real floor's geometry moves, this picture is not wrong; it is a
  * drawing of a basketball court.
  *
- * ## THE BADGES ARE HALF OF A PAIR, AND THE COURT'S IS NOT DRAWN
+ * ## IT CARRIES NO NUMBERS, AND IT USED TO
  *
- * Each is drawn again at the head of its own line under the picture, which is
- * what makes the two read as one thing rather than as a screenshot with a list
- * beside it. BADGE 1 IS THE EXCEPTION AND IS DELIBERATELY ABSENT HERE: it rode
- * over the floor itself, which is the one part of this picture that is already
- * a drawing of something, and a numbered chip sitting among the shot marks read
- * as a sixth mark rather than as a pointer. Its line under the picture still
- * carries it, and the floor is the thing the line names — there is nothing else
- * it could be pointing at. It keeps its `live` blue there for the reason
- * written on `Badge`.
+ * Three numbered chips rode on it — on the three keys, on the rail and on the
+ * footer — each drawn a second time at the head of its own line underneath, so
+ * that the picture and the list read as one thing. THE LIST IS GONE: the step
+ * hands off to the WALKTHROUGH now, which teaches those four the only way that
+ * actually holds, by having the scorer do them on the real board. A chip
+ * pointing at a line that is no longer under it is a pointer at nothing, so
+ * `Badge` and `Taps` went with the lines. What is left here is the one thing
+ * the tour cannot say before it opens: this is what the screen LOOKS like.
  *
  * ## A RAIL ROW IS A JERSEY AND ITS FOULS, AND NOT A POINTS COLUMN
  *
@@ -67,7 +65,8 @@ const VB = '0 0 792 521';
 const COL = 0.13;
 
 /** How tall the whole slab is, as a share of the window. Big enough to read the
- *  jersey plates, small enough that four explanation lines still fit under it. */
+ *  jersey plates, small enough that the headline, its sentence and the two
+ *  verbs under it are all on the step without it scrolling. */
 const ART_H = 0.19;
 
 /* ---- the pieces ---------------------------------------------------- */
@@ -191,7 +190,6 @@ export function MiniBoard() {
   const railW = Math.round(w * 0.28);
   const courtH = Math.round(h * 0.7);
   const ftrH = h - courtH - gap - pad * 2;
-  const badge = Math.round(m.fsSm * 1.3);
 
   // the plate takes the rail row's height the way the real rail's does
   const plateH = Math.round((courtH - 4) / RAIL.length) - 4;
@@ -264,18 +262,13 @@ export function MiniBoard() {
               </View>
 
               {/* THE THREE KEYS, on the edge the setting puts them */}
-              <View style={{ flexGrow: 0, flexShrink: 0 }}>
-                <KeyColumn w={col}>
-                  {['PF', 'FT', 'RB'].map((label) => (
-                    <Key key={label}>
-                      <KeyCode label={label} fs={m.fsSm} />
-                    </Key>
-                  ))}
-                </KeyColumn>
-                <View style={{ position: 'absolute', left: -badge / 2, top: -badge / 2 }}>
-                  <Badge n={3} size={badge} />
-                </View>
-              </View>
+              <KeyColumn w={col}>
+                {['PF', 'FT', 'RB'].map((label) => (
+                  <Key key={label}>
+                    <KeyCode label={label} fs={m.fsSm} />
+                  </Key>
+                ))}
+              </KeyColumn>
             </Row>
 
             {/* ---- THE FOOTER: four parts, 1 / 2 / 1 ---- */}
@@ -360,10 +353,6 @@ export function MiniBoard() {
                   <KeyCaption label="POSS" fs={m.fs2xs * 0.8} />
                 </Key>
               </Row>
-
-              <View style={{ position: 'absolute', left: m.s3, top: -badge / 2 }}>
-                <Badge n={4} size={badge} />
-              </View>
             </View>
           </Col>
 
@@ -399,10 +388,6 @@ export function MiniBoard() {
                 </Row>
               ))}
             </Col>
-
-            <View style={{ position: 'absolute', left: -badge / 2, top: courtH * 0.25 }}>
-              <Badge n={2} size={badge} />
-            </View>
           </View>
         </Row>
       </View>

@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { Keyboard, Platform, TextInput, View } from 'react-native';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
 import { Dot } from '../ui/Dot';
 import { Jersey, plateFs, plateInk } from '../ui/Jersey';
@@ -69,6 +70,8 @@ export function RosterRow({
   player,
   index,
   onFocusRow,
+  enhanced = false,
+  onEditingChange,
 }: {
   player: RosterPlayer;
   index: number;
@@ -81,6 +84,9 @@ export function RosterRow({
    * and has nothing to measure.
    */
   onFocusRow?: (node: View | null) => void;
+  /** Team-only focus and availability cues; onboarding retains its original row. */
+  enhanced?: boolean;
+  onEditingChange?: (editing: boolean) => void;
 }) {
   const m = useMetrics();
   const t = useTheme();
@@ -89,7 +95,9 @@ export function RosterRow({
   // the two are one thing to read, and lifting the name clear while the plate
   // beside it stays under the keyboard would be half a fix.
   const rowRef = useRef<View>(null);
-  const onFocus = () => onFocusRow?.(rowRef.current);
+  const [focused, setFocused] = useState(false);
+  const onFocus = () => { setFocused(true); onEditingChange?.(true); onFocusRow?.(rowRef.current); };
+  const onBlur = () => { setFocused(false); onEditingChange?.(false); };
 
   const roster = useRosterStore((s) => s.players);
   const update = useRosterStore((s) => s.update);
@@ -139,10 +147,10 @@ export function RosterRow({
         alignItems: 'center',
         gap: m.s2,
         borderBottomWidth: 1,
-        borderBottomColor: t.rule,
+        borderBottomColor: enhanced && focused ? t.accent : t.rule,
         // dimmed, not hidden — they are still on the team, and the dot beside
         // them is still the way to say they turned up after all
-        opacity: player.available ? 1 : 0.45,
+        opacity: player.available || enhanced ? 1 : 0.45,
       }}
     >
       {/* THE PLATE, WITH THE FIELD OVER IT — see the note above for why the
@@ -174,7 +182,7 @@ export function RosterRow({
           value={numText}
           onChangeText={onNum}
           onFocus={onFocus}
-          onBlur={() => setNumText(String(player.number))}
+          onBlur={() => { setNumText(String(player.number)); onBlur(); }}
           keyboardType="number-pad"
           inputMode="numeric"
           maxLength={2}
@@ -207,14 +215,14 @@ export function RosterRow({
         value={name}
         onChangeText={onName}
         onFocus={onFocus}
-        onBlur={() => setName(player.name)}
+        onBlur={() => { setName(player.name); onBlur(); }}
         maxLength={NAME_MAX}
         autoCapitalize="words"
         autoCorrect={false}
         returnKeyType="done"
         onSubmitEditing={Keyboard.dismiss}
         placeholder={`Player ${index + 1}`}
-        placeholderTextColor={t.ink3}
+        placeholderTextColor={enhanced ? t.ink2 : t.ink3}
         accessibilityLabel={`name for ${who}`}
         style={{
           flex: 1,
@@ -247,7 +255,9 @@ export function RosterRow({
         }}
         pressedStyle={{ backgroundColor: t.surface2 }}
       >
-        <Dot on={player.available} />
+        {enhanced && !player.available ?
+          <MaterialCommunityIcons name="minus-circle-outline" size={m.fsMd} color={t.danger} /> :
+          <Dot on={player.available} />}
       </Press>
     </View>
   );

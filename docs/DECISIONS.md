@@ -1,12 +1,141 @@
-# HoopLog — the decisions
+# HoopRec — the decisions
 
 The long form of every rule in `CLAUDE.md`, with the argument behind it. Read the relevant section
 before changing a design decision, deleting something that looks unused, or rebuilding something the
 root file says was cut.
 
+## A club runs three teams — 10 September 2026
+
+**This overturns a stated decision.** The rule was *TEAM is singular — a plural label promises a
+switcher that does not exist*, and the argument behind it was sound as far as it went: a switcher
+nobody had asked for is a control that costs a tap on every screen and pays nothing back. What it
+did not survive is a club that actually runs a first team and a second team. That club was keeping
+two seasons in one shelf, one MVP picked out of two different leagues, and one twenty-name roster it
+had to remember the halves of. The switcher was asked for. It exists.
+
+### Three layers, and they are not the same thing
+
+| layer | store | what it is |
+|---|---|---|
+| the CLUB | `teamStore` | one name, one crest, two coaches. Unchanged. |
+| the POOL | `rosterStore` | every player the club has, `ROSTER_CAP` 36, one flat list |
+| the TEAMS | `squadStore` | at most `SQUAD_CAP` (3), each a name and a list of POOL IDS |
+
+**A team owns no players; it REFERS to them.** That single line is the design. A drafted player is
+not copied into a team the way a `Player` is copied out of the pool at tip-off — they are pointed
+at, so fixing a spelling on the pool row fixes it on all three teams at once, which is what a scorer
+means by "the same player". `lib/squads.ts` is the whole rule set and it is on the plain-functions
+side of the line with `roster.ts` and `history.ts`, so `npm run check` exercises every one of them.
+
+### A player may be on several teams
+
+Membership is a LIST ON THE TEAM and never a `squadId` on the player, and the reason is the case that
+motivated the feature: a club lends a player up to the first team for a cup tie without taking them
+off the second. A single field on `RosterPlayer` cannot say that. The tag a row shows is DERIVED
+(`tagsFor`) rather than stored, so the two directions can never drift apart — which is exactly what a
+stored tag beside a stored list would eventually do.
+
+The pool cap moved 20 → 36 to go with it. Twenty was one team's worth: five rail rows and a bench,
+past which the picker stopped being a picker. The picker is no longer handed the pool at all — it is
+handed ONE TEAM's members, about a dozen names — so the number that has to stay human is the team
+sheet (`SQUAD_SIZE` 15, which is FIBA's), and the pool is free to be the club: three sheets' worth,
+plus room for the players who are on none.
+
+### A club with no teams saved has one
+
+`squadsIn` supplies `Team 1` holding the whole pool, under the fixed id `FIRST_SQUAD` (`sq1`). This
+is why there is **no migration step, no first-run branch, and no rehydration race**. The alternative
+— seeding the first team from the roster inside `squadStore`'s `onRehydrateStorage` — reads the
+roster while `rosterStore` may still be reading its own row, so a launch that raced would see an
+empty pool and write an empty team over a real one. The derived default costs nothing and cannot
+race; the store materialises it on the first write, when both stores are certainly up. For the same
+reason `migrateSquads` takes the roster OPTIONALLY and is called without it on rehydrate: pruning ids
+against a pool that has not landed is the same bug wearing a different hat.
+
+### A game is stamped with its team
+
+`squadId` / `squadName` on `GameState`, `squadId` on `GameSummary`, stamped at tip-off beside the
+club name and the rules of the night, and read off the game ever after. The name travels with the id
+for the same reason `team.name` travels at all: a box score should still say which team played it
+after that team has been renamed, and a saved game must not have to ask a store that may no longer
+hold the answer.
+
+**A row with no id is the FIRST team's**, read through `squadIdOf` and never raw. That is the same
+call `summaryKind` makes about a game saved before the two kinds existed: default to what it already
+was, never to nothing. The other reading — an untagged game belongs to no team — would drop every
+game a club recorded before this build off every screen at once, which is the worst possible way to
+ship a feature nobody asked to lose data for.
+
+The filter is applied AT THE SCREEN (`squadIn` / `squadIdOf`), exactly as `officialIn` is and for the
+same reason: the aggregates underneath are also what one competition's page is built from, and that
+page has already filtered. Six screens apply it — the lobby's two cards, MATCHES, SEASON, one
+competition, and the comparison, whose baseline is now *every other official game OF THIS TEAM*.
+Measuring Saturday's first team against the second team's average is not a comparison; it is two
+samples in one column.
+
+### The switcher is a strip, and the chip is also the name field
+
+`components/team/SquadStrip.tsx` sits directly under the club card on the TEAM tab — club, then
+which of its teams, in the order the two facts nest. It is a STRIP and not a panel for the reason
+`Seg` is a strip on the stats screens: three is a number you pick from by looking, and a chooser that
+has to be opened to be read costs a tap to answer a question the screen could have been showing.
+
+**One tap selects; a second tap on the already-active chip turns it into a `TextInput`.** That split
+matters — a chip that opened a field on the first tap would put a keyboard up every time somebody
+switched teams, which is the thing the strip is for. It is also why no rename panel was built: the
+off-board panel kinds are confirms and a keypad, and *there is no FORM among them* still holds. The
+TEAM tab's own idiom is that the row IS the form, and this is that idiom one level up.
+
+### Two verbs under the list, and they are not the same one
+
+`+ ADD PLAYER` makes a NEW person in the pool and drafts them onto this sheet in the same tap. The
+second half is deliberate: a scorer adding a name while looking at Team 2 means that name is on
+Team 2, and making them go and draft somebody they just typed would be the app being pedantic about
+its own data model. `rosterStore.add` returns the id it minted so that second half is a real
+reference rather than a lookup by jersey number — which would be wrong the moment two rows share a
+number for one keystroke, a state the number field deliberately allows.
+
+`DRAFT FROM POOL` opens `DraftPanel`, the ONE place membership is written, in both directions. The
+same row that drafts un-drafts, which is why nothing on a roster row removes anybody: a destructive
+control a thumb's width from two text fields is what got the row's `×` cut, and taking a player off a
+team is not destructive anyway. Nothing is deleted; a pointer is dropped.
+
+### Removing a team, and the one condition on it
+
+`canRemoveSquad` allows it only when nothing on the shelf was played by that team, and never for the
+last team standing. A team's games carry its id and **nothing else does**, so deleting a team with
+games behind it would strand every one of them where no screen could reach them — and the shelf is
+the one thing in this app that cannot be rebuilt from anything else. The control is GONE rather than
+disabled where that is false, the same call `+ ADD PLAYER` makes at the cap.
+
+`RemoveSquadPanel` deliberately does NOT use `PSubject`. That block is a MATCH — a line, a tail and a
+scoreline — and a team has no score to put in it; leaving the figures at nought would draw a row that
+reads as a game nobody won. The name rides in `PTitle`'s pill instead, with the sheet's size on the
+line under it, and that is the whole block.
+
+### What did not change
+
+The BOARD. It still knows exactly one team, which is the team that is playing, and not one line of
+`app/game.tsx`, the rail, the footer or the court heard about any of this. The opponent is still a
+single integer with three buttons. `buildPlayers` is still the only crossing for people — it is
+simply handed one team's members now instead of the whole club's. The walkthrough's throwaway game
+carries no team and never needed one: it is never saved, so nothing ever files it.
+
+## Off-court refinement — 8 September 2026
+
+Follow-up: the user removed the mascot direction. No character is rendered in the app; its production component, image and sizing tokens were removed. The other off-court refinements remain.
+
+The user requested UI refinement only in Lobby, Season and Team, then supplied a seated basketball mascot reference. Those tabs retain their existing data hierarchy, navigation and gates. A scoped `RoomGround` feathers the bloom; the shared ground and board stay unchanged.
+
+The lobby's creation action now prints **New game** using the existing bloom treatment: a named action needs stronger text contrast than the former plate glyph. Continue game takes priority during a live game. Loading saved games has its own state so empty content does not flash before the read finishes. League and MVP remain the two populated blocks.
+
+Season and Team now cap their reading width at 700 dp. Season moves its record below the club at narrow widths and stacks player identity above aligned figures when the row gets cramped. Competition averages are explicitly captioned Per game. Team uses at most two roster columns, persistent coach labels, a focus rule and a minus symbol for unavailable players without dimming their editable names. These are opt-in shared-component treatments; the door and picker retain their defaults.
+
+The generated basketball companion follows the user's new reference and supersedes the scorebook exploration. It is static, decorative and confined to empty/setup guidance and the lobby tutorial link. It is not the wordmark, a team crest or a board control. See `UI-UX-PLAN.md` and `design/mascot.md` for implementation details and remaining native-device validation.
+
 ## What this is
 
-**HoopLog** — a live basketball stats board for one scorer keeping stats for **one team** on a
+**HoopRec** — a live basketball stats board for one scorer keeping stats for **one team** on a
 phone or tablet at courtside. The board is a single screen; everything else on it is a modal panel
 over it. The app lives in `livestats/` (Expo SDK 57, RN 0.86, New Architecture, TypeScript strict,
 Zustand, NativeWind v4, Expo Router). Bundle id `com.n2937.hooplog`, scheme `hooplog`.
@@ -65,12 +194,15 @@ app/stats.tsx          one game in full — NO CALLER, left standing
 app/history/[id].tsx   ONE SAVED GAME — box score + play log
 app/competition.tsx    ONE COMPETITION
 app/player/[id].tsx    ONE PLAYER
-app/analysis.tsx       THE LAST GAME vs the run behind it
+app/comparison.tsx     ONE GAME vs the season, or vs another game
 ```
 
 - **The shelf's room is MATCHES; the model is still a game** (`GameState`, `historyStore`,
-  `GameSummary`). There is no `games.tsx`. **TEAM is singular** — a plural label promises a switcher
-  that does not exist.
+  `GameSummary`). There is no `games.tsx`. **TEAM WAS SINGULAR AND IS NOT ANY MORE** — the rule read
+  *a plural label promises a switcher that does not exist*, and the switcher now exists as the strip
+  under the club card. The tab is still ONE ROOM showing ONE team, which is why it is still called
+  TEAM and why there is no `teams.tsx`: a team is a name and a selection, not a page. See
+  *A club runs three teams*.
 - **The board is outside the tab group, and that is the point of the group** — a tab bar under it
   would steal court height and put navigation beside UNDO and the footer's counted cell. The seven pushed pages are
   outside it too: each is a place you go INTO and come back out of, so each gets a back button.
@@ -209,7 +341,7 @@ the padded flow so it runs under the safe-area inset (a gradient starting below 
 a line across the top of the screen), and it is `pointerEvents="none"`.
 
 **Eleven routes**: the four tabs, the two doors, `player/[id]`, `competition`, `history/[id]`,
-`stats`, `analysis`. **`app/game.tsx` is the exception** — a light court read at arm's length spends
+`stats`, `comparison`. **`app/game.tsx` is the exception** — a light court read at arm's length spends
 every gram of contrast on the marks. `<RotateGate />` is mounted on that route but is not the board.
 
 **There is no pinstripe and no monogram anywhere.** A weave, grid, noise field or monogram behind
@@ -1016,9 +1148,121 @@ reads mid-possession; the score cell is a readout now.
 of the game (ALL, then `Q1…Q4`, then `OT`, `OT2`, …). Every tab answers both. `Seg` is ONE control used
 twice rather than two that drift apart.
 
-**SHOTS and ZONES were two tabs and are one.** `ZonesTab` is four blocks, coarse to fine: the marks,
-the shooting line, the heat, the table. **The FG / 2PT / 3PT / FT tiles are the join**, and the zone
-table's own footer was cut for them.
+### TEAM's order is the reading order
+
+The tab used to open on a strip of POINTS / FG% / 3P% / FT% and then four tables. It now opens on the
+FOUR FACTORS, then the game flow, then at most two sentences, and only then the tables — because a
+scorer reading this in a timeout has about ten seconds, and the ten seconds should be spent on the
+four things that decide most basketball games rather than on hunting for them among thirty rows.
+
+**The four tiles are eFG%, turnovers, offensive rebounds and free throws made-attempted.** They are
+the Four Factors as CATEGORIES and not as targets: no league average is printed beside them and no
+weighting is applied to them, because the published weights come off competitions this app has never
+seen and the FIBA analysis that quotes them questions whether they travel. eFG% is the one that earns
+its place over plain FG% — it counts a three as one and a half field goals, and a 3-for-10 night from
+the arc and a 3-for-10 night from the elbow are otherwise the same number. **It is not capped**; there
+is no arithmetic that puts it over 100, so a clamp would only hide a counting bug.
+
+**THE SCORE IS NOT ONE OF THE FOUR.** It is at the top of the page, once, beside the opponent's name.
+A POINTS tile was that number a second time and it cost the strip a quarter of its width; what the
+SLICE scored is the `Points` row of the third block and its own row in the quarter table. On
+`app/stats.tsx` the header figure was the SLICE's, which meant the biggest number on the screen
+changed meaning when the filter moved — it is the match score now, and the line under it carries the
+period and the clock (or nothing, once the game has ended). Which slice is showing is the strip
+immediately below, which is a control and says so.
+
+**The strip folds two by two under `TWO_UP`.** Three of the four captions are words rather than codes,
+and a quarter of a 320dp screen is not enough for a word. Abbreviating them into a code nobody reads
+was the alternative.
+
+### There is no note under anything, and the labels are why
+
+`Note` in `components/stats/parts.tsx` renders `null`. That was asked for, and what replaced small
+print is not silence but NAMING: every caveat that changes how a number should be read is in the label
+of the row it belongs to, where the number is actually read. See the three derived rows below. The two
+paragraphs of real body text that survive — the pooling sentence under `CompareTable`, the window
+sentence under the after-timeouts block — are sentences under a TABLE, each explaining a whole column,
+and neither folds into a row label.
+
+### Game flow — `lib/flow.ts` and `components/stats/GameFlow.tsx`
+
+WHEN DID THE LEAD CHANGE is the one question about a finished game that no table of totals answers,
+and it is the question a scorer actually gets asked. So the chart is the MARGIN — ours minus theirs —
+against elapsed game time, orange while we were ahead and neutral while they were.
+
+- **It is a STEP, never a smoothed curve.** Nothing happened between two baskets; a spline through
+  them invents a slope, and the slope is the thing people read.
+- **It is bars, not a path.** Every horizontal run is one `Rect` from the zero line to the margin it
+  held. That is the same drawing a filled step path would produce and needs no path arithmetic to get
+  the sign changes right — and the sign is the whole reading, because it is what the two colours are
+  for. SVG `fill`, not `backgroundColor`, so the inverted-surface guard has nothing to catch.
+- **THE QUARTER TABLE IS NOT A FALLBACK.** It prints under every chart, every time, as the chart's
+  textual equivalent: the chart answers *when* and only the table answers *how much*. A period the
+  game is still standing in says `in progress` IN ITS LABEL.
+- **The chart is DROPPED, not faked, in two cases.** `timed` is false when no score carries a clock
+  stamp the axis could tell apart from the tip — a scorer who never started the clock gets the table
+  and no picture rather than every basket stacked on zero. `reconciled` is false when the running
+  total does not meet the board's own `score`/`oppScore`, and a chart that ends on a scoreline the
+  night never held is worse than no chart.
+- **Stamps are clamped FORWARD.** A clock corrected by hand can put a later event earlier on the
+  game's own timeline; the log's order is the truth about what happened first and the clock is only
+  the truth about roughly when, so each stamp is held at least where the one before it was. Identical
+  stamps keep their log order, because nothing is sorted.
+- **`stampOf` treats `p * len` as that period's BUZZER**, not the next one's tip: the period is a
+  ceiling rather than a floor, so the last basket of a quarter reads back in that quarter.
+- **The plot claims the touch on the way down and gives it back on a scroll.**
+  `onMoveShouldSetResponder` is deliberately absent — it grabs a gesture already under way, which on a
+  scrolling tab means a drag past the chart scrubs it instead of scrolling the page.
+- **`periodScores` has one owner.** `lib/pdf.ts` carried a character-for-character copy of the same
+  walk for as long as only paper printed a period line; it imports this one now.
+
+### What stands out — `lib/observe.ts`
+
+The only prose in the app, and therefore the only place it could tell a scorer something the board
+never recorded. It does not: every rule is a threshold over numbers the log actually holds, and every
+sentence names the numbers it was built from. `5 of 9 turnovers came in Q3` is a fact a reader can go
+and check; `bad passing cost the game` is a guess about a cause this app has no way to observe.
+
+- **No causes, no advice, no verdicts.** A sentence says WHAT and WHEN and stops.
+- **`OBS_MAX` is two, and ZERO IS A REAL ANSWER.** A quiet game gets no card. Filling the block with
+  the least uninteresting thing available is how a panel of observations becomes decoration.
+- **The order is a fixed list, not a score**: opponent run, turnover concentration, free throws, the
+  two shooting splits, our own run — worst news first, and the first two that fire are the two that
+  print. A weight would have to compare a scoring run with a free-throw line in some common unit, and
+  a made-up one would only make the ordering look principled.
+- **Both shooting rules are gated on `MIN_ATTEMPTS`**, the same review threshold `highlightsFor` uses.
+- **The sentences are the WHOLE GAME's and do not change with the filter.** One that names a period
+  presses to move the quarter filter there — that is the trail from the claim to the rows that made
+  it — and stops being pressable once the reader is standing there. Recomputing them per slice would
+  have meant a card that deleted itself the moment it was tapped.
+
+### PLAYERS opens compact, with the twenty columns behind a button
+
+`PlayerSummary` is number, name, minutes and points on one line, with FG / REB / AST / TO / PF as
+labelled pairs on a caption line under it. Nine numeric columns on a 320dp phone leaves about eighty
+points for a name, which is not a name — it is an ellipsis. `BoxTable` is unchanged and one tap away.
+
+**It is a button and not a third `Seg`.** The two strips at the top change what the numbers MEAN; this
+changes how the same numbers are drawn, which is a different kind of question.
+
+**PF turns `danger` only when the player is actually `out`, never on a count of five.** How many fouls
+disqualify is a property of the ruleset — `lib/actions.ts` owns it and `FOUL_KINDS` decides which
+fouls even count — so a screen lighting up at five would be a second, wrong copy of a rule that
+already has an owner. A player who did not play says DNP, off `appeared()`, which is the same test the
+season divides by.
+
+**SHOTS and ZONES were two tabs and are one.** `ZonesTab` is five blocks, coarse to fine: the marks,
+the shooting line, the heat, the attempt-share bars, and their numbers. **The FG / 2PT / 3PT / FT tiles
+are the join**, and the zone table's own footer was cut for them.
+
+**The zone table carries an attempt-share BAR now.** The heat court answers *how did we shoot from
+there* and only volume answers *where does the offence actually live* — a zone shot twice and made
+twice is the brightest patch on the floor and is not an answer to the second question. The bar is the
+share of field-goal attempts, and its denominator is the ZONES' own total rather than `T.fga`, so a
+shot with no zone cannot leave seven bars that never reach a hundred per cent between them. **The
+order is fixed and nothing is ranked**: the same seven rows in the same places under every filter, so
+a quarter can be compared with the game by looking at one place twice, and a 3-for-4 corner is never
+nominated as a strength.
 
 **This screen scrolls, and that is not a violation** — the one-viewport rule is about the BOARD. The
 players table also scrolls SIDEWAYS; twenty columns do not fit a phone.
@@ -1037,24 +1281,37 @@ argument every reader takes: a period number, or null. **Null does not re-derive
   events is game time the floor between them played. It is the same second the live ticker credits,
   which is why **the quarters add up to the whole-game minutes**; `selfcheck` asserts that sum.
 
-**One approximation, stated out loud in the code and in the note under the table:** a gap that spans
-the end of a period is credited as if the period ran out — right for a quarter that ends on 0:00, and
-a quarter ended early hands its unplayed tail to whoever was on the floor.
+**One approximation, stated out loud in the code:** a gap that spans the end of a period is credited
+as if the period ran out — right for a quarter that ends on 0:00, and a quarter ended early hands its
+unplayed tail to whoever was on the floor.
 
-**Three numbers are derived from the LOG'S SHAPE rather than from a tap**, and the screen prints what
-each actually measured:
+**Three numbers are derived from the LOG'S SHAPE rather than from a tap, and each one is CALLED what
+it actually measured.** They used to be called by their usual names with a footnote under the table
+explaining that the usual names were not quite right, which is the wrong way round: the footnote is
+under the table and the number is read IN the table.
 
-| shown as | what it really is |
+| the row says | which is exactly what it is |
 |---|---|
-| POINTS FROM TURNOVERS | points after a steal — the only opponent turnover we hear about |
-| SECOND CHANCE POINTS | points after one of our offensive rebounds, before the possession ends |
-| FAST BREAK POINTS | points within `BREAK_WINDOW` (7s) of a steal or a defensive rebound |
+| POINTS OFF OUR STEALS | a steal is the only opponent turnover a one-team board hears about |
+| AFTER OUR OFFENSIVE REBOUNDS | points scored before that possession ends |
+| FAST BREAK, WITHIN 7s | `BREAK_WINDOW` seconds after a steal or a defensive rebound |
 
-The break window is a window on the GAME CLOCK, so a clock left stopped makes it read high. **Do not
-drop the note under any of the three; the note is what makes printing them honest.**
+The break window is a window on the GAME CLOCK, so a clock left stopped makes it read high — and it is
+a window rather than FIBA's definition, which also asks whether the defence was set. **The label is
+now the whole of the honesty, so do not shorten one of these three back to its usual name.** The
+number in the fast-break label is `BREAK_WINDOW` itself, on the screen and in the PDF, so the sentence
+and the window it describes cannot drift.
 
 **POINTS PER POSSESSION is whole-game only** — `possessions` is a plain team counter with no event
-behind it, so no quarter can claim a share of it; the quarter view reads `—` and says why.
+behind it, so no quarter can claim a share of it. The row is called POINTS PER POSSESSION, WHOLE GAME
+and a quarter reads `—`.
+
+**`Note` in `components/stats/parts.tsx` renders `null`, deliberately, and the labels above are why it
+can.** Small print beside a field was asked for and then removed; what replaced it is not silence but
+NAMING — every caveat that changes how a number should be read is in the label of the row it belongs
+to. Two paragraphs of real body text survive and are not the same thing: the pooling sentence under
+`CompareTable` and the window sentence under the after-timeouts block are sentences under a table,
+each explaining a whole column, and neither can be folded into a row label.
 
 **The scoreline is built once and read six ways.** `scoreline()` replays every scoring event into a
 running `us`/`them` with the absolute game second on it, and BIGGEST LEAD, BIGGEST RUN, LEAD CHANGES,
@@ -1222,12 +1479,18 @@ and assists a game, one decimal — because per-game is the only reading that co
 a competition's name is typed by hand, and the group with no name has `''` for a key, which is an
 ordinary query param and not a path segment. The page is the season screen over a slice.
 
-## The last game's analysis
+## The comparison
 
-**`app/analysis.tsx` is HOW THE LAST GAME WENT against the run behind it** — six rows, three columns
-(`Last` / `Avg` / `Change`), and two or three sentences under them saying what actually moved. It is
-reached from a row at the foot of the STATS tab's headline, and from nowhere else. **It is a PAGE and
-not a bottom sheet**, the same call `settings` and `paywall` are.
+**`app/comparison.tsx` is ONE GAME against a baseline** — eight grouped tables, a period breakdown, a
+players table, and two or three sentences over the lot saying what actually moved. It is reached from a
+row at the foot of the STATS tab's headline, and from nowhere else. **It is a PAGE and not a bottom
+sheet**, the same call `settings` and `paywall` are.
+
+**IT WAS THE LAST GAME'S ANALYSIS.** The arithmetic never cared which game it was handed; the page was
+the only thing insisting the answer was the newest row on the shelf. A scorer looking at Saturday's win
+is as often asking *were we better than we were in the cup game* as *were we better than usual*, and
+those are the same question with a different baseline. So the subject is a FIELD, the baseline is a
+second field, and the six rows became the ten areas a coach actually reads a game in.
 
 **IT READS THE GAMES ITSELF rather than taking them through the route** — a season of thirty games does
 not go in a query param. **`hooks/useSavedGames.ts` exports `useSavedRows`**, the same one effect
@@ -1236,36 +1499,119 @@ narrowed, not a second read. **The rows are paired at the source rather than zip
 a game that will not parse is dropped. It guards itself with the season gate, as `competition.tsx` and
 `player/[id]` do.
 
+### Two fields, and no panel behind them
+
+**Choosing is a STATE of this page.** The STATS tab this page is opened from mounts no `<PanelHost />`
+at all, and a modal system added to that room for one screen would be a second one to keep in step with
+the board's. So a field opens, every block below it stands down, and the list of games IS the page until
+something is picked. A list of thirty rows is what a scrolling room is for.
+
+**The fields DRAW the game rather than describing it** — the same call the two board confirms make with
+`PSubject`. What is at stake is a GAME, and this app already has a way of printing one: a name, a muted
+tail, a `W`/`L` at the end of that line and a score with OURS in accent, which is the MATCHES row
+exactly. A field reading `Game 3 of 12` would be a sentence about a row the reader can already see.
+
+**The subject RESOLVES rather than being seeded into state.** The games arrive after the first render,
+so an id stashed by an effect would be a second copy of the same answer — one that goes stale the moment
+a game is deleted from MATCHES. The page holds the id somebody PICKED, and falls back to the newest
+official game whenever that id answers to nothing.
+
+**A baseline that no longer exists falls back to the average**, silently. Picking the compared game as
+the subject is the ordinary way to reach that state, and a page that emptied itself over it would be a
+page that punishes a normal tap.
+
+**The baseline column's head is `Avg`, or the DATE of the game it is.** The head has to be a stable
+short string in a fixed-width column, and the date ties the column to the row two blocks above it. The
+subject column is always `Game`.
+
 ### `lib/analysis.ts` is the whole rulebook
 
-- **THE AVERAGE DOES NOT INCLUDE THE LAST GAME** — folding it in flattens every difference the file
-  exists to show. `selfcheck` asserts it directly.
-- **The window is `AVG_WINDOW` (5) games before it**, or every game there is when there are fewer.
-  Five is a FORM GUIDE rather than a season.
+- **THE BASELINE DOES NOT INCLUDE THE SUBJECT** — folding it in flattens every difference the file
+  exists to show. `teamComparison` drops it out ITSELF rather than trusting the caller, because the
+  screen now picks the subject out of the very list it hands in. `selfcheck` asserts it directly.
+- **THE BASELINE IS EVERY OTHER OFFICIAL GAME.** `AVG_WINDOW` (5) is gone. It was the right answer
+  while the subject was always the LAST game — "how have we been playing lately" — and the wrong one
+  the moment the subject became any game on the shelf, where "the five before that one" is a window
+  nobody asked for.
 - **The games are the SEASON's games** — official, newest first, filtered by the caller.
-- **A RISE IS NOT ALWAYS GOOD.** `riseIsGood` is held once per stat in `TEAM_STATS`, so no screen has
-  to know that turnovers are the one row where up is bad news. The six rows are PTS, REB, AST, STL, TO
-  and FG%.
-- **FG% IS POOLED and every other row is meaned** — the mean of five percentages is undefined for a
-  game nobody shot in and lets a 1-for-2 night weigh as much as a 9-for-20 one. **The note under the
-  table says so and must not be dropped.**
-- **An average of ZERO has no percentage** — `ratio` is `null` and the absolute delta is the whole
-  answer. A row with no ratio can never be ranked, so it is never a highlight.
+- **A BASELINE OF ONE GAME IS THE SAME ARITHMETIC.** Comparing two games is not a second mode with a
+  second set of rules; it is an average over a baseline of one, which is that game's own figures. That
+  is the entire implementation of the second field.
+- **A RISE IS NOT ALWAYS GOOD, AND SOMETIMES IT IS NEITHER.** `polarity` is held once per stat and has
+  THREE values. `down` is turnovers, fouls and the points we let in. **`none` is the four SHOT-VOLUME
+  rows** — taking six more threes is a change in what the team chose to do, not a change in how well it
+  did it, and a green or red on it would be the file making a claim it cannot support. A row with no
+  polarity is never coloured and can never be a highlight.
+- **EVERY RATE IS POOLED and every count is meaned** — five percentages and the assists-per-turnover
+  ratio, all of them the numerator over the denominator across the whole baseline. The mean of five
+  percentages is undefined for a game nobody shot in and lets a 1-for-2 night weigh as much as a
+  9-for-20 one. **The note under the shooting table says so and must not be dropped** — and it prints
+  ONCE on a page of eight tables, under SHOOTING, which is the block where pooling and meaning are two
+  different numbers. There is NO note when the baseline is a single game, because there is nothing to
+  say.
+- **THERE IS NO OPPONENT FG%.** The opponent is one number and three buttons; an opponent shooting
+  percentage was never observed, and a row of dashes pretending otherwise is worse than its absence.
+  Defence is STEALS, BLOCKS and POINTS ALLOWED, and points allowed is not labelled as a stand-in.
+- **A team plus-minus IS the margin.** Adding five players' plus-minus up counts one margin five times,
+  so the team's answer to "what happened while we were out there" is `score − oppScore`, and the
+  per-player reading lives in the players table where the question belongs.
+- **An average of ZERO has no ratio** — `ratio` is `null` and the absolute delta is the whole answer. A
+  row with no ratio can never be ranked, so it is never a highlight.
 - **ONE GAME IS NOT NOTHING** — a scorer one game into a season gets that game's own figures with `—`
-  in Average and Change, never a fabricated average. Only an empty shelf returns `null`.
-- **A PLAYER'S window is the games THEY APPEARED IN**, which also decides what "their last game" means.
+  in the baseline and Change columns, never a fabricated average.
+- **A PLAYER'S baseline is the games THEY APPEARED IN**, which also decides what "their last game"
+  means.
 
-**"What changed?" is ranked on the RELATIVE move with TWO guards**, each catching what the other cannot:
-`MIN_RATIO` (0.1) throws out a big number that barely moved, and the per-stat `floor` throws out a
-small number that moved a long way in percentage terms. At most three. **It is NOT balanced on
-purpose**: whatever moved most is what is named. The table above is where the other side is read.
+**The eight areas are `TEAM_GROUPS`** — scoring, shooting, shot volume, ball movement, ball security,
+rebounding, defence, discipline. **SHOOTING and SHOT VOLUME are two groups and not one** because they
+answer different questions — were we efficient, and did we simply shoot more — and a table that mixes a
+percentage with a count invites the reader to treat the second as an explanation of the first.
+
+**POINTS BY PERIOD IS DROPPED, NOT FAKED, against a game of a different shape.** A half is not a
+quarter, and averaging what a team scored in `H1` into what it scored in `Q1` puts two different lengths
+of basketball in one column — so the baseline is narrowed to the games whose regulation matches the
+subject's. **A period is averaged over the games that REACHED it**: four games and one overtime is an
+overtime average of one game, not of four, because the other three did not score nothing in it — they
+never played it. It is the same rule `GameFlow` follows when a game carries no clock.
+
+**THE PLAYERS TABLE MEASURES EVERY PLAYER AGAINST THEMSELVES**, in the game's own order, with **nothing
+ranked**. A table sorted by who beat their own average hardest says the twelfth man had the best night
+every time he plays twice, and this app does not rank people — the same argument the ZONES tab's attempt
+bars carry. **A player with no other appearance keeps their row and gets dashes**: they played in this
+game, and a sheet that quietly loses a name cannot be reconciled with the box score beside it. The five
+figures are PTS, REB, AST, +/− and EF, which is also what a player's own card compares.
+
+**"What changed?" is ranked on the RELATIVE move with THREE guards**, each catching what the others
+cannot: `MIN_RATIO` (0.1) throws out a big number that barely moved, the per-stat `floor` throws out a
+small number that moved a long way in percentage terms, and `MIN_ATTEMPTS` (10) throws out a rate nobody
+shot enough for. At most three — **and at most ONE PER AREA**, because rebounds, offensive rebounds and
+defensive rebounds are three rows and one piece of news, and three sentences saying so would crowd out
+the two other things that happened. **It is NOT balanced on purpose**: whatever moved most is what is
+named. The tables are where the other side is read.
+
+**THE SAMPLE FLOOR APPLIES TO BOTH SIDES OF THE COMPARISON.** A 2-for-4 night against a pooled 38% is
+a twelve-point "improvement" four shots cannot support, and a real night measured against a baseline
+that took two shots is the same lie the other way round. The row therefore CARRIES its denominators —
+`subjectDen` and `baseDen`, `null` on every count — because `highlightsFor` is handed rows and not
+games, and a row that has forgotten what it was made of cannot answer the question. **Ten is a review
+threshold and not a significance test**, it is written once in `MIN_ATTEMPTS`, and `lib/observe.ts`
+gates its two shooting sentences on the same number.
+
+**The assist row says `Assists increased`, not `Ball moved better`.** An assist count is a count of
+assists; whether the ball moved better is a claim about how the offence played that this board has no
+way to observe, and the old wording was the file quietly making it.
+
+**THERE IS NO SUBTITLE UNDER A GROUP TITLE.** The areas each answer a question — *were we efficient*,
+*did possessions get wasted* — and printing that question under the heading is exactly the hint under a
+title that was taken off every other screen in this app. The group's name and its rows are the whole of
+it.
 
 ### After timeouts — the one block that compares the game with ITSELF
 
 **A timeout is the only thing on that board a COACH did.** Every other tap on the board records
 something a player did on the floor; the timeout is a decision, and the only question worth asking
-about a decision is whether it worked. So the third block on the page does not look at the run of
-games at all — it splits the LAST GAME in two and compares the halves.
+about a decision is whether it worked. So the last block on the page does not look at the other games
+at all — it splits the SUBJECT GAME in two and compares the halves.
 
 **The measure is NET POINTS PER MINUTE, ours minus theirs.** Points alone would call a 6–8 stretch a
 good one, and a shooting percentage says nothing about the half of the floor a timeout is usually
@@ -1288,8 +1634,8 @@ once, in `timeoutRun`, and each asserted in `npm run check`:
   score the timeout for the thing it was called over.
 
 **A rise is good with no polarity to look up** — the measure is net points, so up is the right way and
-`TEAM_STATS`'s `riseIsGood` has nothing to say here. The colour is on the CHANGE and nowhere else, as
-it is in the table above.
+`TEAM_GROUPS`'s `polarity` has nothing to say here. The colour is on the CHANGE and nowhere else, as it
+is in the tables above.
 
 **`timeoutRun` answers `null` when the game stamped no timeout, and refuses to guess why.** A game with
 none and a game saved before the mark existed are two different sentences, and the caller has
@@ -1298,27 +1644,78 @@ before the board wrote them down. **The rates are never printed without their no
 rule POINTS FROM TURNOVERS carries on the stats screen and for the same reason: a window on the clock
 is an approximation, and an approximation with its method hidden is a number that gets quoted.
 
-**The block is a LIST, not the table above it.** The table is six stats against a window of games; this
-is one number about one game read twice, and each line needs a caption saying what it was measured
-over — a rate per minute means nothing without the minutes behind it.
+**The block is a LIST, not a table.** The tables are one stat read three ways down a column; this is one
+number about one game read twice, and each line needs a caption saying what it was measured over — a
+rate per minute means nothing without the minutes behind it.
+
+### `components/stats/parts.tsx` — `Tile`, and the figure that would not fit
+
+**`Tile` measures itself and steps its value down the ramp rather than clipping it**, and it is the one
+cell on the stats screens that has to. Every other numeric cell is a COLUMN: its width is stated in em
+of its own type size, so sizing it is arithmetic somebody does once and `npm run check` holds. A tile
+is the opposite shape — its width is whatever a fifth or a quarter or a half of the room comes to —
+and the same `fsXl` was drawn in all of them. Three or four across a tall, narrow phone is about eighty
+points, and `100%` is nearly three em of Inter, so the FG% tile printed `100…`, the true-shooting tile
+printed `100.0…`, and the zones' `28-61` clipped on half the phones sold.
+
+- **`figFit` takes the biggest step that holds the string** — `fsXl`, `fsLg`, `fsMd`, `fsSm`. Nothing
+  moves for a value that already fitted, which is nearly all of them.
+- **The ramp runs all the way down to `fsSm`** because the floor has to be a size and not a hope: a
+  tile holds seven characters at its worst (`100-100`, four across a narrow phone).
+- **The LINE BOX stays the ramp's `fsXl`**, so a row of tiles keeps one height whether or not one of
+  them stepped down.
+- **The label is not in it** — `fsXs` already, and it is the caption rather than the figure.
+- **`app/player/[id].tsx` draws FOUR headline tiles and it drew five.** A fifth of a phone is not
+  enough room for `100%` at the tile's own size, and five headline figures was one more than the page
+  needed. 3P% is the one that went: it is the narrowest reading of the five and it is already in the
+  shooting table below. **Do not put a fifth back.**
 
 ### `components/stats/Compare.tsx`
 
-**One table, two callers** — this page and the card on `player/[id]`, which is why both are built as the
-same `Comparison`.
+**`CompareTable` takes ROWS and not a `Comparison`**, because the comparison page draws EIGHT of them
+and a player's card draws one. What the table is about is its two column heads.
 
 - **It is type on the room's own ground, not a card** — hairlines separate the rows; ALIGNMENT
   separates the columns.
 - **The columns are fixed widths off the type size and the label takes the slack.** `W_LAST` is the
-  widest of the four because it is the one cell set a STEP UP from the row it sits in.
+  widest of the four because it is the one cell set a STEP UP from the row it sits in — `fsMd` inside a
+  width stated in `fsSm`, and the ramp opens that gap to 1.28 in the middle of its range.
+- **All four widths are MEASURED now, and `npm run check` holds them there.** They were eyes, and the
+  eye is wrong about one glyph in particular: **Inter's percent sign is a full em**, half again a
+  digit. Every one of the four was short by a tenth to a quarter of its contents, so a shooting split
+  arrived with an ellipsis where its last digit belonged — on every device, not on some edge case.
+  `theme/figures.ts` is the face's own advances and the guard reads them; size against INTER on both
+  platforms, because SF is narrower at every glyph here.
+- **A percentage is a WHOLE NUMBER in this table**, and it is the only place in the app that rounds
+  one — `lib/stats.ts` keeps its tenth for `eFG%` and true shooting, which are read one at a time in a
+  tile with a quarter of a row to themselves. This table is five columns beside a label on a phone and
+  it was over-subscribed by about a fifth of the screen: label plus columns wanted ~28em where a phone
+  has ~25, so `Free throws attempted` was already clipping before the figures were. Widening was not
+  available. The tenth was the cheapest thing in the row to spend — nobody reads a shooting split to a
+  tenth of a percent off a phone at courtside, and the Change cell beside it still carries the move.
 - **The CHANGE is two cells, not one string** — `+3.6` and `+29%` have to line up down the table
-  independently. **The shooting row carries its UNIT** (`+3.3 pts`), the one row where three points of
-  a percentage and three percent of it are different quantities.
-- **The colour is on the CHANGE and nowhere else** — the last game's figure and the average are facts;
-  only the move between them has a direction.
+  independently. **A percentage row carries its UNIT** (`+5 pts`), the kind of row where three points
+  of a percentage and three percent of it are different quantities. A ratio row prints two decimals and
+  no unit at all.
+- **The ratio cell gives up past three figures** (`RATIO_MAX` 999) and prints EMPTY — the same answer
+  it gives when there is no ratio at all, not a dash. It is the same judgement `MIN_RATIO` and
+  `MIN_ATTEMPTS` already make in that file: a player who averaged a fifth of an assist and had six is
+  not up 2,900% in any sense a reader can use, and the four- and five-digit strings that produced were
+  the widest thing the table would ever be asked to draw. The delta beside it still says `+5.8`.
+- **The colour is on the CHANGE and nowhere else** — the game's figure and the baseline are facts; only
+  the move between them has a direction.
 - **`WhatChanged`'s arrow and its colour answer different questions** — the arrow says which way the
   FIGURE went, the colour says whether that was good news. On the turnover row they disagree, which is
   the whole reason both are drawn.
+- **`PlayerImpact` STACKS the two readings inside the cell** rather than setting them side by side. The
+  table above is one stat read three ways down a column; this is five stats read for ten people, and
+  the figure over its own change — two weights apart, the same value-over-caption pair the stats
+  screen's tiles use — is the only way fifty numbers fit across a phone without a horizontal scroll.
+
+**`components/stats/Pick.tsx` is the two fields and the rows they open.** What marks the chosen row is
+INK, not a fill: the row is already a game drawn the shelf's way, and a filled band behind one of them
+would be the only slab on a page made entirely of type and hairlines. **The tick keeps its cell whether
+it is drawn or not**, so nothing on a row moves when the choice moves.
 
 ## The launch page and the door
 
@@ -1363,14 +1760,37 @@ still answered everything the app needed:
 |---|---|
 | Club | the NAME, because every game is filed under it and the crest falls back to it |
 | Roster | WHO is on the team — the board is five rows |
-| The board | two taps a stat, on a screen that looks like nothing else on a phone |
+| The board | the WALKTHROUGH — a screen that looks like nothing else on a phone is opened, not described |
 | Trial | one free game, said out loud before it is spent |
 
-**The verb on the two asking steps is *Next*, not *Continue*.** *Got it* and *Start my first game* are
-the two that tell.
+**The verb on the two asking steps is *Next*, not *Continue*.** *Show me the board* and *Start my
+first game* are the two that tell.
+
+**THE THIRD STEP IS THE WALKTHROUGH, AND IT USED TO BE A PICTURE OF ONE.** It was the miniature board
+with four numbered lines under it — tap the floor, tap a player, the three keys, the footer — each
+with its tap count printed beside it. What replaced them is the tour doing those same four on the real
+board, which is the only version of that explanation a scorer's hands remember. The step that is left
+is the INVITATION: the headline, one sentence, the miniature as a PICTURE (the board is light and a
+dark onboarding cannot say that in words), *Show me the board*, and *Skip for now* as the quiet line
+under it. `BOARD_STEPS`, `BoardLine`, `Badge` and `Taps` went with the lines — see the cut list.
+
+**IT IS A `push`, AND THE DOOR STAYS MOUNTED UNDERNEATH THE BOARD.** This is the third of four steps
+and the trial is still owed, so the tour is handed `'back'` as its way out (see *The walkthrough*) and
+pops onto this screen with `step` and the typed club name exactly as they were left. It is the second
+route out of the door that is meant to come back, and the only caller anywhere that hands `begin`
+anything but the default.
+
+**THE STEP ADVANCES ON THE RETURN, NOT ON THE WAY OUT.** A `useFocusEffect` behind a ref, because
+advancing before the push would paint a frame of the trial step under the board landing on top of it,
+and would leave a scorer who backed straight out on a step they never chose. A finished tour and a
+skipped one both land on the trial: both are the scorer saying they are done with it.
 
 **It writes through the ordinary writers and builds nothing** — `teamStore.setProfile` and
-`rosterStore.add`. **It does not touch `gameStore` at all.** **The roster step IS
+`rosterStore.add`. **It still builds no game**, and `gameStore` is reached in exactly one way and not
+by this file: the board step calls `tutorialStore.begin`, which stashes whatever game is standing,
+pauses the writer and installs the tour's throwaway. On a fresh install that is an empty board out and
+an empty board back; on an upgrading one it is the scorer's own game, untouched on disk the whole way
+through. **The roster step IS
 `components/team/RosterRow.tsx`**, lifted out of the TEAM tab when this became its second caller: the
 door and the tab are the same editor. `onFocusRow` is optional there — only the TEAM tab has a list to
 lift.
@@ -1390,10 +1810,11 @@ over that is the same pitch twice inside ten seconds.
 ### What it is made of
 
 **`constants/intro.ts` is the copy, as a table**, so `npm run check` walks it: four steps each with a
-title and one sentence, the four numbered board lines with their tap counts, the three things the free
-game gives. The script holds the plural of `1 TAP`, that exactly one badge is `live`, that the two lit
+title and one sentence, and the three things the free game gives. The script holds that the two lit
 headlines are the two steps that ask for nothing, that **the trial's three and the paywall's
-`BENEFITS` are not the same three**, and that the copy table matches the step list's own LENGTH.
+`BENEFITS` are not the same three**, and that the copy table matches the step list's own LENGTH. The
+tap-count assertions went with `BOARD_STEPS`; the handoff itself is a `push` and a `begin` inside a
+component and is not something a script over a table can hold.
 
 **`constants/options.ts` carries the four ANSWER TABLES** (`PERIOD_CHOICES`, `LENGTH_CHOICES`,
 `LABEL_CHOICES`, `BOARD_CHOICES`) plus `shapeLabel`. **`app/settings.tsx` is the only reader** and the
@@ -1401,6 +1822,12 @@ tables are held by `selfcheck` alone. They stay a table so a second copy of `6 /
 offer a length the other screen does not.
 
 **`components/intro/MiniBoard.tsx` is the LIGHT palette inside a dark room, and that is the point** —
+and with the four lines gone it is now the whole of what that step draws. **It carries no numbered
+chips any more:** three of them rode on it — the keys, the rail, the footer — each drawn a second time
+at the head of the line that explained it, and a chip pointing at a line that is no longer under it
+points at nothing. `Badge` was also the only thing in `parts.tsx` that ever set `accentInk`, which is
+why `selfcheck`'s `NO_TEXT_INSIDE` now names that file: what is left painting accent there is the
+progress row and the club field's 2px rule, and neither has anything written inside it.
 the board is the one white screen in the app and a scorer three steps into a dark onboarding has no way
 of knowing it. It declares `PALETTE` through `ThemeProvider` (which is also what makes `Jersey` draw the
 real plate) and runs full-bleed against the near-black. **The contrast between the two IS the
@@ -1529,9 +1956,36 @@ there is something to restore.
 
 ## The walkthrough
 
-`components/tutorial/` walks twenty steps over the REAL board against a throwaway game. It is reached
-from a permanent row at the foot of the lobby — *How the board works* — which is not a card, not a
-first-run prompt and not dismissible.
+`components/tutorial/` walks twenty steps over the REAL board against a throwaway game. **It is reached
+two ways, and they differ only in where the way out lands.** A permanent row at the foot of the lobby —
+*How the board works* — which is not a card, not a first-run prompt and not dismissible; and the DOOR'S
+THIRD STEP, which is the invitation that replaced the page describing the board.
+
+### The way out is the caller's, stamped at `begin`
+
+`TourExit` is `lobby` or `back`, it is set when the tour starts, it is never persisted, and `finish`
+puts it back to `lobby` with the rest of the session — so a tour started from the lobby after one
+started from the door cannot inherit its way out.
+
+- **`lobby` is a STATED `replace('/')`**, not `back()`, for the reason EXIT on the quarter panel is
+  stated: the board is reached by `replace` out of the picker, by `push` off the lobby, and by a deep
+  link with no stack at all.
+- **`back` is the door's**, and the door is the one caller with a screen underneath worth returning
+  to — it pushed this board over itself and is still owed its trial step.
+
+**`components/tutorial/leave.ts` is where those two lines live, and it has TWO callers.** The overlay's
+own SKIP and last step are the obvious one. The other is **EXIT on the quarter panel**: the tour opens
+that panel and the cut-out is the whole sheet, so every tile on it is live — which is why END GAME is
+guarded one tile along in `EndGamePanel`. A plain `replace('/')` there left the tour running over a
+board that was no longer under it: `active` still true, the throwaway still installed, the scorer's own
+board still stashed, and `pausePersist` still holding their NEXT game off the disk.
+
+**The board route also finishes an unfinished tour on blur or unmount.** Browser back and native
+navigation can bypass both buttons. `app/game.tsx` owns a stable focus cleanup that calls
+`finish(false)` against the current session, restoring the stash and releasing persistence without
+starting another navigation. It sits outside the palette wrapper so changing the board's appearance
+cannot end the tour. An explicit tour exit has already finished by the time this cleanup runs, so
+the store's inactive guard leaves both its completion result and an ordinary live game untouched.
 
 **Nothing is mimed, nothing is gated and nothing is done for the scorer.** Every step is finished by the
 scorer performing the real action against the real store; `saveGame`, the trial spend and the route out
@@ -1542,7 +1996,9 @@ is dark because somebody has not watched a walkthrough.**
 ### The throwaway game
 
 **The board holds one game, so the tour cannot be opened while one is standing.** The row takes the
-lobby's own `inProgress` test and prints why it is dark.
+lobby's own `inProgress` test and prints why it is dark. The door needs no such test: it is shown once
+per install, before there is anything to stand on — and if there is (an upgrading phone walks through
+the door too), the stash is what makes it safe, exactly as it is from the lobby.
 
 **Two things make the tour safe, and both live in `store/tutorialStore.ts`:** the board it replaced is
 stashed as JSON at module scope, and `pausePersist(true)` stops `gameStore` reaching the disk for the
@@ -1675,7 +2131,8 @@ halves or four quarters; six, eight, ten or twelve minutes each. Every other opt
 `options`; these two are **STAMPED ONTO THE GAME** at tip-off — `startGame` is the one place they cross
 — and read off `GameState.periods` / `GameState.periodLen` for ever after. A quarter split is ARITHMETIC
 over the length, so a saved game whose length came from a live setting would silently re-slice itself
-the day a scorer switched to halves. **The settings page says so out loud** — `FROM THE NEXT GAME ON`.
+the day a scorer switched to halves. The settings page no longer says so — the explanatory
+line under every row was cut with the rest of the app's hint captions.
 
 **A game from before either was a question was played 4 × 10:00.** `REG_PERIODS` and `PERIOD_LEN` in
 `constants/game.ts` are that fallback and nothing else — three consumers: `DEFAULT_OPTIONS`,
@@ -1851,7 +2308,8 @@ standing there are exactly the five the basket went against. `plusMinus()` guard
 `?? 0`, because a game persisted before the against-half existed would read `NaN`.
 
 **`ptsOffSteals()` is still partial**, because a steal is the only opponent turnover a one-team board
-hears about. Print it as POINTS FROM TURNOVERS with the note that says exactly that; never without.
+hears about. It is printed as POINTS OFF OUR STEALS — the label IS the caveat, on the screen and on
+the sheet, which is why there is no footnote left to forget.
 
 **The team NAME is not hardcoded** — `DEFAULT_TEAM.name` in `lib/team.ts`. `SEED_ROSTER` seeds
 `rosterStore` and is never read again. Every store persists to AsyncStorage and survives a kill, the
@@ -1882,6 +2340,10 @@ Deleted outright — the argument for each is above, in its own section:
 - The skin switcher, `auto`, the two frosted palettes; `clockRun` / `clockStop` / `clockInk`; END's
   arming; the score cell's press.
 - The intro's rules step (`RULE_ECHOES`, `RuleEcho`, `Echo`, `Seams`) and its `Pointer` chip.
+- **The door's page ABOUT the board** — `BOARD_STEPS`, the `BoardLine` row, and the `Badge` and `Taps`
+  marks that were drawn on the miniature and at the head of each line. The walkthrough is what step
+  three does now: the same four things, done by the scorer on the real board rather than listed beside
+  a picture of one. The miniature itself stays, as the picture on the invitation.
 - The walkthrough's meaning line, nudge and SHOW ME (`Show`, `useShowRunner`, `NUDGE_MS`, `SHOW_MS`,
   `TUTORIAL_COPY.showMe`, the overlay's `Phase`).
 - The paywall's FREE TRIAL card and its toggle; a RESTORE PURCHASE button; the media-library permission
@@ -1892,3 +2354,129 @@ Left standing with NO CALLER, deliberately, so the gesture that reaches them nex
 than restored: `app/stats.tsx`, `resultOf` (held to `>=` by `selfcheck`), `shapeLabel`,
 `RemovePlayerPanel` + the `removePlayer` panel kind, `resetClock`, `Slug.tsx`, `hooks/useLastGame.ts`.
 **Nothing removes a player from the app today.**
+
+## Website installation (2026-09-09)
+
+The requested public distribution is an installable web app for Android and
+iPhone. The Expo single-page build stays the app; its manifest and browser
+shell are generated by `scripts/prepare-web.ts`. `scripts/build-offline.mjs`
+precaches the exported app under a content-derived cache name. The active worker
+serves its own HTML as well as its assets, so a new deployment cannot combine a
+new shell with an old worker during a game. No `skipWaiting`, client takeover,
+or automatic reload. Account, checkout and webhook paths bypass this cache.
+
+Native crests still use stamped document files. Web cannot use that filesystem,
+so its picker image is reduced to a bounded embedded PNG, committed only after
+the storage write succeeds. `migrateTeam(raw, true)` accepts that web format;
+the default native migration still accepts only file URIs. Temporary blob URLs
+never survive migration. `useClock` flushes pending web persistence on page hide
+even if the game clock is stopped.
+
+The user selected a paid launch, with payments received in Vietnam. Real checkout
+is pending an approved provider account and server-side entitlement integration.
+Production web disables the prototype purchase button. Registering the Sites
+project does not publish the app. See `docs/WEB-RELEASE.md` for the remaining
+paid-release work and device verification.
+
+## Web storage durability (2026-09-09)
+
+Three problems, one of which was already shipping on both platforms.
+
+**Every write in this app is fire-and-forget, and a failed one was invisible.**
+zustand's `persist` drops the promise its storage returns, `gameStore`'s
+debounced writer said `void AsyncStorage.setItem(...)`, and
+`historyStore.saveGame` filed a finished game the same way. That shape is
+correct — a scorer mid-possession cannot wait on a disk — but it meant a
+rejected write produced an unhandled rejection and nothing else. The board kept
+taking taps and none of them were kept. `lib/fault.ts` is the channel that was
+missing: a latch and a listener, no React and no platform, with `classify`
+mapping the three spellings of "out of room" (`QuotaExceededError`, Chrome's
+code 22, Safari's `NS_ERROR_DOM_QUOTA_REACHED` and 1014) onto one answer. It
+publishes the EDGE only, because a full disk fails every write and a listener
+called on each one would toast every two seconds for the rest of a game.
+`hooks/useStorageFault.ts` is its one reader and turns it into the toast;
+`app/_layout.tsx` mounts that beside the game clock, for the same reason the
+clock is there rather than on the board.
+
+**On web, `AsyncStorage` was `localStorage`.** About 5MB for the whole origin,
+against thirty saved games at 2MB or so plus a crest that `WEB_LOGO_MAX_LENGTH`
+allows to reach 800,000 characters — which `localStorage` counts in UTF-16 and
+therefore bills as 1.6MB. Most of the budget before anything goes wrong, and the
+first write past the line fails for ever. `platform/storage.web.ts` is IndexedDB
+instead, quota a share of the actual free disk, no library: forty lines of raw
+`IDBRequest` plumbing was cheaper than a dependency the native build would carry
+too. The migration runs inside `onupgradeneeded`, the one place a synchronous
+`localStorage` read and an IndexedDB write share a transaction, so the database
+is created with the season already in it or not created at all; the old keys are
+dropped only once that commits. Where the database will not open — private
+browsing, storage switched off, and one Firefox case where the request never
+settles, which is what the timeout is for — `localStorage` stands in. The
+connection is not cached across `onclose`/`onversionchange`, or a tab whose
+handle the browser closed would hand out the dead one for ever.
+
+`platform/storage.ts` is the native door and is a thin wrapper over
+`AsyncStorage`, so the App Store path is unchanged. Both expose `setItem`, which
+reports a fault and NEVER rejects, and `write`, which reports and rejects. Two
+methods for one operation because there are two kinds of caller: persistence
+nobody is waiting on, and `teamStore.setLogo`, which will not replace a club's
+crest until it knows the new one landed. Handing the first kind something that
+can reject is the bug this whole seam closes.
+
+**Nothing was backed up anywhere.** `lib/backup.ts` is the rules and
+`platform/backupFile.ts` / `.web.ts` the two doors — the same split
+`lib/pdf.ts` and `ExportButton` already make. A backup is a KEY DUMP, not a
+model: the raw rows exactly as the stores wrote them, restored by writing them
+back, so a file lands through each store's own migration and nothing here has to
+know what a `Player` is. Modelling it would have been a third copy of every
+store's shape, drifting the first time a field was added.
+
+Three keys travel — the club, the roster, the shelf's index, and each saved
+game. **`hooplog-billing` does not**, at write time AND at read time: an
+entitlement that can be restored from a file the scorer wrote is not an
+entitlement, and only one of those two checks is still under our control once
+the file is on somebody's disk. `livestats-game` does not either — a game in
+progress is not a record yet, and it is the one restore that could destroy
+something live. `hooplog-tutorial` and `hooplog-intro` are about the install
+rather than the club.
+
+Restore REPLACES rather than merges. The same game saved on two devices has two
+different ids, so a merge produces duplicates it cannot detect, and two rosters
+with the same jersey numbers have no answer at all. `applyBackup` writes before
+it deletes — the obvious order loses BOTH seasons when the disk fills half way
+through, which is the exact condition somebody reaches for a backup in — and
+every write is a `write`, so a partial restore rejects instead of reporting
+"Restored 12 games". The stores are rehydrated through `persist.rehydrate`
+rather than the app reloaded, because there is no reload on a phone. A bad file
+is refused whole: `readBackup` checks everything before returning anything.
+
+`components/settings/Backup.tsx` is the fifth block on GAME SETTINGS, last
+because it is the one a scorer touches least. Saving is one press; restoring is
+two, and the second DRAWS the backup rather than describing it — how many games,
+when it was written — which is the argument `PSubject` makes on the two game
+confirms. No explanatory line under either button; the page carries none and
+this is not an exception. The one sentence that does render is a standing
+storage fault, which is an alarm about the disk and not a hint under a field.
+
+Not done, and deliberately: the crest is still a PNG data URI at
+`WEB_LOGO_MAX_LENGTH`, which mattered against a 5MB ceiling and matters much
+less without one; `navigator.storage.persist()` is not requested; and nothing
+syncs anywhere. See `docs/WEB-RELEASE.md`.
+
+
+## Player PDF export
+
+The player profile also exports a separate report through `lib/playerPdf.ts`, a pure HTML builder.
+It uses the profile's game scope, with season totals and per-appearance averages. The court shows
+only the latest game the player appeared in, independent of the on-screen chart selection. It reads
+`COURT_LINES` and filters every mark by player ID. The report contains full counting stats and
+shooting rates, with no game log or side notes. This is an explicit exception to the game report's
+no-court rule; the game report remains unchanged. Both use the same print/share control and export gate.
+
+The match PDF shares the player report's A4 margins, Arial typography, orange header rule and horizontal table rules. The box score and period scores occupy the first page; team and zone details begin on a second page. Existing metric explanations remain with their figures.
+
+The match PDF now includes the team's shot chart beside the zone table, using shared pdfChart.ts rendering with the player export. At the user's explicit request the entire abbreviation and methodology notes block is removed from the match PDF. This supersedes the prior no-court and mandatory export-note rules; screen notes are unaffected.
+
+
+## RevenueCat replaces the local billing seam
+
+Paid access now comes from the configured active RevenueCat entitlement, with localized store prices. The one-saved-game trial remains local. Only the trial flag persists; old local unlocks are discarded. Purchase restoration is implemented on the paywall, superseding its earlier removal. Startup and foreground refresh CustomerInfo, and the launch paywall waits for initial loading. Expo Go and web cannot simulate a paid unlock. Setup and native purchase testing remain required; see REVENUECAT.md.

@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Store } from '../platform/storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
@@ -68,11 +68,19 @@ export interface GameStore extends GameState {
    * and every field of it may be empty: a practice against nobody, noted as
    * nothing, is an ordinary Tuesday.
    */
+  /**
+   * `squad` is WHICH TEAM OF THE CLUB is playing, and it is stamped onto the
+   * game beside the periods rather than looked up later — see
+   * `GameState.squadId`. It is optional so the tutorial's throwaway game and
+   * the board a fresh install opens on need not invent one; both read as the
+   * first team, which is what they are.
+   */
   startGame(
     roster: RosterPlayer[],
     starterIds: string[],
     teamName: string,
     match?: Partial<MatchInfo>,
+    squad?: { id: string; name: string },
   ): void;
 
   recordShot(
@@ -115,6 +123,11 @@ const freshGame = (
   players: Player[] = seedRoster(),
   teamName: string = DEFAULT_TEAM.name,
   match: Partial<MatchInfo> = {},
+  // WHICH TEAM OF THE CLUB, stamped here for the same reason the rules below
+  // are: it is a fact about this game and not a setting that may move. An
+  // empty pair is the honest default for a board nothing has picked a team
+  // for; `squadIdOf` files that under the first team.
+  squad: { id: string; name: string } = { id: '', name: '' },
   // THE RULES OF THE GAME ARE STAMPED HERE AND READ OFF THE GAME EVER AFTER.
   // They come from `options` at the one call site that has them — `startGame` —
   // and default to four tens for the board a fresh install opens on, which has
@@ -125,6 +138,8 @@ const freshGame = (
   },
 ): GameState => ({
   team: { name: teamName },
+  squadId: squad.id,
+  squadName: squad.name,
   // a board that has never been through the picker is a practice, because
   // nothing has been filed and an unnamed OFFICIAL game is the one state the
   // picker refuses to create
@@ -194,13 +209,13 @@ function flushWrite(): void {
   }
   const w = pendingWrite;
   pendingWrite = null;
-  if (w) void AsyncStorage.setItem(w.key, w.value);
+  if (w) void Store.setItem(w.key, w.value);
 }
 
 export const flushPersist = flushWrite;
 
 const debouncedStorage = {
-  getItem: (key: string) => AsyncStorage.getItem(key),
+  getItem: (key: string) => Store.getItem(key),
   setItem: (key: string, value: string) => {
     if (persistPaused) return;
     pendingWrite = { key, value };
@@ -208,7 +223,7 @@ const debouncedStorage = {
   },
   removeItem: (key: string) => {
     pendingWrite = null;
-    return AsyncStorage.removeItem(key);
+    return Store.removeItem(key);
   },
 };
 
@@ -235,7 +250,8 @@ export const useGameStore = create<GameStore>()(
         );
         if (undoStack.length > UNDO_CAP) undoStack.shift();
         const g: GameState = clone({
-          team: s.team, kind: s.kind, competition: s.competition,
+          team: s.team, squadId: s.squadId, squadName: s.squadName,
+          kind: s.kind, competition: s.competition,
           opponent: s.opponent, note: s.note,
           score: s.score, oppScore: s.oppScore,
           // the rules of the night ride along with it: `nextPeriod` reads
@@ -255,7 +271,7 @@ export const useGameStore = create<GameStore>()(
         ...freshGame(),
         options: { ...DEFAULT_OPTIONS },
 
-        startGame: (roster, starterIds, teamName, match = {}) => {
+        startGame: (roster, starterIds, teamName, match = {}, squad) => {
           // a new game's undo history is empty, not the last game's
           undoStack.length = 0;
           // THE ONE PLACE THE SETTINGS CROSS INTO A GAME, and they cross the
@@ -264,7 +280,7 @@ export const useGameStore = create<GameStore>()(
           // hear that the scorer has switched to halves.
           const { periods, periodLen } = get().options;
           set(
-            freshGame(buildPlayers(roster, starterIds), teamName, match, {
+            freshGame(buildPlayers(roster, starterIds), teamName, match, squad, {
               periods,
               periodLen,
             }),
@@ -468,13 +484,17 @@ export function installGame(g: GameState): void {
  * `getState()` hands back the actions and the options as well, and both would
  * be written to disk by a `JSON.stringify` that does not know the difference —
  * the options are a preference and not a fact about the game, and a function
- * serialises to nothing at all. Naming the seventeen keys is what keeps a saved
+ * serialises to nothing at all. Naming every key out is what keeps a saved
  * game the same shape as the one every reader here already takes.
  */
 export const currentGame = (): GameState => {
   const s = useGameStore.getState();
   return {
     team: s.team,
+    // WHICH TEAM PLAYED IT rides with the club's name — both are stamped at
+    // tip-off and both are what a saved game says about itself afterwards.
+    squadId: s.squadId,
+    squadName: s.squadName,
     kind: s.kind,
     competition: s.competition,
     opponent: s.opponent,

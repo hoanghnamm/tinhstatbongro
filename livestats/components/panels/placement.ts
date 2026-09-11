@@ -51,6 +51,12 @@ export const MODE: Record<Panel['kind'], Mode> = {
   newGame: 'center',
   setNumber: 'center',
   removePlayer: 'center',
+  // the draft is a LIST and the other one is a confirm, and both are still
+  // centred: there is no court off the board to dock against or cover. The
+  // draft is the tallest of them and scrolls inside its own frame — only
+  // panels scroll, which is exactly what `PanelScroll` is for.
+  draft: 'center',
+  removeSquad: 'center',
   removeGame: 'center',
   // a two-way choice with no court to dock against or cover, like every other
   // panel the rooms open

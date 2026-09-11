@@ -1,4 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Store } from '../platform/storage';
+import { Platform } from 'react-native';
 import { Directory, File, Paths } from 'expo-file-system';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
@@ -43,6 +44,7 @@ const dir = (): Directory => new Directory(Paths.document, 'team');
 /** Deleting is best-effort everywhere: a crest is not worth throwing over. */
 const drop = (uri: string | null): void => {
   if (!uri) return;
+  if (Platform.OS === 'web') return; // the PNG lives in the persisted profile
   try {
     const f = new File(uri);
     if (f.exists) f.delete();
@@ -71,6 +73,16 @@ export const useTeamStore = create<TeamState>()(
 
       setLogo: async (sourceUri) => {
         try {
+          if (Platform.OS === 'web') {
+            const { webLogo } = await import('../platform/webLogo');
+            const logoUri = await webLogo(sourceUri);
+            // Check the actual write before replacing the old crest. Storage
+            // quota failure must leave the previous profile usable.
+            const profile = { ...get().profile, logoUri };
+            await Store.write('hooplog-team', JSON.stringify({ state: { profile }, version: 1 }));
+            set({ profile });
+            return true;
+          }
           const folder = dir();
           if (!folder.exists) folder.create({ intermediates: true, idempotent: true });
 
@@ -96,20 +108,20 @@ export const useTeamStore = create<TeamState>()(
     }),
     {
       name: 'hooplog-team',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => Store),
       version: 1,
       migrate: (persisted) => ({
-        profile: migrateTeam((persisted as { profile?: unknown } | undefined)?.profile),
+        profile: migrateTeam((persisted as { profile?: unknown } | undefined)?.profile, Platform.OS === 'web'),
       }),
       onRehydrateStorage: () => (s) => {
         if (!s) return;
-        s.profile = migrateTeam(s.profile);
+        s.profile = migrateTeam(s.profile, Platform.OS === 'web');
         // THE PATH IS CHECKED, NOT TRUSTED. iOS moves the document directory
         // between installs and a restore can bring the record back without the
         // file, and a dead URI renders as a broken square where the monogram
         // would have rendered as a crest.
         const uri = s.profile.logoUri;
-        if (uri) {
+        if (uri && Platform.OS !== 'web') {
           try {
             if (!new File(uri).exists) s.profile.logoUri = null;
           } catch {

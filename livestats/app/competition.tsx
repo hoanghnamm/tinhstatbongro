@@ -17,7 +17,8 @@ import { pct } from '../lib/format';
 import { competitions, season, type SeasonMode } from '../lib/season';
 import { efg, ts } from '../lib/stats';
 import { competitionLabel } from '../lib/team';
-import { useRosterStore } from '../store/rosterStore';
+import { useActiveSquad } from '../hooks/useActiveSquad';
+import { membersOf, squadIn } from '../lib/squads';
 import { useMetrics } from '../theme/metrics';
 import { LS_LABEL, LS_MICRO, LS_TITLE, fUi, ls } from '../theme/tokens';
 import { useTheme } from '../theme/useTheme';
@@ -58,7 +59,11 @@ function CompetitionScreen() {
   const safe = useSafeAreaInsets();
 
   const { key = '' } = useLocalSearchParams<{ key?: string }>();
-  const roster = useRosterStore((s) => s.players);
+  // ONE TEAM'S RUN IN ONE COMPETITION — the page is reached from that team's
+  // season, so pooling the club's other teams here would answer a question
+  // nobody asked on the way in.
+  const { squad, roster: pool } = useActiveSquad();
+  const roster = useMemo(() => membersOf(squad, pool), [squad, pool]);
   const games = useSavedGames();
   const gated = useLocked('season');
 
@@ -68,8 +73,11 @@ function CompetitionScreen() {
   // the one group asked for is picked out of it — so a card and its page can
   // never disagree about which games belong to a competition
   const comp = useMemo(
-    () => (games ? (competitions(games, roster).find((c) => c.key === key) ?? null) : null),
-    [games, roster, key],
+    () =>
+      games
+        ? (competitions(squadIn(games, squad?.id ?? ''), roster).find((c) => c.key === key) ?? null)
+        : null,
+    [games, roster, key, squad],
   );
 
   const S = useMemo(
@@ -207,11 +215,6 @@ function CompetitionScreen() {
           >
             {reading ? 'Reading the shelf…' : 'No games here'}
           </Text>
-          {!reading && (
-            <Text style={{ ...fUi(400), fontSize: m.fsSm, color: t.ink3 }}>
-              Every game filed under this competition has been deleted.
-            </Text>
-          )}
         </Col>
       )}
     </View>

@@ -6,15 +6,20 @@ import { Press } from '../ui/Press';
 import { Col, Row } from '../ui/Row';
 import { INTRO_STEPS, type StepCopy } from '../../constants/intro';
 import { useMetrics } from '../../theme/metrics';
-import { LS_CAPS, LS_LABEL, LS_MICRO, LS_TITLE, fUi, ls, withAlpha } from '../../theme/tokens';
+import { LS_LABEL, LS_MICRO, LS_TITLE, fUi, ls } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 
 /**
  * THE DOOR'S FURNITURE.
  *
- * Five steps that have to read as one screen shown five times, so the parts
- * that repeat are drawn once: the headline block, the foot, the progress dots
- * and the two small marks. Everything here is module-level, for the reason
+ * Four steps that have to read as one screen shown four times, so the parts
+ * that repeat are drawn once: the headline block, the field, the foot and the
+ * progress dots. The two small marks that were also here — the numbered badge
+ * and the tap count — went with the board step's list of four lines, which the
+ * walkthrough replaced. `Badge` was also the only thing in this file that ever
+ * set `accentInk`, so `selfcheck` now names it on `NO_TEXT_INSIDE`: what is
+ * left painting accent is the dot row and the field's 2px rule, and neither has
+ * anything written inside it. Everything here is module-level, for the reason
  * every piece in this app is — a component declared inside the screen is a new
  * type on every render, and this screen re-renders on every keystroke of a
  * club's name.
@@ -40,8 +45,8 @@ import { useTheme } from '../../theme/useTheme';
  *
  * TWO SIZES, AND `big` IS THE TWO STEPS THAT ASK FOR NOTHING. A step with a
  * form under it gives its headline `fsXl`, because the form is the point; the
- * board tour and the trial carry only their own sentence, so they take `fs2xl`
- * and the room that goes with it.
+ * walkthrough's invitation and the trial carry only their own sentence, so they
+ * take `fs2xl` and the room that goes with it.
  */
 export function Head({ copy, big = false }: { copy: StepCopy; big?: boolean }) {
   const m = useMetrics();
@@ -170,92 +175,6 @@ export function TextField({
         }}
       />
     </Col>
-  );
-}
-
-/**
- * A NUMBERED BADGE, drawn TWICE per step of the board tour: once on the
- * miniature board and once at the head of the line that explains it. Two
- * drawings of one number is the whole device that ties the picture to the list.
- *
- * `live` IS THE COURT'S, and it is not decoration. The mark that badge points
- * at is the live tap mark, which is `live` blue on the real floor because a tap
- * not yet resolved into a make or a miss is not a made shot — see that token.
- * Colouring this one accent would put orange on the one mark in the app that
- * must not be.
- */
-export function Badge({ n, live = false, size }: { n: number; live?: boolean; size?: number }) {
-  const m = useMetrics();
-  const t = useTheme();
-  const d = size ?? Math.round(m.fsMd * 1.15);
-
-  return (
-    <View
-      style={{
-        width: d,
-        height: d,
-        flexGrow: 0,
-        flexShrink: 0,
-        borderRadius: d / 2,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: live ? t.live : t.accent,
-      }}
-    >
-      <Text
-        style={{
-          ...fUi(700),
-          fontSize: d * 0.55,
-          lineHeight: d * 0.55 * 1.15,
-          color: t.accentInk,
-          fontVariant: ['tabular-nums'],
-        }}
-      >
-        {n}
-      </Text>
-    </View>
-  );
-}
-
-/**
- * THE TAP COUNT — `3 TAPS`, in an accent outline.
- *
- * CAPS at `LS_CAPS`, which is the one positive step on the tracking ramp and
- * is spent on abbreviations. This is the closest thing on the screen to one: it
- * is a CODE the headline made a promise about, read as a unit beside a sentence
- * rather than as a word inside one.
- *
- * The OUTLINE rather than a fill is the plan card's rule, for the plan card's
- * reason: four of these are read against each other down the screen, and four
- * filled pills would be four marks competing with the four badges beside them.
- */
-export function Taps({ label }: { label: string }) {
-  const m = useMetrics();
-  const t = useTheme();
-
-  return (
-    <View
-      style={{
-        flexGrow: 0,
-        flexShrink: 0,
-        borderRadius: 99,
-        borderWidth: 1,
-        borderColor: withAlpha(t.accent, 0.45),
-        paddingVertical: 2,
-        paddingHorizontal: m.s2,
-      }}
-    >
-      <Text
-        style={{
-          ...fUi(600),
-          fontSize: m.fs2xs,
-          letterSpacing: ls(m.fs2xs, LS_CAPS),
-          color: t.accent,
-        }}
-      >
-        {label}
-      </Text>
-    </View>
   );
 }
 

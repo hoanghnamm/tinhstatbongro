@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { FlatList, Text, View, type TextStyle } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,9 +10,11 @@ import { ClubMark } from '../../components/team/ClubMark';
 import { GlowText } from '../../components/ui/GlowText';
 import { Press } from '../../components/ui/Press';
 import { Col, Row } from '../../components/ui/Row';
+import { useActiveSquad } from '../../hooks/useActiveSquad';
+import { squadIn } from '../../lib/squads';
 import { useTabInset } from '../../hooks/useTabInset';
+import { useTopOnBlur } from '../../hooks/useTopOnBlur';
 import {
-  HISTORY_CAP,
   dayMonthLabel,
   filterIn,
   outcomeOf,
@@ -155,14 +157,11 @@ const FILTERS: SegItem<MatchFilter>[] = [
   { key: 'practice', label: 'Practice' },
 ];
 
-/** What an empty shelf says, and it says WHY it is empty rather than THAT it is. */
-const EMPTY: Record<MatchFilter, { title: string; note: string }> = {
-  all: { title: 'No matches yet', note: 'A match lands here the moment you end it.' },
-  official: {
-    title: 'No official matches yet',
-    note: 'A game filed under a competition shows up here.',
-  },
-  practice: { title: 'No practice yet', note: 'A game marked practice shows up here.' },
+/** What an empty shelf says. The title alone — the line under it is gone. */
+const EMPTY: Record<MatchFilter, { title: string }> = {
+  all: { title: 'No matches yet' },
+  official: { title: 'No official matches yet' },
+  practice: { title: 'No practice yet' },
 };
 
 /**
@@ -375,9 +374,21 @@ export default function MatchesScreen() {
   const bar = useTabInset();
 
   const index = useHistoryStore((s) => s.index);
+  const { squad } = useActiveSquad();
   const [filter, setFilter] = useState<MatchFilter>('all');
 
-  const rows = useMemo(() => filterIn(index, filter), [index, filter]);
+  // a tab is a room, and it is entered at the top of it — see the hook
+  const list = useRef<FlatList<GameSummary>>(null);
+  useTopOnBlur(list);
+
+  // THE SHELF IS ONE TEAM'S SHELF. Two filters, in this order and both at the
+  // screen: the team that played the game, then the strip's own slice of
+  // practice or official. A club with three teams keeps three shelves and the
+  // chip lit on the TEAM tab is which one is out.
+  const rows = useMemo(
+    () => filterIn(squadIn(index, squad?.id ?? ''), filter),
+    [index, filter, squad],
+  );
   const empty = EMPTY[filter];
 
   return (
@@ -415,6 +426,7 @@ export default function MatchesScreen() {
       </View>
 
       <FlatList
+        ref={list}
         data={rows}
         keyExtractor={(g) => g.id}
         renderItem={({ item }) => <MatchRow game={item} />}
@@ -438,33 +450,7 @@ export default function MatchesScreen() {
             >
               {empty.title}
             </Text>
-            <Text
-              style={{
-                ...fUi(400),
-                fontSize: m.fsSm,
-                color: t.ink3,
-                textAlign: 'center',
-              }}
-            >
-              {empty.note}
-            </Text>
           </Col>
-        }
-        ListFooterComponent={
-          rows.length ? (
-            <Text
-              style={{
-                paddingTop: m.s5,
-                paddingHorizontal: m.s3,
-                textAlign: 'center',
-                ...fUi(400),
-                fontSize: m.fsXs,
-                color: t.ink3,
-              }}
-            >
-              Long press a match to delete it. The last {HISTORY_CAP} are kept.
-            </Text>
-          ) : null
         }
       />
 

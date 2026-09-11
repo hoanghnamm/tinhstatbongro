@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Text, View } from 'react-native';
 import { BlurView } from 'expo-blur';
@@ -6,6 +7,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { GlowText } from '../ui/GlowText';
 import { Press } from '../ui/Press';
 import { Col, Row } from '../ui/Row';
+import { figFit } from '../../theme/figures';
 import { useMetrics } from '../../theme/metrics';
 import {
   ELEV_CARD,
@@ -399,7 +401,33 @@ export function Seam({ children }: { children: ReactNode }) {
   );
 }
 
-/** A headline number over its name. Opaque, edgeless — it lives in a Seam. */
+/**
+ * A headline number over its name. Opaque, edgeless — it lives in a Seam.
+ *
+ * THE VALUE STEPS DOWN THE RAMP RATHER THAN CLIPPING, and that is the one
+ * thing this cell does that the rest of the stats screen does not need to.
+ *
+ * Every other numeric cell in these screens is a column: its width is stated
+ * in em of its own type size, so sizing it is arithmetic somebody can do once
+ * and `npm run check` can hold. A tile is the opposite shape — its width is
+ * whatever a fifth or a quarter or a half of the room comes to — and the same
+ * `fsXl` was drawn in all of them. Three or four across a tall, narrow phone
+ * that is about eighty points of room, and `100%` is nearly three em of Inter,
+ * whose percent sign is a full em on its own. So the FG% tile printed `100…`,
+ * the true-shooting tile printed `100.0…`, and the zones' `28-61` clipped on
+ * half the phones sold.
+ *
+ * The cell measures itself and takes the biggest step off the ramp that holds
+ * the string — `fsXl`, then `fsLg`, `fsMd`, `fsSm`. Nothing moves for a value
+ * that already fitted, which is nearly all of them; the rare long one is set a
+ * step smaller instead of losing its last character. The LABEL is not in it:
+ * it is `fsXs` already and is the caption, not the figure.
+ *
+ * The ramp runs all the way down to `fsSm` because the floor has to be a size
+ * and not a hope: a tile holds seven characters at its worst (`100-100`, four
+ * across a narrow phone), and a step list that stops early would clip that one
+ * string having gone to all this trouble not to.
+ */
 export function Tile({
   value,
   label,
@@ -411,8 +439,15 @@ export function Tile({
 }) {
   const m = useMetrics();
   const t = useTheme();
+  // the cell's own width, once it has one — see `figFit` for the first paint
+  const [box, setBox] = useState(0);
+
+  const text = String(value);
+  const fs = figFit(text, box - 2 * m.s1, [m.fsXl, m.fsLg, m.fsMd, m.fsSm], 700, LS_TIGHT);
+
   return (
     <View
+      onLayout={(e) => setBox(e.nativeEvent.layout.width)}
       style={{
         flex: 1,
         minWidth: 0,
@@ -428,14 +463,16 @@ export function Tile({
         numberOfLines={1}
         style={{
           ...fNum(700),
-          fontSize: m.fsXl,
-          letterSpacing: ls(m.fsXl, LS_TIGHT),
+          fontSize: fs,
+          letterSpacing: ls(fs, LS_TIGHT),
+          // the line box is the RAMP's and not the fitted size's, so a row of
+          // tiles keeps one height whether or not one of them stepped down
           lineHeight: m.fsXl * 1.1,
           color: tone ?? t.ink,
           fontVariant: ['tabular-nums'],
         }}
       >
-        {value}
+        {text}
       </GlowText>
       <Text
         numberOfLines={1}

@@ -28,7 +28,7 @@
  * null for the whole game. Null does NOT re-derive — it returns the board's
  * own counters, because those are authoritative and are what UNDO maintains.
  */
-import { FOUL_KINDS, PERIOD_LEN, TALLY, ZONES, zeroStats } from '../constants/game';
+import { FOUL_KINDS, PERIOD_LEN, REG_PERIODS, TALLY, ZONES, zeroStats } from '../constants/game';
 import { totals, zoneSplits, type Totals, type ZoneSplit } from './stats';
 import type { GameEvent, GameState, Player, PlayerStats, Zone } from '../types';
 
@@ -52,6 +52,16 @@ export const clockSeconds = (clock: string): number => {
  * rather than at every call site so no reader can forget it.
  */
 export const lenOf = (g: { periodLen?: number }): number => g.periodLen || PERIOD_LEN;
+
+/**
+ * HOW MANY PERIODS REGULATION WAS, with the same fallback and for the same
+ * reason `lenOf` has one: a game saved before the setting existed was four
+ * quarters, which is what the board was hardcoded to. Anything that has to
+ * name a period — `periodLabel`, or a table with one column per quarter —
+ * needs this number, and reading it raw off a game that predates the key is
+ * how `QNaN` reaches a heading.
+ */
+export const regOf = (g: { periods?: number }): number => g.periods || REG_PERIODS;
 
 /**
  * Game time elapsed when an event happened, counted from the opening tip.

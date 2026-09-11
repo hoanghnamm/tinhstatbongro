@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -6,7 +6,8 @@ import Svg, { Path } from 'react-native-svg';
 
 import { PlayerList } from '../../components/stats/PlayerList';
 import { Band, Seam, Tile } from '../../components/stats/parts';
-import { Bloom } from '../../components/ui/Bloom';
+import { RoomGround } from '../../components/offcourt/RoomGround';
+import { EmptyState } from '../../components/offcourt/EmptyState';
 import { ClubMark } from '../../components/team/ClubMark';
 import { Locked } from '../../components/ui/Locked';
 import { Press } from '../../components/ui/Press';
@@ -14,12 +15,15 @@ import { Col, Row } from '../../components/ui/Row';
 import { useLocked } from '../../hooks/useGate';
 import { useSavedRows, type SavedGame } from '../../hooks/useSavedGames';
 import { useTabInset } from '../../hooks/useTabInset';
+import { useTopOnBlur } from '../../hooks/useTopOnBlur';
 import { dayMonthLabel, summaryKind } from '../../lib/history';
 import { competitions, season, type CompetitionSeason, type Season } from '../../lib/season';
 import { competitionLabel, opponentLabel } from '../../lib/team';
 import { useHistoryStore } from '../../store/historyStore';
-import { useRosterStore } from '../../store/rosterStore';
+import { useActiveSquad } from '../../hooks/useActiveSquad';
+import { membersOf, squadIdOf } from '../../lib/squads';
 import { useMetrics } from '../../theme/metrics';
+import { ROOM_WIDTH, useRoomMetrics } from '../../theme/room';
 import {
   ELEV_CARD,
   LS_LABEL,
@@ -96,7 +100,7 @@ function CompCard({ comp, onPress }: { comp: CompetitionSeason; onPress(): void 
     >
       <Press
         onPress={onPress}
-        accessibilityLabel={`${name}, ${gamesLabel(S.games).toLowerCase()}`}
+        accessibilityLabel={`${name}, ${gamesLabel(S.games)}, ${avg(S.team.pts, S.games)} points per game. Open competition`}
         style={{
           borderWidth: 1,
           borderColor: t.rule,
@@ -127,13 +131,15 @@ function CompCard({ comp, onPress }: { comp: CompetitionSeason; onPress(): void 
           <Tile value={avg(S.team.reb, S.games)} label="Rebounds" />
           <Tile value={avg(S.team.ast, S.games)} label="Assists" />
         </Seam>
+        <Text style={{ ...fUi(400), fontSize: m.fsXs, letterSpacing: ls(m.fsXs, LS_MICRO),
+          color: t.ink2, paddingHorizontal: m.s3, paddingVertical: m.s2 }}>Per game</Text>
       </Press>
     </View>
   );
 }
 
 /**
- * THE WAY INTO THE LAST GAME'S ANALYSIS.
+ * THE WAY INTO THE COMPARISON.
  *
  * A ruled row rather than a filled card: everything else on this screen above
  * the competitions is type on the room's own ground, and a `surface` block
@@ -143,12 +149,16 @@ function CompCard({ comp, onPress }: { comp: CompetitionSeason; onPress(): void 
  * nobody takes twice.
  *
  * IT IS DRAWN WHENEVER THERE IS AN OFFICIAL GAME, including when that game is
- * the only one there is. A comparison against nothing is still the last game's
- * own six numbers with `—` beside them, and a scorer who has played one game
- * gets a page that says so rather than a control that is missing for a reason
- * the screen never states.
+ * the only one there is. A comparison against nothing is still that game's own
+ * figures with `—` beside them, and a scorer who has played one game gets a
+ * page that says so rather than a control that is missing for a reason the
+ * screen never states.
+ *
+ * THE LINE UNDER THE VERB NAMES THE GAME IT OPENS ON — the newest official one
+ * — and not the only game it can show: the page picks its own subject, and the
+ * row is a door rather than a description of what is behind it.
  */
-function AnalysisRow({ last }: { last: SavedGame }) {
+function ComparisonRow({ last }: { last: SavedGame }) {
   const m = useMetrics();
   const t = useTheme();
 
@@ -160,8 +170,8 @@ function AnalysisRow({ last }: { last: SavedGame }) {
 
   return (
     <Press
-      onPress={() => router.push('/analysis')}
-      accessibilityLabel="last game analysis"
+      onPress={() => router.push('/comparison')}
+      accessibilityLabel={`Comparison, ${subtitle}. Compare a game with the season average or another game`}
       style={{
         borderWidth: 1,
         borderColor: t.rule,
@@ -184,7 +194,7 @@ function AnalysisRow({ last }: { last: SavedGame }) {
               color: t.ink,
             }}
           >
-            Last game analysis
+            Comparison
           </Text>
           <Text
             numberOfLines={1}
@@ -282,20 +292,40 @@ function SectionLabel({ children }: { children: string }) {
  */
 export default function SeasonScreen() {
   const m = useMetrics();
+  const room = useRoomMetrics();
   const t = useTheme();
   const safe = useSafeAreaInsets();
   const bar = useTabInset();
 
+  // a tab is a room, and it is entered at the top of it — see the hook. Only
+  // the branch below with a season in it scrolls; the gated and empty ones
+  // centre one card and never leave the top.
+  const scroller = useRef<ScrollView>(null);
+  useTopOnBlur(scroller);
+
   const index = useHistoryStore((s) => s.index);
-  const roster = useRosterStore((s) => s.players);
+  // A SEASON BELONGS TO A TEAM, not to a club. Three teams playing three
+  // different competitions add up to a record nobody has and an MVP nobody
+  // would recognise; the strip on the TEAM tab is what says which of the three
+  // this room is about.
+  const { squad, roster: pool } = useActiveSquad();
+  const roster = useMemo(() => membersOf(squad, pool), [squad, pool]);
   const rows = useSavedRows();
 
-  // the season is the official games, and the split is made here rather than
-  // inside `season()` — one competition's page filters first and aggregates the
-  // same way, so the filter belongs to the caller
+  // TWO FILTERS, BOTH AT THE SCREEN. The team's games, then the official ones
+  // among them — the split is made here rather than inside `season()` because
+  // one competition's page filters first and aggregates the same way, so the
+  // filter belongs to the caller.
   const official = useMemo<SavedGame[] | null>(
-    () => (rows ? rows.filter((r) => summaryKind(r.summary) !== 'practice') : null),
-    [rows],
+    () =>
+      rows
+        ? rows.filter(
+            (r) =>
+              squadIdOf(r.summary) === (squad?.id ?? '') &&
+              summaryKind(r.summary) !== 'practice',
+          )
+        : null,
+    [rows, squad],
   );
   const games = useMemo(() => official?.map((r) => r.game) ?? null, [official]);
 
@@ -328,7 +358,8 @@ export default function SeasonScreen() {
         paddingRight: safe.right + m.s4,
       }}
     >
-      <Bloom />
+      <RoomGround />
+      <View style={{ flex: 1, width: '100%', maxWidth: ROOM_WIDTH, alignSelf: 'center' }}>
 
       {/* THE CLUB HEADS THIS ROOM, AND IT IS DRAWN ABOVE EVERY BRANCH — the
           wall, both empty states and the table alike. Whose season this is
@@ -342,8 +373,9 @@ export default function SeasonScreen() {
           the band: it identifies the run rather than describing it. It is NOT
           LIT — a `12-4` is a win and a loss in one string, and colouring it
           would mean choosing which half of a season to shout. */}
-      <Row gap={m.s3} align="center">
-        <View style={{ flex: 1, minWidth: 0 }}>
+      <Row gap={room.narrow ? m.s1 : m.s3} align={room.narrow ? 'flex-start' : 'center'}
+        style={{ flexDirection: room.narrow ? 'column' : 'row' }}>
+        <View style={{ flexGrow: room.narrow ? 0 : 1, flexShrink: 1, minWidth: 0, maxWidth: '100%' }}>
           <ClubMark />
         </View>
         {!gated && !!S && S.games > 0 && (
@@ -364,48 +396,22 @@ export default function SeasonScreen() {
         )}
       </Row>
 
-      {gated ? (
-        <Col justify="center" style={{ flex: 1 }}>
-          <Locked
-            gate="season"
-            blurb="Every official game added up — the table, the competitions and each player's own season."
-          />
-        </Col>
-      ) : empty || noneOfficial ? (
-        <Col align="center" justify="center" gap={m.s2} style={{ flex: 1 }}>
-          <Text
-            style={{
-              ...fUi(500),
-              fontSize: m.fsMd,
-              letterSpacing: ls(m.fsMd, LS_LABEL),
-              color: t.ink3,
-            }}
-          >
-            {empty ? 'No games yet' : 'No official games yet'}
-          </Text>
-          <Text
-            style={{
-              paddingHorizontal: m.s4,
-              textAlign: 'center',
-              ...fUi(400),
-              fontSize: m.fsSm,
-              color: t.ink3,
-            }}
-          >
-            {empty
-              ? 'End a game and its line is added here.'
-              : 'A practice keeps its own box score and stays off the season. Start a game as official and it lands here.'}
-          </Text>
-        </Col>
+      {gated || empty || noneOfficial ? (
+        <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingVertical: m.s5, paddingBottom: bar + m.s5 }}>
+          {gated ? <Locked gate="season" blurb="Your official games, competitions and player averages, together." /> :
+            <EmptyState title={empty ? 'A season starts with one game' : 'No official games yet'} />}
+        </ScrollView>
       ) : (
         <ScrollView
+          ref={scroller}
           style={{ flex: 1 }}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingTop: m.s4, paddingBottom: bar + m.s5 }}
         >
           {S && official ? (
             <Col gap={m.s5}>
-              {official.length > 0 && <AnalysisRow last={official[0]} />}
+              {official.length > 0 && <ComparisonRow last={official[0]} />}
 
               {comps.length > 0 && (
                 <Col gap={m.s2}>
@@ -455,6 +461,7 @@ export default function SeasonScreen() {
           )}
         </ScrollView>
       )}
+      </View>
     </View>
   );
 }

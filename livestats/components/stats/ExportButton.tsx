@@ -38,6 +38,12 @@ const A4 = { width: 595, height: 842 };
  * file name, not the first page.
  */
 export function ExportButton({ game }: { game: GameState }) {
+  return <PdfExportButton build={() => gameReportHtml(game)} fileName={reportFileName(game)} title="Game report" description="The whole game: box score, team line and zones" />;
+}
+
+export function PdfExportButton({ build, fileName, title, description }: {
+  build: () => string; fileName: string; title: string; description?: string;
+}) {
   const m = useMetrics();
   const t = useTheme();
   const [busy, setBusy] = useState(false);
@@ -47,8 +53,8 @@ export function ExportButton({ game }: { game: GameState }) {
     if (busy) return;
     setBusy(true);
     setFailed(false);
-    const html = gameReportHtml(game);
     try {
+      const html = build();
       // no file system to print into, so the browser's own dialog is the export
       if (Platform.OS === 'web') {
         await Print.printAsync({ html });
@@ -58,7 +64,7 @@ export function ExportButton({ game }: { game: GameState }) {
       const { uri } = await Print.printToFileAsync({ html, ...A4 });
       let out = uri;
       try {
-        const target = new File(Paths.cache, reportFileName(game));
+        const target = new File(Paths.cache, fileName);
         if (target.exists) target.delete();
         new File(uri).move(target);
         out = target.uri;
@@ -70,7 +76,7 @@ export function ExportButton({ game }: { game: GameState }) {
         await Sharing.shareAsync(out, {
           mimeType: 'application/pdf',
           UTI: 'com.adobe.pdf',
-          dialogTitle: 'Game report',
+          dialogTitle: title,
         });
       else await Print.printAsync({ html });
     } catch {
@@ -90,7 +96,7 @@ export function ExportButton({ game }: { game: GameState }) {
           onPress={() => void run()}
         />
       </Row>
-      <Text
+      {(failed || description) && <Text
         style={{
           textAlign: 'center',
           ...fUi(500),
@@ -101,8 +107,8 @@ export function ExportButton({ game }: { game: GameState }) {
       >
         {failed
           ? 'The sheet could not be made — try again'
-          : 'The whole game: box score, team line and zones'}
-      </Text>
+          : description}
+      </Text>}
     </Col>
   );
 }

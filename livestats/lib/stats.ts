@@ -97,7 +97,22 @@ export function totals(players: Player[]): Totals {
   );
 }
 
-/** eFG treats a three as 1.5 field goals. */
+/**
+ * eFG treats a three as 1.5 field goals, which is the whole of it: a 3-for-10
+ * night from the arc and a 3-for-10 night from the elbow are the same FG% and
+ * are not the same shooting.
+ *
+ * IT IS NOT CAPPED. There is no arithmetic that puts it over 100 — that would
+ * need more threes than field goals — so a clamp here would only hide a
+ * counting bug rather than a real reading.
+ *
+ * The number and the string are two exports because two callers need two
+ * things: the headline tile prints it, and the screen that decides whether it
+ * is worth printing has to compare it.
+ */
+export const efgValue = (t: Totals): number | null =>
+  t.fga ? ((t.fgm + 0.5 * t.tpm) / t.fga) * 100 : null;
+
 export const efg = (t: Totals): string => (t.fga ? pct1(t.fgm + 0.5 * t.tpm, t.fga) : '-');
 
 /** TS charges 0.44 of a possession per free throw attempt. */

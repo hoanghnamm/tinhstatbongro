@@ -19,16 +19,14 @@
  * one prints their score, their quarters, and the two scoreboard numbers a
  * single integer can honestly support.
  *
- * IT DRAWS NO FLOOR AND CARRIES NO PLAY LOG, and both were on it. The two
- * courts and the play-by-play are things you READ — a chart to look at and a
- * hundred rows to scroll — and the screen is where you look at them, on a
- * page that can scroll and a floor that can be tapped. The sheet is the
- * scorebook: the numbers, in the shape a scorer already knows. What survives
- * of the floor is the ZONE TABLE, because a shooting split is a number.
+ * The match report includes a shot chart beside its zone table and no play log.
+ * The requested notes removal applies to this export only.
  */
-import { FOUL_KINDS, ZONE_LABEL } from '../constants/game';
+import { ZONE_LABEL } from '../constants/game';
 import { PALETTE } from '../theme/tokens';
 import { BREAK_WINDOW, periodsOf, report, zoneRows, type Report } from './box';
+import { pdfShotChart } from './pdfChart';
+import { periodScores } from './flow';
 import { mmss, pct, periodLabel } from './format';
 import { numDateLabel } from './history';
 import { appeared } from './season';
@@ -93,28 +91,12 @@ export function reportFileName(g: GameState, at: number = Date.now()): string {
  * The quarters
  *
  * The board's own counters are the truth about the WHOLE game and say nothing
- * about when a point happened, so the period line is walked off the log. It is
- * its own walk rather than four calls to `report()`: this one needs both sides
- * and neither of the two things `linesFor` reconstructs.
+ * about when a point happened, so the period line is walked off the log — and
+ * the walk is `lib/flow.ts`'s, not a second copy here. It was a second copy,
+ * character for character, for exactly as long as only paper printed a period
+ * line; the screen's game-flow table asks the same question, and two functions
+ * answering it is one of them being wrong the first time either is edited.
  * ------------------------------------------------------------------ */
-
-export interface PeriodScore {
-  period: number;
-  us: number;
-  them: number;
-}
-
-export function periodScores(g: GameState): PeriodScore[] {
-  const rows: PeriodScore[] = periodsOf(g).map((period) => ({ period, us: 0, them: 0 }));
-  const at = new Map(rows.map((r) => [r.period, r]));
-  for (const e of g.events) {
-    const r = at.get(e.period);
-    if (!r) continue;
-    if (e.type === 'oppPoint') r.them += e.value;
-    else if ((e.type === 'shot' || e.type === 'freeThrow') && e.result === 'made') r.us += e.value;
-  }
-  return rows;
-}
 
 /* ------------------------------------------------------------------ *
  * The tables
@@ -125,10 +107,10 @@ const BOX_HEAD = `
     <th rowspan="2" class="n">No</th>
     <th rowspan="2" class="l">Name</th>
     <th rowspan="2">Min</th>
-    <th colspan="2">Field Goals</th>
-    <th colspan="2">2 Points</th>
-    <th colspan="2">3 Points</th>
-    <th colspan="2">Free Throws</th>
+    <th colspan="2">Field goals</th>
+    <th colspan="2">2PT</th>
+    <th colspan="2">3PT</th>
+    <th colspan="2">Free throws</th>
     <th colspan="3">Rebounds</th>
     <th rowspan="2">AS</th><th rowspan="2">TO</th><th rowspan="2">ST</th><th rowspan="2">BS</th>
     <th colspan="2">Fouls</th>
@@ -219,52 +201,48 @@ const block = (title: string, rows: string): string =>
  * ------------------------------------------------------------------ */
 
 const CSS = `
+  @page { size: A4 portrait; margin: 14mm; }
   * { box-sizing: border-box; }
-  @page { size: A4 portrait; margin: 12mm 9mm; }
-  body {
-    margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Arial, sans-serif;
-    font-size: 9px; color: ${PALETTE.ink};
-    -webkit-print-color-adjust: exact; print-color-adjust: exact;
-    font-variant-numeric: tabular-nums;
-  }
-  h1 { margin: 2px 0 0; font-size: 16px; letter-spacing: 0.01em; }
-  h2 {
-    margin: 13px 0 4px; font-size: 10px; letter-spacing: 0.01em;
-    color: ${PALETTE.ink2};
-    border-bottom: 1px solid ${PALETTE.ink}; padding-bottom: 2px;
-  }
-  .head { display: flex; align-items: flex-start; gap: 12px; }
-  .head .right {
-    margin-left: auto; text-align: right;
-    color: ${PALETTE.ink2}; font-size: 8px; line-height: 1.6;
-  }
-  .kicker { font-size: 10px; letter-spacing: 0.02em; color: ${PALETTE.ink2}; }
-  .score { margin-top: 4px; font-size: 20px; font-weight: 700; }
+  body { margin: 0; font: 11px Arial, sans-serif; color: ${PALETTE.ink};
+    font-variant-numeric: tabular-nums; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  h1 { margin: 10px 0 6px; font-size: 29px; line-height: 1.2; overflow-wrap: anywhere; }
+  h2 { margin: 20px 0 9px; font-size: 12px; font-weight: 600; break-after: avoid; }
+  .head { border-top: 3px solid ${PALETTE.accent}; padding-top: 14px; margin-bottom: 18px; }
+  .kicker, .meta { font-size: 10px; color: ${PALETTE.ink2}; line-height: 1.5; overflow-wrap: anywhere; }
+  .meta { margin-top: 5px; }
+  .score { margin: 16px 0 8px; font-size: 36px; font-weight: 700; }
   .score .us { color: ${PALETTE.accent}; }
-  .sep { color: ${PALETTE.ink3}; font-weight: 400; padding: 0 5px; }
-  .quarters { margin-top: 1px; color: ${PALETTE.ink2}; }
-  .note { margin-top: 3px; color: ${PALETTE.ink2}; font-style: italic; }
-
+  .sep { color: ${PALETTE.ink2}; font-weight: 400; padding: 0 8px; }
+  .quarters, .note { margin-top: 5px; color: ${PALETTE.ink2}; line-height: 1.5; overflow-wrap: anywhere; }
   table { width: 100%; border-collapse: collapse; }
-  th, td { border: 1px solid ${PALETTE.rule}; padding: 2px 3px; text-align: center; }
-  th { background: ${PALETTE.surface2}; font-weight: 700; font-size: 7.5px; letter-spacing: 0.05em; }
-  td { font-size: 8.5px; }
-  td.l, th.l { text-align: left; }
-  .box td.l { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px; }
-  .box .tot td { background: ${PALETTE.surface2}; font-weight: 700; }
-  .box .dnp { color: ${PALETTE.ink3}; letter-spacing: 0.12em; }
-  .zones { width: 46%; min-width: 210px; }
-
-  .cols { display: flex; gap: 8px; align-items: flex-start; }
+  th, td { padding: 6px 3px; text-align: right; border-bottom: 1px solid ${PALETTE.rule}; }
+  th { font-size: 10px; font-weight: 400; color: ${PALETTE.ink2}; }
+  td { font-size: 10px; }
+  td.l, th.l { text-align: left; overflow-wrap: anywhere; }
+  thead { display: table-header-group; }
+  tr { break-inside: avoid; }
+  .box { table-layout: fixed; }
+  .box th, .box td { font-size: 8px; padding: 7px 1px; text-align: center; }
+  .box th.n { width: 22px; }
+  .box th.l { width: 92px; }
+  .box td.l, .box th.l { text-align: left; padding-right: 5px; }
+  .box .tot td { font-weight: 700; border-top: 1px solid ${PALETTE.ink2}; }
+  .box td:last-child:not(.dnp) { color: ${PALETTE.accent}; font-weight: 700; }
+  .box .dnp { color: ${PALETTE.ink2}; font-weight: 400; }
+  .details { break-before: page; }
+  .cols { display: flex; gap: 24px; align-items: flex-start; }
   .cols > * { flex: 1; min-width: 0; }
-  .kv { margin-bottom: 6px; }
-  .kv td.v { width: 56px; font-weight: 700; }
-  .kv td.s { width: 42px; color: ${PALETTE.ink2}; }
-  .kv th { letter-spacing: 0.02em; }
-
-  .legend { margin-top: 8px; font-size: 7.5px; color: ${PALETTE.ink2}; line-height: 1.7; }
-  .legend b { color: ${PALETTE.ink}; }
+  .kv { margin-bottom: 16px; break-inside: avoid; }
+  .kv th { color: ${PALETTE.ink}; font-size: 12px; font-weight: 600; padding: 0 0 9px; }
+  .kv td { padding: 5px 0; }
+  .kv td.v { width: 52px; font-weight: 600; }
+  .kv td.s { width: 46px; color: ${PALETTE.ink2}; }
+  .zones { width: 100%; }
+  .floor-summary { break-inside: avoid; }
+  .floor-summary svg { width: 100%; height: auto; display: block; }
+  .chart-key { display: flex; justify-content: center; gap: 16px; margin-top: 9px; font-size: 10px; }
+  .made { color: ${PALETTE.accent}; }
+  .ft { color: ${PALETTE.live}; }
 `;
 
 /**
@@ -291,25 +269,16 @@ export function gameReportHtml(g: GameState, at: number = Date.now()): string {
     )
     .join('');
 
-  const dqShorts = Object.values(FOUL_KINDS)
-    .filter((k) => k.dq)
-    .map((k) => k.short)
-    .join(', ');
-
   return `<html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width"/><style>${CSS}</style></head><body>
 
 <div class="head">
   <div>
-    <div class="kicker">${esc(reportTitle(g))}</div>
+    <div class="kicker">hooplog / Match report</div>
+    <div class="meta">${esc(reportTitle(g))} · ${stampLabel(at)}</div>
     <h1>${esc(g.team.name)}<span class="sep">vs</span>${esc(opponentLabel(g.opponent))}</h1>
     <div class="score"><span class="us">${rep.us}</span><span class="sep">&ndash;</span>${rep.them}</div>
     <div class="quarters">(${quarterLine})</div>
     ${g.note ? `<div class="note">${esc(g.note)}</div>` : ''}
-  </div>
-  <div class="right">
-    <b>HoopLog box score</b><br/>
-    Periods played: ${qs.length}<br/>
-    Report generated: ${stampLabel(at)}
   </div>
 </div>
 
@@ -336,7 +305,8 @@ export function gameReportHtml(g: GameState, at: number = Date.now()): string {
   <tbody>${g.players.map(boxRow).join('')}${boxTotals(rep)}</tbody>
 </table>
 
-<h2>Team</h2>
+<div class="details">
+<div class="head"><div class="kicker">hooplog / Match report</div><h1>Team stats</h1><div class="meta">${esc(g.team.name)} · ${esc(opponentLabel(g.opponent))}</div></div>
 <div class="cols">
   <div>
     ${block(
@@ -373,9 +343,9 @@ export function gameReportHtml(g: GameState, at: number = Date.now()): string {
       [
         kv('Points', rep.us),
         kv('Points in the paint', a.paint, pct(a.paint, rep.us)),
-        kv('Second chance points', a.secondChance, pct(a.secondChance, rep.us)),
-        kv('Fast break points', a.fastBreak, pct(a.fastBreak, rep.us)),
-        kv('Points from turnovers', a.offTurnovers, pct(a.offTurnovers, rep.us)),
+        kv('After our offensive rebounds', a.secondChance, pct(a.secondChance, rep.us)),
+        kv(`Fast break, within ${BREAK_WINDOW}s`, a.fastBreak, pct(a.fastBreak, rep.us)),
+        kv('Points off our steals', a.offTurnovers, pct(a.offTurnovers, rep.us)),
         kv('Bench points', a.bench, pct(a.bench, rep.us)),
       ].join(''),
     )}
@@ -389,34 +359,20 @@ export function gameReportHtml(g: GameState, at: number = Date.now()): string {
         kv('Time with the lead', mmss(a.timeAhead)),
         kv('Possessions', g.possessions || '&mdash;'),
         kv('Timeouts', g.timeouts || '&mdash;'),
-        kv('Points per possession', a.ppp === null ? '&mdash;' : a.ppp.toFixed(2)),
+        kv('Points per possession, whole game', a.ppp === null ? '&mdash;' : a.ppp.toFixed(2)),
       ].join(''),
     )}
   </div>
 </div>
 
-<h2>By zone</h2>
+<div class="cols floor-summary"><section><h2>By zone</h2>
 <table class="zones">
   <thead><tr><th class="l">Zone</th><th>M/A</th><th>%</th></tr></thead>
   <tbody>${zoneTable}</tbody>
-</table>
+</table></section><section><h2>Shot chart</h2>${pdfShotChart(g.events)}<div class="chart-key"><span class="made">● Made</span><span>× Missed</span><span class="ft">● FT</span></div>${g.events.some(e => e.type === 'shot' || e.type === 'freeThrow') ? '' : '<div class="meta">No shots recorded</div>'}</section></div>
 
-<div class="legend">
-  <b>*</b> Game starter &nbsp; <b>DNP</b> Did not play &nbsp; <b>M/A</b> Made / attempted &nbsp;
-  <b>OR</b> Offensive rebounds &nbsp; <b>DR</b> Defensive rebounds &nbsp; <b>TOT</b> Total rebounds &nbsp;
-  <b>AS</b> Assists &nbsp; <b>TO</b> Turnovers &nbsp; <b>ST</b> Steals &nbsp; <b>BS</b> Blocks &nbsp;
-  <b>PF</b> Personal fouls (${dqShorts}; ${FOUL_KINDS.technical.short} excluded) &nbsp;
-  <b>FD</b> Fouls drawn &nbsp; <b>+/-</b> Plus / minus &nbsp; <b>EF</b> Efficiency &nbsp;
-  <b>PTS</b> Points
-  <br/>
-  <b>Points from turnovers</b> is points scored after one of our steals &mdash; a steal is the only
-  opponent turnover a one-team board hears about. <b>Second chance points</b> is points after one of
-  our offensive rebounds, before the possession ends. <b>Fast break points</b> is points within
-  ${BREAK_WINDOW} seconds of a steal or a defensive rebound, measured on the GAME CLOCK, so a clock
-  left stopped makes it read high. <b>Minutes</b> are clock-driven, so a period ended early hands its
-  unplayed tail to whoever was on the floor. A <b>free throw</b> is logged at the centre of the line
-  and carries no zone: it is not a field-goal attempt, so no zone counts it.
+
+
 </div>
-
 </body></html>`;
 }
