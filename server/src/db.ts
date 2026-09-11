@@ -4,7 +4,7 @@
  * `platform/storage.ts` is the precedent: one module owns the connection, every
  * caller goes through it, and nothing else in the tree imports the driver.
  *
- * Migrations run at boot, in one transaction each, recorded in a table so a
+ * Migrations run at boot in one locked transaction, recorded in a table so a
  * second instance starting at the same moment does not run them twice. They are
  * plain `.sql` files applied in name order — no migration framework, for the
  * same reason there is no test framework in the app: the whole mechanism is
@@ -22,7 +22,16 @@ export const pool = new pg.Pool({
   // Railway's Postgres presents a certificate its own proxy signs.
   ssl: env.databaseUrl.includes('localhost') ? false : { rejectUnauthorized: false },
   max: 10,
+  connectionTimeoutMillis: 5_000,
+  statement_timeout: 15_000,
+  idle_in_transaction_session_timeout: 15_000,
   idleTimeoutMillis: 30_000,
+});
+
+// pg removes the failed idle connection; handling the event keeps the process
+// alive so the next request can establish a new connection.
+pool.on('error', (error) => {
+  console.error('[db] idle connection failed', error.message);
 });
 
 export type Row = Record<string, unknown>;
@@ -66,26 +75,31 @@ export async function tx<T>(run: (c: pg.PoolClient) => Promise<T>): Promise<T> {
 }
 
 export async function migrate(): Promise<string[]> {
-  await query(`
-    create table if not exists migrations (
-      name text primary key,
-      applied_at timestamptz not null default now()
-    )
-  `);
-
   const dir = join(dirname(fileURLToPath(import.meta.url)), 'migrations');
   const files = (await readdir(dir)).filter((f) => f.endsWith('.sql')).sort();
-  const done = new Set((await query<{ name: string }>('select name from migrations')).map((r) => r.name));
+  if (!files.length) throw new Error('No SQL migrations found in the server build');
 
-  const ran: string[] = [];
-  for (const file of files) {
-    if (done.has(file)) continue;
-    const sql = await readFile(join(dir, file), 'utf8');
-    await tx(async (c) => {
-      await c.query(sql);
-      await c.query('insert into migrations (name) values ($1)', [file]);
-    });
-    ran.push(file);
-  }
-  return ran;
+  return tx(async (client) => {
+    // Lock BEFORE creating even the tracking table. Every startup uses the same
+    // transaction lock, released automatically on commit or rollback.
+    await client.query('select pg_advisory_xact_lock(724019, 1)');
+    await client.query(`
+      create table if not exists migrations (
+        name text primary key,
+        applied_at timestamptz not null default now()
+      )
+    `);
+
+    const done = new Set((await client.query<{ name: string }>('select name from migrations')).rows.map((r) => r.name));
+
+    const ran: string[] = [];
+    for (const file of files) {
+      if (done.has(file)) continue;
+      const sql = await readFile(join(dir, file), 'utf8');
+      await client.query(sql);
+      await client.query('insert into migrations (name) values ($1)', [file]);
+      ran.push(file);
+    }
+    return ran;
+  });
 }

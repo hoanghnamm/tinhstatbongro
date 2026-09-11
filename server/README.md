@@ -124,7 +124,12 @@ because a staging box that quietly returns login tokens is a staging box that ha
 
 1. **Set the service's Root Directory to `server`.** This is a monorepo and the repo root has no
    `package.json`; without this the build fails before it starts.
-2. Add a Postgres database to the project. Railway injects `DATABASE_URL` and `PORT`.
+2. Add a PostgreSQL database to the same Railway project and environment (`+ New` → Database →
+   PostgreSQL). Then open the **server service** → **Variables** and add a reference variable:
+   `DATABASE_URL=${{Postgres.DATABASE_URL}}`. Replace `Postgres` with the database service's exact
+   name, or select its `DATABASE_URL` through Railway's variable reference picker. Creating the
+   database does **not** automatically add this variable to the server service. Railway supplies
+   the server's `PORT` separately. Apply the variable changes and redeploy.
 3. Set the rest from `.env.example` — at minimum `REVENUECAT_WEBHOOK_SECRET` and `APP_LINK_BASE`,
    plus `RESEND_API_KEY` before anyone outside the team signs in.
 4. In RevenueCat: Integrations → Webhooks → the deployed URL + `/billing/revenuecat`, with the same
@@ -134,8 +139,22 @@ because a staging box that quietly returns login tokens is a staging box that ha
 **The build command is `npm run build` and must not install.** Nixpacks installs in its own
 earlier phase and attaches a build cache at `node_modules/.cache`; an `npm ci` in the BUILD
 phase wipes `node_modules` first, cannot remove that live mount, and dies `EBUSY`.
-Migrations run at boot inside a transaction each and are recorded, so two instances starting
-together do not run them twice.
+Migrations run at boot inside one transaction protected by a PostgreSQL advisory lock, including
+creation of the migration tracking table, so simultaneous instances cannot apply the same schema.
+Failure rolls the pending batch back. Database connections time out after 5 seconds and SQL
+statements after 15 seconds. Idle connection errors are logged without terminating the server.
+Shutdown stops incoming HTTP requests before closing the database, with a 20-second deadline.
+Email requests time out after 10 seconds.
+
+`npm run check` also exercises transaction rollback, migration ordering and idle connection errors
+with a fake database client. This does not replace a live PostgreSQL deployment smoke test.
+
+If startup says `DATABASE_URL is not set`, check the **server service's** variables in the
+environment being deployed. A variable on the database service alone, or in a local `.env`,
+does not configure the deployed server. Do not use the example's `localhost` URL in production.
+This server uses PostgreSQL (`pg` and SQL migrations); Firebase is not required. Tables are
+created by migrations at startup. Once deployed, open `/health` on the server's public URL.
+Keep the database URL in server variables, never in an `EXPO_PUBLIC_` app variable or Git.
 
 ## Still to do
 

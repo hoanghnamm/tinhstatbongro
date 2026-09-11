@@ -57,24 +57,39 @@ app.route('/auth', auth);
 app.route('/sync', sync);
 app.route('/billing', billing);
 
+let server: ReturnType<typeof serve> | undefined;
+let stopping = false;
+
 const started = async () => {
   const ran = await migrate();
+  if (stopping) return;
   if (ran.length) console.log(`[db] applied ${ran.join(', ')}`);
-  serve({ fetch: app.fetch, port: env.port }, ({ port }) =>
+  server = serve({ fetch: app.fetch, port: env.port, hostname: '0.0.0.0' }, ({ port }) =>
     console.log(`[hooprec] listening on ${port}`),
   );
+  server.on('error', (error) => {
+    console.error('[http] failed', error.message);
+    void stop(1);
+  });
 };
 
 started().catch((error) => {
   console.error('[boot] failed', error);
-  process.exit(1);
+  void stop(1);
 });
 
 // Railway stops a container with SIGTERM; finishing the in-flight push is the
 // difference between a scorer retrying and a scorer seeing an error.
-const stop = async () => {
+const stop = async (code = 0) => {
+  if (stopping) return;
+  stopping = true;
+  const deadline = setTimeout(() => process.exit(1), 20_000);
+  deadline.unref();
+  // Stop accepting requests, let active responses finish, then close Postgres.
+  if (server) await new Promise<void>((resolve) => server!.close(() => resolve()));
   await pool.end().catch(() => {});
-  process.exit(0);
+  clearTimeout(deadline);
+  process.exit(code);
 };
-process.on('SIGTERM', stop);
-process.on('SIGINT', stop);
+process.on('SIGTERM', () => void stop());
+process.on('SIGINT', () => void stop());
