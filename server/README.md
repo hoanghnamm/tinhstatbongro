@@ -156,15 +156,17 @@ This server uses PostgreSQL (`pg` and SQL migrations); Firebase is not required.
 created by migrations at startup. Once deployed, open `/health` on the server's public URL.
 Keep the database URL in server variables, never in an `EXPO_PUBLIC_` app variable or Git.
 
-## Still to do
+## App sign-in and backup
 
-The client half is not written yet. It needs, in `livestats/`:
+The app now has email-code sign-in in Settings and on the first onboarding step.
+`POST /auth/code/request` sends an eight-digit code through Resend;
+`POST /auth/code/verify` exchanges its challenge and code for a session. Codes
+expire after fifteen minutes, permit five attempts, and are consumed atomically
+with session creation. They are never logged or returned in a response.
+`DELETE /auth/account` requires a session and `{ "confirmation": "DELETE" }`.
 
-- `lib/sync.ts` — the reconcile, on the far side of the line `lib/actions.ts` draws, so
-  `npm run check` exercises it without a device.
-- `store/syncStore.ts` — the session token, the cursor (`hooplog-sync`, which does not travel), and
-  when to sync: app open, game saved, and on request.
-- `platform/purchases.ts` — `Purchases.logIn(accountId)`, before any purchase.
-- `hooks/useGate.ts` — ask the server first, fall back to the SDK cache offline.
-- A sign-in block on GAME SETTINGS, beside Backup, which is where a scorer already goes to think
-  about where their season lives.
+`livestats/store/cloudStore.ts` coordinates automatic backups and explicit restores.
+A fresh install and a revision conflict cannot upload without an explicit choice.
+Sessions use SecureStore on native, and account UUIDs identify RevenueCat customers.
+Paid access still comes from RevenueCat CustomerInfo; the server trial flag is
+reported separately. See [the setup and reinstall test guide](../docs/CLOUD-BACKUP.md).

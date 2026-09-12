@@ -2,13 +2,17 @@ import { useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import type { CustomerInfo, PurchasesPackage } from 'react-native-purchases';
 import { availablePackages, billingUnavailable, hasAccess, purchases } from '../platform/purchases';
+import { PURCHASE_NOTE, purchaseOutcome } from '../lib/billing';
 import { useBillingStore } from '../store/billingStore';
+import { useCloudStore } from '../store/cloudStore';
 
 const publish = (info: CustomerInfo) => useBillingStore.getState().setEntitled(hasAccess(info));
 
 /** One subscription listener for the app; returning from the store refreshes access. */
 export function usePurchaseSync() {
+  const identityReady = useCloudStore(s => s.ready);
   useEffect(() => {
+    if (!identityReady) return;
     let active = true;
     let remove: (() => void) | undefined;
     const sync = async () => {
@@ -24,7 +28,7 @@ export function usePurchaseSync() {
     }).catch(() => { if (active) useBillingStore.getState().finishLoading(); });
     const subscription = AppState.addEventListener('change', state => { if (state === 'active') void sync(); });
     return () => { active = false; remove?.(); subscription.remove(); };
-  }, []);
+  }, [identityReady]);
 }
 
 /** The custom paywall uses the actual store packages and localized prices. */
@@ -58,8 +62,9 @@ export function usePurchaseOptions() {
       if (!active && mounted.current) setMessage(pkg ? 'Your purchase has not activated access yet. Try restoring purchases shortly.' : 'No active subscription was found for this store account.');
       return active;
     } catch (error) {
-      const cancelled = !!(error && typeof error === 'object' && 'userCancelled' in error && error.userCancelled);
-      if (!cancelled && mounted.current) setMessage('Could not complete this request. Check your connection and try again.');
+      // The store's answer decides the line; a cancelled sheet gets none.
+      const note = PURCHASE_NOTE[purchaseOutcome(error)];
+      if (note && mounted.current) setMessage(note);
       return false;
     } finally { inFlight.current = false; if (mounted.current) setBusy(false); }
   };

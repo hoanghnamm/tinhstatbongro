@@ -10,7 +10,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc && node scripts/copy-migrations.mjs",
     "start": "node dist/index.js",
-    "check": "tsx src/selfcheck.ts && tsx src/runtimecheck.ts",
+    "check": "tsx src/selfcheck.ts && tsx src/runtimecheck.ts && tsx src/codecheck.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -18,6 +18,7 @@ import '../global.css';
 import { seedMock } from '../dev/seedMock';
 import { Launch } from '../components/ui/Launch';
 import { usePurchaseSync } from '../hooks/usePurchases';
+import { useCloudBackup } from '../hooks/useCloudBackup';
 import { useClock } from '../hooks/useClock';
 import { useStorageFault } from '../hooks/useStorageFault';
 import { useIntroStore } from '../store/introStore';
@@ -60,6 +61,7 @@ function Root() {
   const t = useTheme();
   useClock();
   usePurchaseSync();
+  useCloudBackup();
   // the disk does not stop being full because a scorer left the board
   useStorageFault();
 

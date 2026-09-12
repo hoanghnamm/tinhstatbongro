@@ -17,14 +17,29 @@ export function billingUnavailable(): string | null {
 }
 
 let ready: Promise<typeof import('react-native-purchases')['default']> | undefined;
-export function purchases() {
+let accountId: string | null = null;
+let identityWork: Promise<void> = Promise.resolve();
+export async function setPurchaseAccount(id: string | null): Promise<void> {
+  accountId = id;
+  if (billingUnavailable()) return;
+  await purchases();
+}
+export async function purchases() {
   const unavailable = billingUnavailable();
   if (unavailable) return Promise.reject(new Error(unavailable));
   if (!ready) ready = import('react-native-purchases').then(async ({ default: sdk }) => {
     if (!await sdk.isConfigured()) sdk.configure({ apiKey: apiKey! });
     return sdk;
   }).catch(error => { ready = undefined; throw error; });
-  return ready;
+  const sdk = await ready;
+  identityWork = identityWork.catch(() => {}).then(async () => {
+    const desired = accountId;
+    const current = await sdk.getAppUserID();
+    if (desired && current !== desired) await sdk.logIn(desired);
+    else if (!desired && !await sdk.isAnonymous()) await sdk.logOut();
+  });
+  await identityWork;
+  return sdk;
 }
 
 export const hasAccess = (info: CustomerInfo): boolean => revenueCatAccess(info.entitlements.active, entitlementId);

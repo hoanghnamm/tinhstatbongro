@@ -207,3 +207,64 @@ export const BENEFITS: { icon: string; lead: string; bold: string; tail: string 
 export function revenueCatAccess(active: Record<string, unknown>, entitlementId: string): boolean {
   return Object.prototype.hasOwnProperty.call(active, entitlementId) && active[entitlementId] != null;
 }
+
+/**
+ * THE STORE'S ANSWER IS NOT ALWAYS A FAILURE, AND THREE OF THEM ARE NOT.
+ *
+ * `purchasePackage` rejects for everything that is not an immediate,
+ * completed sale — and three of those rejections are ordinary events that a
+ * connection error message describes wrongly:
+ *
+ * - **Cancelled.** The scorer closed the sheet. Saying anything at all is
+ *   telling somebody their deliberate act went wrong, so this one prints
+ *   NOTHING, which is why the note below is `null` rather than a sentence.
+ * - **Pending.** Ask to Buy on iOS (a parent has to approve it) and the slow
+ *   payment methods on Play. The purchase has not failed; it is waiting, and
+ *   it may land minutes or days later through the CustomerInfo listener. A
+ *   scorer told to "check your connection" will tap buy again instead.
+ * - **Already owned.** The store account holds the subscription and this
+ *   install does not know it yet — a reinstall, or a second device. The
+ *   answer is RESTORE, which is a button already on the screen.
+ *
+ * Everything else is the honest failure and keeps the connection line.
+ *
+ * The codes are the SDK's `PURCHASES_ERROR_CODE` values, written here as
+ * strings rather than imported: `platform/purchases.ts` loads
+ * `react-native-purchases` LAZILY and takes nothing but types from it, so
+ * pulling in a runtime enum for three constants would drag the native module
+ * into the bundle on web and in Expo Go — the two places the module is
+ * deliberately never reached. The readable names are accepted beside them
+ * because the bridge has spelled a code both ways across versions, and
+ * `userCancelled` is read last: it is deprecated in favour of code `1` and
+ * typed `boolean | null`, so it is the fallback and not the test.
+ */
+export type PurchaseOutcome = 'cancelled' | 'pending' | 'owned' | 'failed';
+
+const PURCHASE_CODES: Record<string, PurchaseOutcome> = {
+  '1': 'cancelled',
+  '6': 'owned',
+  '20': 'pending',
+  PURCHASE_CANCELLED_ERROR: 'cancelled',
+  PRODUCT_ALREADY_PURCHASED_ERROR: 'owned',
+  PAYMENT_PENDING_ERROR: 'pending',
+};
+
+/** What the store actually said, out of a rejection of any shape. */
+export function purchaseOutcome(error: unknown): PurchaseOutcome {
+  if (!error || typeof error !== 'object') return 'failed';
+  const e = error as { code?: unknown; userInfo?: { readableErrorCode?: unknown }; userCancelled?: unknown };
+  const code = e.code == null ? undefined : PURCHASE_CODES[String(e.code)];
+  const readable = e.userInfo?.readableErrorCode == null ? undefined : PURCHASE_CODES[String(e.userInfo.readableErrorCode)];
+  return code ?? readable ?? (e.userCancelled === true ? 'cancelled' : 'failed');
+}
+
+/**
+ * The copy, beside the rule — the way `GATE_PITCH` sits beside `Gate` and
+ * `FAULT_NOTE` beside the fault type. `null` is a real answer here.
+ */
+export const PURCHASE_NOTE: Record<PurchaseOutcome, string | null> = {
+  cancelled: null,
+  pending: 'This purchase is waiting for approval. Access unlocks by itself once the store completes it.',
+  owned: 'This store account already has a subscription. Tap Restore purchases to unlock it here.',
+  failed: 'Could not complete this request. Check your connection and try again.',
+};

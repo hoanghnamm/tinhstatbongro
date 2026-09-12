@@ -12,6 +12,7 @@ import { Hono } from 'hono';
 import { migrate, pool } from './db.js';
 import { env } from './env.js';
 import { auth } from './routes/auth.js';
+import { codes } from './routes/codes.js';
 import { billing } from './routes/billing.js';
 import { sync } from './routes/sync.js';
 import type { Signed } from './session.js';
@@ -29,7 +30,7 @@ app.use('*', async (c, next) => {
     c.header('access-control-allow-origin', origin);
     c.header('vary', 'origin');
     c.header('access-control-allow-headers', 'authorization,content-type');
-    c.header('access-control-allow-methods', 'GET,POST,OPTIONS');
+    c.header('access-control-allow-methods', 'GET,POST,DELETE,OPTIONS');
     c.header('access-control-max-age', '86400');
   }
   if (c.req.method === 'OPTIONS') return c.body(null, 204);
@@ -53,6 +54,7 @@ app.get('/health', async (c) => {
   }
 });
 
+app.route('/auth', codes);
 app.route('/auth', auth);
 app.route('/sync', sync);
 app.route('/billing', billing);

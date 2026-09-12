@@ -4,6 +4,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import { Backup } from '../components/settings/Backup';
+import { Btn } from '../components/panels/shell';
+import { useCloudStore } from '../store/cloudStore';
 import { Seg, Section, type SegItem } from '../components/stats/parts';
 import { Bloom } from '../components/ui/Bloom';
 import { DarkRoom } from '../components/ui/DarkRoom';
@@ -234,6 +236,7 @@ function SettingsScreen() {
 
   const options = useGameStore((s) => s.options);
   const setOption = useGameStore((s) => s.setOption);
+  const cloud = useCloudStore();
 
   return (
     <View style={{ flex: 1, backgroundColor: t.bg }}>
@@ -299,6 +302,14 @@ function SettingsScreen() {
           showsVerticalScrollIndicator={false}
         >
           <Col style={{ width: '100%', maxWidth: TWO_UP }}>
+            <Section title="Account and cloud backup">
+              <Col gap={m.s2} style={{ padding: m.s3 }}>
+                <Text style={{ ...fUi(400), fontSize: m.fsSm, color: t.ink2 }}>
+                  {cloud.account ? `${cloud.account.email} · ${cloud.enabled ? 'Automatic backup on' : 'Backup needs attention'}` : 'Sign in to recover your roster and saved games after reinstalling.'}
+                </Text>
+                <Btn label={cloud.account ? 'Manage cloud backup' : 'Sign in'} variant="surface" onPress={() => router.push('/account')} />
+              </Col>
+            </Section>
             {/* ── THE RULES ── the two that are stamped onto a game rather than
                 read live. */}
             <Section title="The game">

@@ -43,7 +43,7 @@ import { applyBackup } from '../store/backup';
 import mockSeason from './mockSeason.json';
 
 /** Off switch. The whole thing is `__DEV__`-gated as well. */
-export const SEED_MOCK = true;
+export const SEED_MOCK = false;
 
 /**
  * Put the season back even though this install has already been seeded.

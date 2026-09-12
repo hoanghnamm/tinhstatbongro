@@ -1,9 +1,10 @@
 import { type Backup, backupOf, travels } from '../lib/backup';
 import { gameKey } from '../lib/history';
 import { Store } from '../platform/storage';
-import { useHistoryStore } from './historyStore';
+import { clearSavedGameCache, useHistoryStore } from './historyStore';
 import { useRosterStore } from './rosterStore';
 import { useTeamStore } from './teamStore';
+import { useSquadStore } from './squadStore';
 
 /**
  * READING AND WRITING THE WHOLE SHELF AT ONCE — the two operations the backup
@@ -80,16 +81,21 @@ export async function applyBackup(backup: Backup): Promise<void> {
 
   // everything the file carries, and a rejection here leaves this device's own
   // shelf standing rather than half replaced
-  for (const [key, value] of Object.entries(backup.rows)) await Store.write(key, value);
+  const entries = Object.entries(backup.rows);
+  // The index must never point at game records that have not landed yet.
+  entries.sort(([a], [b]) => Number(a === 'hooplog-history') - Number(b === 'hooplog-history'));
+  for (const [key, value] of entries) await Store.write(key, value);
 
   // and only now the game rows the new index cannot reach
   const arriving = new Set(Object.keys(backup.rows));
   for (const key of before)
     if (key.startsWith(gameKey('')) && !arriving.has(key)) await Store.removeItem(key);
 
+  clearSavedGameCache();
   await Promise.all([
     useTeamStore.persist.rehydrate(),
     useRosterStore.persist.rehydrate(),
     useHistoryStore.persist.rehydrate(),
+    useSquadStore.persist.rehydrate(),
   ]);
 }

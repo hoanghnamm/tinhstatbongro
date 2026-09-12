@@ -12,7 +12,7 @@ const client = {
   async query(sql: string) {
     calls.push(sql);
     if (failSql && sql.includes('create extension')) throw new Error('migration failure');
-    return { rows: sql === 'select name from migrations' && applied ? [{ name: '001_init.sql' }] : [] };
+    return { rows: sql === 'select name from migrations' && applied ? [{ name: '001_init.sql' }, { name: '002_email_codes.sql' }] : [] };
   },
   release() { released++; },
 } as unknown as pg.PoolClient;
@@ -24,7 +24,7 @@ await assert.rejects(tx(async () => { throw new Error('write failed'); }), /writ
 assert.deepEqual(calls.splice(0), ['begin', 'rollback']);
 assert.equal(released, 2);
 
-assert.deepEqual(await migrate(), ['001_init.sql']);
+assert.deepEqual(await migrate(), ['001_init.sql', '002_email_codes.sql']);
 assert.equal(calls[0], 'begin');
 assert.equal(calls[1], 'select pg_advisory_xact_lock(724019, 1)');
 assert.ok(calls.findIndex((sql) => sql.includes('create table if not exists migrations')) > 1);

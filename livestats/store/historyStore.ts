@@ -58,6 +58,7 @@ const writeGame = (id: string, g: GameState): void => {
  * it. Everything else falls through to `platform/storage` as before.
  */
 let justSaved: { id: string; game: GameState } | null = null;
+export function clearSavedGameCache(): void { justSaved = null; }
 
 export const useHistoryStore = create<HistoryState>()(
   persist(

@@ -2480,3 +2480,25 @@ The match PDF now includes the team's shot chart beside the zone table, using sh
 ## RevenueCat replaces the local billing seam
 
 Paid access now comes from the configured active RevenueCat entitlement, with localized store prices. The one-saved-game trial remains local. Only the trial flag persists; old local unlocks are discarded. Purchase restoration is implemented on the paywall, superseding its earlier removal. Startup and foreground refresh CustomerInfo, and the launch paywall waits for initial loading. Expo Go and web cannot simulate a paid unlock. Setup and native purchase testing remain required; see REVENUECAT.md.
+
+## Account backup and reinstall recovery
+
+At the user's request, Settings and the first onboarding step now lead to an account
+page with email-code sign-in. This explicitly adds text inputs outside TEAM/new game.
+Native sessions use SecureStore; the server stores hashes, limits code attempts in
+Postgres, and consumes a code in the same transaction that creates the session.
+Accounts and cloud backup remain optional and are not paid gates.
+
+The first device explicitly enables backup. A fresh install must choose Restore
+before it can write to an existing account: otherwise a blank roster could erase a
+season. Subsequent local changes back up automatically while the app is open and
+online. Another device's revision pauses uploads, requiring an explicit restore or
+replacement. We do not guess a merge of rosters and game indexes. An uncertain upload
+also pauses, because a lost HTTP response does not mean its transaction failed.
+
+Restoring reloads team, roster, squads and history, with game records written before
+the index. The live board and native crest file remain local. Account deletion clears
+server data but retains device data and does not cancel store subscriptions. These
+are explained on the account page. Mock seeding is disabled to prevent development
+fixtures from being uploaded as a user's backup. See CLOUD-BACKUP.md for deployment
+variables and the required real-device reinstall test.

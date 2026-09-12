@@ -42,11 +42,16 @@ sync.get('/', async (c) => {
   const since = Number(c.req.query('since') ?? 0);
   if (!Number.isInteger(since) || since < 0) return c.json({ error: 'That cursor is not a number' }, 400);
 
-  const rows = await query<DbRow>(
-    'select key, value, deleted, rev from rows where account_id = $1 and rev > $2 order by rev, key',
-    [accountId, since],
-  );
-  return c.json({ cursor: await revOf(accountId), rows: rows.map(asStored) });
+  // Pair the cursor and rows under the same account lock. A concurrent push
+  // must not move the cursor beyond the snapshot that this device received.
+  const result = await tx(async client => {
+    const account = await client.query<{ rev: string }>('select rev from accounts where id = $1 for share', [accountId]);
+    const rows = await client.query<DbRow>(
+      'select key, value, deleted, rev from rows where account_id = $1 and rev > $2 order by rev, key',
+      [accountId, since]);
+    return { cursor: Number(account.rows[0]?.rev ?? 0), rows: rows.rows.map(asStored) };
+  });
+  return c.json(result);
 });
 
 /**

@@ -7,6 +7,7 @@
  * foul limit actually go wrong.
  */
 import assert from 'node:assert/strict';
+import { cloudAssociated, cloudChanges, cloudRestoreBlocked, readCloud, validateCloudRestore } from './cloud';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
@@ -35,7 +36,7 @@ import { gameReportHtml, reportFileName, reportTitle } from './pdf';
 import { flowOf, periodScores, stampOf } from './flow';
 import { OBS_MAX, observations, runsOf, standouts } from './observe';
 import { tileWords } from './labels';
-import { revenueCatAccess, BENEFITS, DEFAULT_PLAN, GATE_PITCH, GATES, PLANS, locked, vnd } from './billing';
+import { revenueCatAccess, purchaseOutcome, PURCHASE_NOTE, BENEFITS, DEFAULT_PLAN, GATE_PITCH, GATES, PLANS, locked, vnd } from './billing';
 import {
   BACKUP_FORMAT,
   BACKUP_REFUSAL,
@@ -3570,3 +3571,54 @@ assert.equal(revenueCatAccess({ another: {} }, 'pro'), false);
 assert.equal(revenueCatAccess({ pro: {} }, 'pro'), true);
 assert.equal(revenueCatAccess({ pro: null }, 'pro'), false);
 assert.equal(revenueCatAccess({}, 'toString'), false);
+
+// Three of the store's rejections are events, not failures, and only the
+// fourth gets the connection line. A cancelled sheet is told nothing at all.
+assert.equal(purchaseOutcome({ code: '1' }), 'cancelled');
+assert.equal(purchaseOutcome({ code: 1 }), 'cancelled', 'a numeric code reads the same');
+assert.equal(purchaseOutcome({ code: '20' }), 'pending');
+assert.equal(purchaseOutcome({ code: '6' }), 'owned');
+assert.equal(purchaseOutcome({ code: '2' }), 'failed', 'a store problem is a failure');
+assert.equal(purchaseOutcome({ userInfo: { readableErrorCode: 'PAYMENT_PENDING_ERROR' } }), 'pending');
+assert.equal(purchaseOutcome({ userCancelled: true }), 'cancelled', 'the deprecated flag is still read');
+assert.equal(purchaseOutcome({ userCancelled: null }), 'failed');
+assert.equal(purchaseOutcome(new Error('offline')), 'failed');
+assert.equal(purchaseOutcome(undefined), 'failed');
+assert.equal(PURCHASE_NOTE.cancelled, null, 'a cancelled purchase says nothing');
+for (const key of ['pending', 'owned', 'failed'] as const)
+  assert.ok(PURCHASE_NOTE[key], `${key} has a line`);
+assert.ok(!PURCHASE_NOTE.pending!.includes('connection'), 'a pending purchase is not a connection failure');
+assert.ok(PURCHASE_NOTE.owned!.includes('Restore'), 'an owned subscription points at the button that fixes it');
+
+// Cloud recovery: reinstall cannot upload defaults over an existing season.
+assert.equal(cloudRestoreBlocked({ events: [], running: false, ended: false }), false, 'a fresh install can restore');
+assert.equal(cloudRestoreBlocked({ events: [{}], running: false, ended: false }), true);
+assert.equal(cloudRestoreBlocked({ events: [], running: true, ended: false }), true);
+assert.equal(cloudRestoreBlocked({ events: [{}], running: false, ended: true }), false);
+assert.equal(cloudAssociated(null, 'a', 3), false);
+assert.equal(cloudAssociated({ accountId: 'b', enabled: true, cursor: 3 }, 'a', 3), false);
+assert.equal(cloudAssociated({ accountId: 'a', enabled: true, cursor: 2 }, 'a', 3), false);
+assert.equal(cloudAssociated({ accountId: 'a', enabled: false, cursor: 3 }, 'a', 3), false);
+assert.equal(cloudAssociated({ accountId: 'a', enabled: true, cursor: 3 }, 'a', 3), true);
+assert.deepEqual(cloudChanges({ 'hooplog-roster': 'new' }, { 'hooplog-roster': 'old', 'hooplog-game:g1': '{}' }), [
+  { key: 'hooplog-roster', value: 'new', deleted: false },
+  { key: 'hooplog-game:g1', value: null, deleted: true },
+]);
+assert.deepEqual(cloudChanges({ 'hooplog-roster': 'same', 'hooplog-billing': 'paid' }, { 'hooplog-roster': 'same' }), []);
+assert.throws(() => readCloud({ cursor: 2, rows: [{ key: 'hooplog-billing', value: 'paid', rev: 1, deleted: false }] }));
+assert.throws(() => readCloud({ cursor: 2, rows: [{ key: 'hooplog-roster', value: '{}', rev: 3, deleted: false }] }));
+assert.deepEqual(readCloud({ cursor: 2, rows: [{ key: 'hooplog-game:g1', value: null, rev: 2, deleted: true }] }), { cursor: 2, rows: {} });
+{
+  const rows = {
+    'hooplog-team': JSON.stringify({ state: { profile: { name: 'My club' } }, version: 1 }),
+    'hooplog-roster': JSON.stringify({ state: { players: [{ id: 'p1', name: 'An' }] }, version: 2 }),
+    'hooplog-squads': JSON.stringify({ state: { squads: [] }, version: 1 }),
+    'hooplog-history': JSON.stringify({ state: { index: [{ id: 'g1' }] }, version: 0 }),
+    'hooplog-game:g1': JSON.stringify({ players: [], events: [] }),
+  };
+  assert.doesNotThrow(() => validateCloudRestore(rows));
+  assert.throws(() => validateCloudRestore({ ...rows, 'hooplog-game:g1': '' }), /missing/);
+  assert.throws(() => validateCloudRestore({ ...rows, 'hooplog-roster': JSON.stringify({ state: { players: [] }, version: 999 }) }), /Update/);
+  assert.throws(() => validateCloudRestore({}), /incomplete/);
+}
+console.log('cloud checks passed: reinstall, account isolation, conflicts, deletions and complete restores');

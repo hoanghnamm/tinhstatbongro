@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
 import { MiniBoard } from '../components/intro/MiniBoard';
+import { Btn } from '../components/panels/shell';
 import { FieldLabel, Foot, Head, TextField } from '../components/intro/parts';
 import { NUM_DONE, RosterRow } from '../components/team/RosterRow';
 import { Bloom } from '../components/ui/Bloom';
@@ -450,6 +451,7 @@ function IntroScreen() {
           }}
         >
           <Col style={{ width: '100%', maxWidth: MEASURE, alignSelf: 'center', flex: 1 }}>
+            {step === 0 && <Row style={{ marginBottom: m.s3 }}><Btn label="Already have a backup? Sign in" variant="plain" onPress={() => router.push('/account')} /></Row>}
             {body}
             <View style={{ flex: 1, minHeight: m.s5 }} />
             {foot}
